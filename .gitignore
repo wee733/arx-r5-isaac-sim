@@ -1,0 +1,22 @@
+# ROS 2 / colcon
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Generated Isaac Sim content
+generated/
+outputs/
+*.tmp.usd
+
+# Editors and local environment
+.vscode/
+.idea/
+.env
+.DS_Store

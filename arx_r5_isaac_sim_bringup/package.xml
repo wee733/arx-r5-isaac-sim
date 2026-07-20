@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>arx_r5_isaac_sim_bringup</name>
+  <version>0.1.0</version>
+  <description>Isaac Sim execution bridge and cuMotion bringup for ARX R5A.</description>
+  <maintainer email="wee733@users.noreply.github.com">wee733</maintainer>
+  <license>Apache-2.0</license>
+  <license>BSD-3-Clause</license>
+  <url type="website">https://github.com/wee733/arx-r5-isaac-sim</url>
+  <url type="repository">https://github.com/wee733/arx-r5-isaac-sim.git</url>
+  <url type="bugtracker">https://github.com/wee733/arx-r5-isaac-sim/issues</url>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>isaac_ros_cumotion</exec_depend>
+  <exec_depend>isaac_ros_cumotion_moveit</exec_depend>
+  <exec_depend>isaac_ros_manipulation_arx_r5a_robot_description</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>joint_trajectory_controller</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>moveit_configs_utils</exec_depend>
+  <exec_depend>moveit_planners_ompl</exec_depend>
+  <exec_depend>moveit_ros_move_group</exec_depend>
+  <exec_depend>moveit_ros_visualization</exec_depend>
+  <exec_depend>moveit_simple_controller_manager</exec_depend>
+  <exec_depend>position_controllers</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>ros2controlcli</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>topic_based_ros2_control</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

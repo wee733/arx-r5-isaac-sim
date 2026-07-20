@@ -1,0 +1,13 @@
+[tool.pytest.ini_options]
+testpaths = ["arx_r5_isaac_sim_bringup/test"]
+addopts = "-ra"
+markers = [
+  "copyright: ROS copyright linter",
+  "flake8: ROS flake8 linter",
+  "linter: ROS package linter",
+  "pep257: ROS docstring linter",
+]
+
+[tool.ruff]
+line-length = 99
+target-version = "py311"

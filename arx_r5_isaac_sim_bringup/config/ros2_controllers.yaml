@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: 2023-2025 ARXrobotics
+# SPDX-FileCopyrightText: 2026 wee733
+# SPDX-License-Identifier: BSD-3-Clause
+
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+    enforce_command_limits: true
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    manipulator_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+    gripper_controller:
+      type: position_controllers/GripperActionController
+
+manipulator_controller:
+  ros__parameters:
+    action_monitor_rate: 20.0
+    state_publish_rate: 100.0
+    allow_partial_joints_goal: false
+    allow_nonzero_velocity_at_trajectory_end: true
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    constraints:
+      goal_time: 2.0
+      stopped_velocity_tolerance: 0.05
+      joint1: {trajectory: 0.15, goal: 0.03}
+      joint2: {trajectory: 0.15, goal: 0.03}
+      joint3: {trajectory: 0.15, goal: 0.03}
+      joint4: {trajectory: 0.15, goal: 0.03}
+      joint5: {trajectory: 0.15, goal: 0.03}
+      joint6: {trajectory: 0.15, goal: 0.03}
+
+gripper_controller:
+  ros__parameters:
+    action_monitor_rate: 20.0
+    joint: joint7
+    goal_tolerance: 0.003
+    max_effort: 0.0
+    allow_stalling: true
+    stall_velocity_threshold: 0.001
+    stall_timeout: 1.0

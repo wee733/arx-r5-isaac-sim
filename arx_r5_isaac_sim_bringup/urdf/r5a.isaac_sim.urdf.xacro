@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<!--
+  SPDX-FileCopyrightText: 2023-2025 ARXrobotics
+  SPDX-FileCopyrightText: 2026 wee733
+  SPDX-License-Identifier: BSD-3-Clause
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="R5a">
+  <xacro:arg
+    name="initial_positions_file"
+    default="$(find arx_r5_isaac_sim_bringup)/config/initial_positions.yaml"/>
+
+  <!-- Keep geometry/kinematics in the existing ARX description repository. -->
+  <xacro:include
+    filename="$(find isaac_ros_manipulation_arx_r5a_robot_description)/urdf/r5a_cumotion.urdf"/>
+  <xacro:include
+    filename="$(find arx_r5_isaac_sim_bringup)/urdf/r5a.isaac_sim.ros2_control.xacro"/>
+
+  <xacro:arx_r5a_isaac_sim_ros2_control
+    name="arx_r5a_isaac_sim"
+    initial_positions_file="$(arg initial_positions_file)"/>
+</robot>

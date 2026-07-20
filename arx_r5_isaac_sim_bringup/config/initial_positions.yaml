@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2023-2025 ARXrobotics
+# SPDX-FileCopyrightText: 2026 wee733
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Non-singular pose shared by Isaac Sim and topic_based_ros2_control at startup.
+initial_positions:
+  joint1: 0.0
+  joint2: 1.0
+  joint3: 1.5
+  joint4: 0.0
+  joint5: 0.0
+  joint6: 0.0
+  joint7: 0.044
+  joint8: 0.044

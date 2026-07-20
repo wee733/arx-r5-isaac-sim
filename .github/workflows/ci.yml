@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml
+          python -m pip install -e ./arx_r5_isaac_sim_bringup
+      - name: Compile Python sources
+        run: >-
+          python -m compileall -q
+          arx_r5_isaac_sim_bringup scripts/audit_model.py
+      - name: Run contract tests
+        run: >-
+          python -m pytest -q
+          arx_r5_isaac_sim_bringup/test/test_contract.py
+
+  ros-lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: jazzy
+      - name: Install ROS lint dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            python3-pytest \
+            python3-yaml \
+            ros-jazzy-ament-copyright \
+            ros-jazzy-ament-flake8 \
+            ros-jazzy-ament-pep257
+      - name: Run ament tests
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          cd arx_r5_isaac_sim_bringup
+          PYTHONPATH="$PWD:${PYTHONPATH:-}" python3 -m pytest -q test
+      - name: Lint the standalone audit
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          ament_flake8 scripts/audit_model.py
+          ament_pep257 scripts/audit_model.py
+          ament_copyright scripts/audit_model.py
+          python3 -m py_compile scripts/audit_model.py
+      - name: Check script entry points
+        run: |
+          bash -n scripts/*.sh
+          test -x scripts/run_isaac_sim.sh
+          test -x scripts/check_ros_graph.sh
+          test -x scripts/audit_model.py

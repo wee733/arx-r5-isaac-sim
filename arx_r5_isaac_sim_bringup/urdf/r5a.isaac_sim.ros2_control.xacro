@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+<!--
+  SPDX-FileCopyrightText: 2023-2025 ARXrobotics
+  SPDX-FileCopyrightText: 2026 wee733
+  SPDX-License-Identifier: BSD-3-Clause
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <xacro:macro name="arx_r5a_isaac_sim_ros2_control" params="name initial_positions_file">
+    <xacro:property
+      name="initial_positions"
+      value="${xacro.load_yaml(initial_positions_file)['initial_positions']}"/>
+
+    <ros2_control name="${name}" type="system">
+      <hardware>
+        <plugin>topic_based_ros2_control/TopicBasedSystem</plugin>
+        <param name="joint_commands_topic">/isaac_joint_commands</param>
+        <param name="joint_states_topic">/isaac_joint_states</param>
+      </hardware>
+
+      <joint name="joint1">
+        <command_interface name="position">
+          <param name="min">-3.14</param>
+          <param name="max">2.6</param>
+        </command_interface>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint1']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="joint2">
+        <command_interface name="position">
+          <param name="min">-0.01</param>
+          <param name="max">3.0</param>
+        </command_interface>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint2']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="joint3">
+        <command_interface name="position">
+          <param name="min">0.0</param>
+          <param name="max">3.14</param>
+        </command_interface>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint3']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="joint4">
+        <command_interface name="position">
+          <param name="min">-1.3</param>
+          <param name="max">1.3</param>
+        </command_interface>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint4']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="joint5">
+        <command_interface name="position">
+          <param name="min">-1.57</param>
+          <param name="max">1.57</param>
+        </command_interface>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint5']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="joint6">
+        <command_interface name="position">
+          <param name="min">-2.1</param>
+          <param name="max">2.1</param>
+        </command_interface>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint6']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+      </joint>
+      <joint name="joint7">
+        <command_interface name="position">
+          <param name="min">0.0</param>
+          <param name="max">0.044</param>
+        </command_interface>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint7']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+      </joint>
+      <!-- joint8 stays exclusively in the URDF/PhysX mimic relation. -->
+    </ros2_control>
+  </xacro:macro>
+</robot>

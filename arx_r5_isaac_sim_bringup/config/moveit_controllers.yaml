@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2023-2025 ARXrobotics
+# SPDX-FileCopyrightText: 2026 wee733
+# SPDX-License-Identifier: BSD-3-Clause
+
+trajectory_execution:
+  allowed_execution_duration_scaling: 2.0
+  allowed_goal_duration_margin: 2.0
+  allowed_start_tolerance: 0.1
+  execution_duration_monitoring: true
+
+moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControllerManager
+
+moveit_simple_controller_manager:
+  controller_names:
+    - manipulator_controller
+
+  manipulator_controller:
+    type: FollowJointTrajectory
+    action_ns: follow_joint_trajectory
+    default: true
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
