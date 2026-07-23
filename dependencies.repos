@@ -1,8 +1,12 @@
 repositories:
+  isaac_ros_manipulation_arx_r5a:
+    type: git
+    url: https://github.com/wee733/isaac_ros_manipulation_arx_r5a.git
+    version: 37ccc2dfa928a1bb66da6b83934c351990734dbe
   arx-r5-moveit:
     type: git
     url: https://github.com/wee733/Isaac_Ros_CuMotion_ArxR5a.git
-    version: c85c2c7c84bb630f30f87904bebebbd83dddd2db
+    version: v0.3.0
   topic_based_ros2_control:
     type: git
     url: https://github.com/PickNikRobotics/topic_based_ros2_control.git

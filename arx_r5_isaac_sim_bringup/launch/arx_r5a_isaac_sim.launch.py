@@ -56,6 +56,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    GroupAction,
     IncludeLaunchDescription,
     OpaqueFunction,
     RegisterEventHandler,
@@ -66,7 +67,7 @@ from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 
-from launch_ros.actions import Node
+from launch_ros.actions import Node, SetRemap
 from launch_ros.parameter_descriptions import ParameterFile
 from launch_ros.substitutions import FindPackageShare
 
@@ -163,6 +164,9 @@ def launch_setup(context, *args, **kwargs):
         output='log',
         arguments=['--frame-id', 'world', '--child-frame-id', 'base_link'],
         parameters=[{'use_sim_time': use_sim_time}],
+        condition=IfCondition(
+            LaunchConfiguration('publish_world_to_base_transform')
+        ),
     )
 
     ros2_control_node = Node(
@@ -285,14 +289,26 @@ def launch_setup(context, *args, **kwargs):
                 context,
                 'read_esdf_world',
             ),
+            'cumotion_action_server.moveit_collision_objects_scene_file': (
+                _value(context, 'collision_scene_file')
+            ),
             'cumotion_action_server.add_ground_plane': 'False',
             'cumotion_action_server.override_moveit_scaling_factors': 'False',
         }
         actions.append(
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(cumotion_launch),
-                launch_arguments=cumotion_arguments.items(),
-            )
+            GroupAction(actions=[
+                SetRemap(
+                    src='/planning_scene',
+                    dst=_value(
+                        context,
+                        'cumotion_static_planning_scene_topic',
+                    ),
+                ),
+                IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(cumotion_launch),
+                    launch_arguments=cumotion_arguments.items(),
+                ),
+            ])
         )
 
     return actions
@@ -307,9 +323,40 @@ def generate_launch_description():
         DeclareLaunchArgument('use_sim_time', default_value='True'),
         DeclareLaunchArgument('start_cumotion', default_value='True'),
         DeclareLaunchArgument('start_rviz', default_value='True'),
-        DeclareLaunchArgument('start_gripper_controller', default_value='True'),
+        DeclareLaunchArgument(
+            'start_gripper_controller',
+            default_value='True',
+        ),
+        DeclareLaunchArgument(
+            'publish_world_to_base_transform',
+            default_value='True',
+            description=(
+                'Publish the legacy identity world -> base_link transform. '
+                'Disable this when Isaac Sim publishes an authored USD pose.'
+            ),
+        ),
         DeclareLaunchArgument('read_esdf_world', default_value='False'),
-        DeclareLaunchArgument('controller_manager_timeout', default_value='60'),
+        DeclareLaunchArgument(
+            'cumotion_static_planning_scene_topic',
+            default_value='/planning_scene',
+            description=(
+                'PlanningScene topic published by the official cuMotion '
+                'StaticPlanningSceneServer. Leave canonical unless a frame '
+                'adapter consumes a private raw topic.'
+            ),
+        ),
+        DeclareLaunchArgument(
+            'collision_scene_file',
+            default_value='',
+            description=(
+                'Optional MoveIt .scene file loaded by the official cuMotion '
+                'StaticPlanningSceneServer.'
+            ),
+        ),
+        DeclareLaunchArgument(
+            'controller_manager_timeout',
+            default_value='60',
+        ),
         DeclareLaunchArgument(
             'log_level',
             default_value='info',

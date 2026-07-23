@@ -1,0 +1,16 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+
+# Validated D455 eye-in-hand observation pose for the reachable authored layout.
+# Official CUDA cuAprilTag raw output detects IDs 0 and 1 simultaneously near
+# image-center columns x=960 and x=325. cuMotion plan-only takes about 0.74 s;
+# the complete physical pick-and-place run finishes with workflow_status=1.
+initial_positions:
+  joint1: -1.3919817209
+  joint2: 1.8859872818
+  joint3: 0.5746622086
+  joint4: -0.6957563162
+  joint5: -0.6273930669
+  joint6: -1.9993159771
+  joint7: 0.044
+  joint8: 0.044

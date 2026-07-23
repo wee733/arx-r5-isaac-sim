@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
+# Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+
+# Simulation-only blackboard values for NVIDIA's unchanged multi-object
+# pick-and-place behavior tree.
+blackboard_params:
+  max_num_next_object: 1
+  use_drop_pose_from_rviz: false
+  abort_motion: false
+
+  home_pose: [0.30, 0.0, 0.25, 0.0, 0.0, 0.0, 1.0]
+
+  mode: 0
+  target_poses: []
+  class_ids: []
+  selected_object_id: null
+  active_obj_id: null
+  goal_drop_pose: null
+  rviz_drop_pose: null
+  object_info_cache: null
+  next_object_id: []
+  workflow_status: 4
+  workflow_summary: ''
+
+  supported_objects:
+    tagged_cube:
+      class_id: tagged_cube
+      grasp_file_path: $(ros2 pkg prefix --share arx_r5_isaac_sim_bringup)/config/tabletop_tagged_cube_grasps.yaml
+      mesh_file_path: $(ros2 pkg prefix --share isaac_ros_manipulation_arx_r5a_bringup)/meshes/tagged_cube.obj

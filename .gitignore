@@ -6,6 +6,9 @@ log/
 # Python
 __pycache__/
 *.py[cod]
+
+# User-authored local Isaac Sim scene configuration.
+/arx_r5_isaac_sim_bringup/config/my_tabletop.yaml
 .pytest_cache/
 .ruff_cache/
 *.egg-info/

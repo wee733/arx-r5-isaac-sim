@@ -15,6 +15,8 @@
 
 """Run the ROS 2 copyright check."""
 
+from pathlib import Path
+
 from ament_copyright.main import main
 
 import pytest
@@ -24,4 +26,5 @@ import pytest
 @pytest.mark.linter
 def test_copyright():
     """Check source copyright markers."""
-    assert main(argv=['.', 'test']) == 0
+    package_root = Path(__file__).resolve().parents[1]
+    assert main(argv=[str(package_root)]) == 0

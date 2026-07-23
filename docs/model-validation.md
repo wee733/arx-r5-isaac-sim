@@ -39,9 +39,9 @@ Inputs used for the recorded result:
 
 | Input | Revision / SHA-256 |
 |---|---|
-| ARX description repository | `c85c2c7c84bb630f30f87904bebebbd83dddd2db` |
-| `r5a_cumotion.urdf` | `87aa0150c65c547f35ce604b29ba82efdee53c8199db40d6887890beb6b7a27e` |
-| `r5a.xrdf` | `ec59b7ce9a2b015113492299886cefc7972db22901eb2a5d9ef8a8524f93fa16` |
+| ARX description repository | `v0.3.0` / `3697451dd49e42df30055da43c959c2414c02053` |
+| `r5a_cumotion.urdf` | `c2c650cc010a4ff639394e44eead8d94d5c45d1aa1c8c87bea43eb0279b74400` |
+| `r5a.xrdf` | `56de7e0bbd55f11ed47ea33ef32efff7a351da9ca924e93e0db066b9d0e41ec2` |
 | Vendor R5 repository | `f58330999779dc4c79907c8f73950311ca56f2b0` |
 | Vendor `X5liteaa0.urdf` | `77a3cd0ae94e0920dcbd4475409b22c1786dd0e2fdabee5d9915a9ee90948df6` |
 

@@ -18,11 +18,21 @@ done
 if [[ "${PYTHONPATH:-}" == *"python3.12"* ]]; then
   echo "Isaac Sim 5.1 uses Python 3.11, but PYTHONPATH contains Python 3.12." >&2
   echo "Open a clean terminal; do not source /opt/ros/jazzy before this script." >&2
+  echo "Your shell may be sourcing ROS from ~/.bashrc; source ROS only in the ROS terminal." >&2
+  echo "One-shot workaround: env -u PYTHONPATH -u AMENT_PREFIX_PATH -u COLCON_PREFIX_PATH ..." >&2
+  exit 2
+fi
+
+if [[ "${LD_LIBRARY_PATH:-}" == *"/opt/ros/"* ]]; then
+  echo "LD_LIBRARY_PATH contains a ROS installation, which can conflict with Isaac Sim." >&2
+  echo "Open a clean Isaac Sim terminal and unset LD_LIBRARY_PATH before launching." >&2
   exit 2
 fi
 
 export ROS_DISTRO="${ROS_DISTRO:-jazzy}"
+export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-25}"
 export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp}"
+export ROS_AUTOMATIC_DISCOVERY_RANGE="${ROS_AUTOMATIC_DISCOVERY_RANGE:-SUBNET}"
 
 if ! isaacsim_root="$(
   "${python_bin}" -c \
@@ -47,7 +57,7 @@ if [[ "${use_ros}" == true ]]; then
 
   case ":${LD_LIBRARY_PATH:-}:" in
     *":${bridge_lib}:"*) ;;
-    *) export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${bridge_lib}" ;;
+    *) export LD_LIBRARY_PATH="${bridge_lib}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" ;;
   esac
 fi
 

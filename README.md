@@ -1,6 +1,7 @@
 # ARX R5A cuMotion 仿真（Isaac Sim）
 
-[English](README.en.md) · [架构说明](docs/architecture.md) · [模型验收](docs/model-validation.md)
+[English](README.en.md) · [AprilTag 抓放 Demo](docs/apriltag-pick-place-demo.md) ·
+[架构说明](docs/architecture.md) · [模型验收](docs/model-validation.md)
 
 [![CI](https://github.com/wee733/arx-r5-isaac-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/wee733/arx-r5-isaac-sim/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
@@ -17,15 +18,23 @@
 
 当前版本已经完成仿真端到端验证：RViz 中的 cuMotion **Plan / Execute** 成功，
 机械臂 `FollowJointTrajectory` 与夹爪 `GripperCommand` action 均返回 `SUCCEEDED`；
-`joint8 <- joint7` PhysX mimic、ROS 2 Bridge 和 MoveIt 状态回传均正常工作。
+`joint8 <- joint7` TopicBasedSystem 命令镜像、ROS 2 Bridge 和 MoveIt 状态回传均已接通。
+程序生成的固定 `Camera_1` AprilTag 回归场景也已完成一次完整的检测、规划、抓取、
+搬运和投放，最终 `workflow_status=1`。投放后视觉计算出的方块中心为
+`(0.29907, 0.17823, 0.02520) m`，与目标标签中心的平面误差约为 `2.0 mm`。这个指标
+只属于程序生成的回归场景。ZED X authored-USD 模式也已完成独立端到端验收；D455
+authored-USD 模式同样已用官方 CUDA cuAprilTag 和完整物理抓放链完成端到端验收，两者
+最终均返回 `workflow_status=1`。
 
 ## 功能概览
 
 - Isaac Sim 5.1 固定基座 ARX R5A articulation，包含 `joint1..joint8`。
-- cuMotion 负责 GPU 运动规划，MoveIt 负责规划接口和轨迹执行。
-- `ros2_control` 的 TopicBasedSystem 管理七个独立关节 `joint1..joint7`。
+- cuMotion 负责 GPU 运动规划；RViz 路径通过 MoveIt 规划插件，官方抓放行为树直接调用 cuMotion 后再用 MoveIt 执行轨迹。
+- `ros2_control` controller 管理七个独立关节 `joint1..joint7`；TopicBasedSystem 传输全部八个关节。
 - Isaac Sim 发布 `/clock`、`/isaac_joint_states`，并订阅 `/isaac_joint_commands`。
-- `joint8` 不进入命令通道，只由 PhysX mimic `joint7`。
+- `joint8` 不是独立 controller DOF，但 TopicBasedSystem 会把 `joint7` 位置命令以
+  `mimic=joint7, multiplier=1` 复制到第八个命令项，使两指都收到 drive target。
+- 可选桌面 AprilTag Demo 串联 GPU 检测、官方行为树、cuMotion 和自动抓放。
 - 支持 GUI、headless、USD 导出、CPU 契约测试和可复现模型审计。
 
 ## 版本基线
@@ -37,12 +46,20 @@
 | Isaac Sim | 5.1.0 / Python 3.11 |
 | Isaac ROS / cuMotion | 4.5 |
 | Isaac Sim Conda 环境 | `isaaclab` |
-| ARX 描述提交 | `c85c2c7c84bb630f30f87904bebebbd83dddd2db` |
+| ARX 描述版本 | `v0.3.0` / `3697451dd49e42df30055da43c959c2414c02053` |
 | TopicBasedSystem | `0.3.0` / `6bd8d55e1c4ad3188770fe5c8b93b942bcede4a2` |
 
-机器人几何、SRDF、XRDF 和 MoveIt 配置继续由
-[`Isaac_Ros_CuMotion_ArxR5a`](https://github.com/wee733/Isaac_Ros_CuMotion_ArxR5a)
-维护，本仓库只维护 Isaac Sim 场景、ROS 桥接和仿真专用控制配置。
+## 三个仓库的职责
+
+| 仓库 | 职责 |
+|---|---|
+| NVIDIA `isaac_ros_manipulation` | 提供官方消息/action、对象选择、Multi-Object Pick-and-Place 行为树、cuMotion/MoveIt 集成和通用服务器。这里不维护 ARX 仿真资产。 |
+| `isaac_ros_manipulation_arx_r5a` | 把官方 manipulation 工作流接到 ARX R5A，维护 ARX bringup、AprilTag object server 和实机侧适配；其模型依赖由 [`Isaac_Ros_CuMotion_ArxR5a`](https://github.com/wee733/Isaac_Ros_CuMotion_ArxR5a) 提供。 |
+| 本仓库 `arx-r5-isaac-sim` | 只负责 ARX 的 Isaac Sim 场景、RGB-D 相机、ROS 2 Bridge、TopicBasedSystem 控制闭环，以及不污染实机配置的仿真专用参数。 |
+
+URDF、SRDF、XRDF、网格和 MoveIt 配置仍来自 `Isaac_Ros_CuMotion_ArxR5a`；
+官方行为树实现、标准 action 类型和 cuMotion 接口保持不变。本仓库只为桌面几何覆盖
+抓取 seed 与 approach/retract 距离。
 
 ## 已验证目录布局
 
@@ -51,7 +68,9 @@
 ```text
 ~/workspace/
 ├── isaac_ros_source/
+│   ├── install/                         # 官方 Isaac ROS manipulation overlay
 │   ├── arx-r5-isaac-sim/
+│   ├── isaac_ros_manipulation_arx_r5a/ # ARX manipulation overlay
 │   ├── topic_based_ros2_control/
 │   └── isaac_ros_manipulation/arx-r5-moveit/
 └── arx_r5_sim_ws/
@@ -60,11 +79,11 @@
     └── log/
 ```
 
-如果源码放在其他位置，只需要修改下面三个 `*_SRC`/`ARX_DESC` 变量。
+如果源码放在其他位置，只需要修改下面对应的源码路径变量。
 
 ## 首次构建
 
-### 1. 准备三份源码
+### 1. 准备四份源码
 
 已有这些仓库时可以跳过对应的 `git clone`。下面保留当前已验证的嵌套目录，
 并将模型与 TopicBasedSystem 固定到版本表中的提交：
@@ -72,22 +91,26 @@
 ```bash
 export ISAAC_ROS_SRC="$HOME/workspace/isaac_ros_source"
 export SIM_REPO="$ISAAC_ROS_SRC/arx-r5-isaac-sim"
+export ARX_MANIP_REPO="$ISAAC_ROS_SRC/isaac_ros_manipulation_arx_r5a"
 export ARX_REPO="$ISAAC_ROS_SRC/isaac_ros_manipulation/arx-r5-moveit"
 export TOPIC_SRC="$ISAAC_ROS_SRC/topic_based_ros2_control"
 
 mkdir -p "$ISAAC_ROS_SRC/isaac_ros_manipulation"
 [[ -d "$SIM_REPO/.git" ]] || \
   git clone https://github.com/wee733/arx-r5-isaac-sim.git "$SIM_REPO"
+[[ -d "$ARX_MANIP_REPO/.git" ]] || \
+  git clone https://github.com/wee733/isaac_ros_manipulation_arx_r5a.git "$ARX_MANIP_REPO"
 [[ -d "$ARX_REPO/.git" ]] || \
   git clone https://github.com/wee733/Isaac_Ros_CuMotion_ArxR5a.git "$ARX_REPO"
 [[ -d "$TOPIC_SRC/.git" ]] || \
   git clone https://github.com/PickNikRobotics/topic_based_ros2_control.git "$TOPIC_SRC"
 
-git -C "$ARX_REPO" checkout c85c2c7c84bb630f30f87904bebebbd83dddd2db
+git -C "$ARX_MANIP_REPO" checkout 37ccc2dfa928a1bb66da6b83934c351990734dbe
+git -C "$ARX_REPO" checkout v0.3.0
 git -C "$TOPIC_SRC" checkout 6bd8d55e1c4ad3188770fe5c8b93b942bcede4a2
 ```
 
-### 2. 进入 Isaac ROS 环境
+### 2. 构建 ARX manipulation overlay 与仿真包
 
 ```bash
 isaac-ros activate
@@ -99,10 +122,20 @@ isaac-ros activate
 source /opt/ros/jazzy/setup.bash
 
 export ISAAC_ROS_SRC="$HOME/workspace/isaac_ros_source"
+export ARX_MANIP_REPO="$ISAAC_ROS_SRC/isaac_ros_manipulation_arx_r5a"
 export ARX_SIM_WS="$HOME/workspace/arx_r5_sim_ws"
 export TOPIC_SRC="$ISAAC_ROS_SRC/topic_based_ros2_control"
 export ARX_DESC="$ISAAC_ROS_SRC/isaac_ros_manipulation/arx-r5-moveit/isaac_ros_manipulation_arx_r5a_robot_description"
 export SIM_SRC="$ISAAC_ROS_SRC/arx-r5-isaac-sim/arx_r5_isaac_sim_bringup"
+
+# 官方 Isaac ROS manipulation workspace 必须已经构建。
+source "$ISAAC_ROS_SRC/install/setup.bash"
+
+cd "$ARX_MANIP_REPO"
+colcon build \
+  --symlink-install \
+  --packages-up-to isaac_ros_manipulation_arx_r5a_bringup
+source install/setup.bash
 
 mkdir -p "$ARX_SIM_WS"
 cd "$ARX_SIM_WS"
@@ -110,6 +143,7 @@ cd "$ARX_SIM_WS"
 colcon build \
   --symlink-install \
   --cmake-clean-cache \
+  --allow-overriding isaac_ros_manipulation_arx_r5a_robot_description \
   --base-paths "$TOPIC_SRC" "$ARX_DESC" "$SIM_SRC" \
   --packages-up-to arx_r5_isaac_sim_bringup \
   --cmake-args -DBUILD_TESTING=OFF
@@ -119,34 +153,68 @@ source install/setup.bash
 
 `-DBUILD_TESTING=OFF` 必须保留：当前 TopicBasedSystem 在启用测试时会查找可选的
 `ros_testing`。`--cmake-clean-cache` 则可清除之前失败构建留下的 CMake 缓存。
+`--allow-overriding` 明确使用本地固定到 `v0.3.0` 的 description，覆盖官方
+Isaac ROS underlay 中可能存在的同名包。
 
-成功结果应为：
+两次构建的成功结果分别应包含：
 
 ```text
+Summary: 2 packages finished
 Summary: 3 packages finished
 ```
 
 确认 overlay 顺序正确：
 
 ```bash
+ros2 pkg prefix isaac_ros_manipulation_arx_r5a_bringup
 ros2 pkg prefix topic_based_ros2_control
 ros2 pkg prefix isaac_ros_manipulation_arx_r5a_robot_description
 ros2 pkg prefix arx_r5_isaac_sim_bringup
 ```
 
-三个路径都应指向 `$HOME/workspace/arx_r5_sim_ws/install/...`。尤其不要让
+ARX bringup 应指向 `$ARX_MANIP_REPO/install/...`，其余三个路径应指向
+`$HOME/workspace/arx_r5_sim_ws/install/...`。尤其不要让
 `topic_based_ros2_control` 回落到与当前 ros2_control ABI 不匹配的旧二进制包。
+
+### 3. 安装 AprilTag demo 的正式依赖
+
+下面这些包安装在 Jazzy/Isaac ROS 环境中，不安装到 Conda `isaaclab`：
+
+```bash
+sudo apt update
+sudo apt install \
+  ros-jazzy-isaac-ros-apriltag \
+  ros-jazzy-isaac-ros-cumotion-object-attachment \
+  ros-jazzy-py-trees \
+  ros-jazzy-py-trees-ros
+```
+
+开发过程中曾用解压到 `/tmp` 的临时 ROS overlay 做依赖验证；这种目录没有稳定的
+`setup.bash`，可能在重启或清理后消失，不能作为可复现运行环境。正式运行必须安装上面
+的 apt 包，或以等价的源码 workspace 构建，并在全新 shell 中重新 source。
 
 ## 启动仿真
 
-两个终端必须使用相同的 `ROS_DOMAIN_ID` 和 RMW。先启动 Isaac Sim，再启动
+两个终端必须使用相同的 `ROS_DOMAIN_ID=25` 和
+`RMW_IMPLEMENTATION=rmw_fastrtps_cpp`。先启动 Isaac Sim，再启动
 cuMotion/MoveIt。
 
 ### 终端 1：Isaac Sim 5.1
 
-使用一个全新终端，不要 source `/opt/ros/jazzy/setup.bash`，也不要进入
-`isaac-ros`。系统 Jazzy 的 Python 3.12 `rclpy` 不能进入 Isaac Sim 的 Python
-3.11 进程。
+使用一个全新终端，只激活 Conda `isaaclab` 并只运行 Isaac Sim。不要 source
+`/opt/ros/jazzy/setup.bash`，也不要进入 `isaac-ros`。系统 Jazzy 的 Python 3.12
+`rclpy` 不能进入 Isaac Sim 的 Python 3.11 进程。
+
+如果 `~/.bashrc` 自动 source 了 ROS，`conda activate` 不会撤销这些变量；请先开一个
+不读取启动文件的 shell：
+
+```bash
+bash --noprofile --norc
+source /home/lbz/miniforge3/etc/profile.d/conda.sh
+conda activate isaaclab
+unset PYTHONPATH AMENT_PREFIX_PATH COLCON_PREFIX_PATH
+unset ROS_DISTRO ROS_VERSION ROS_PYTHON_VERSION LD_LIBRARY_PATH
+```
 
 ```bash
 conda activate isaaclab
@@ -154,7 +222,7 @@ conda activate isaaclab
 export ISAAC_ROS_SRC="$HOME/workspace/isaac_ros_source"
 export ISAAC_SIM_PYTHON="$CONDA_PREFIX/bin/python"
 export ARX_R5_DESCRIPTION_SHARE="$ISAAC_ROS_SRC/isaac_ros_manipulation/arx-r5-moveit/isaac_ros_manipulation_arx_r5a_robot_description"
-export ROS_DOMAIN_ID=23
+export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 "$ISAAC_SIM_PYTHON" -c 'import isaacsim; print(isaacsim.__file__)'
@@ -180,6 +248,8 @@ rclpy loaded
 
 ### 终端 2：cuMotion + MoveIt + RViz
 
+这个终端只运行 ROS/Isaac ROS 栈，不要激活 Conda `isaaclab`。
+
 ```bash
 isaac-ros activate
 ```
@@ -187,10 +257,12 @@ isaac-ros activate
 进入 `(isaac-ros)` shell 后：
 
 ```bash
+# 该项目的 Isaac ROS 源码 workspace；不要继承其他项目（例如 ZED）的值。
+export ISAAC_ROS_WS="$HOME/workspace/isaac_ros_source"
 source /opt/ros/jazzy/setup.bash
 source "$HOME/workspace/arx_r5_sim_ws/install/setup.bash"
 
-export ROS_DOMAIN_ID=23
+export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 ros2 launch arx_r5_isaac_sim_bringup \
@@ -219,13 +291,205 @@ You can start planning now!
 拖动末端交互标记设置目标，然后依次点击 **Plan** 和 **Execute**。Isaac Sim
 中的 R5A 应平滑执行同一条轨迹。
 
+## 双相机 authored USD manipulation Demo
+
+提交的 `assets/scenes/arx_sim.usd` 支持两条互斥的感知入口，但后半段完全共用
+Isaac ROS manipulation、官方 Multi-Object Pick-and-Place 行为树、cuMotion、MoveIt
+和 ros2_control：
+
+| 模式 | 安装关系 | 图像 | cuAprilTag raw | manipulation 输入 |
+|---|---|---|---|---|
+| ZED X eye-to-hand | 固定在 `base_link`，绕 Y 轴 +10° 下俯 | `/zed_x/left/image_raw` | `/zed_x/tag_detections_raw` | `/zed_x/tag_detections` |
+| D455 eye-in-hand | 固定在随关节运动的 `link6` | `/d455/color/image_raw` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
+
+ZED X 安装节点保留你设计的局部 Y 轴 `+10°` 旋转，用来看到放置区；机械臂
+`/R5a` 根节点保持水平，这个角度不会再错误地施加到整台机械臂或 D455 上。
+
+两种模式的检测器都是官方
+`nvidia::isaac_ros::apriltag::AprilTagNode`，后端为 CUDA/cuAprilTag。其原始 ID、
+corner 和 pose 保留在各自的 `*_raw` 话题。小像素平面标签容易出现 PnP 二义性，因此
+仿真侧 pose refiner 用官方 corners、rectified CameraInfo 和 OpenCV IPPE_SQUARE 重新
+求 pose。它按原始时间戳精确配对 rectified 图像，只转换四角附近的小 ROI 并做
+`cornerSubPix`，同时保持 ID、corner、frame 和原始时间戳；结果发布到不带 `_raw` 的
+manipulation 话题。缺少同时间戳图像、图像无效、求解失败或重投影误差超过 `2 px`
+的 detection 会从 refined 流丢弃，绝不会混入 native pose；官方原始结果始终完整保留
+在 `*_raw` 供诊断。
+后续 ARX object adapter 再按该原始图像时间戳把 pose 转换到 `base_link`。
+ZED 的 10° 安装角写在 USD 的 ZED mount 上，机械臂根节点保持水平；启动时会从 USD
+计算外参并校验光轴确实向下 10°，不会在 ROS launch 中再叠加一个手写角度。
+
+两个仿真 wrapper 默认选择 `--authored-layout reachable`。它在匿名 USD session layer
+中把机械臂移入可达工作域，并反向补偿 ZED mount，因此 ZED 左目的世界位姿和局部
+Y 轴 `+10°` 下俯保持不变。该调整不会写回 `assets/scenes/arx_sim.usd`；
+`as-authored` 布局只用于检查原始场景，不是当前抓放入口。运行时还会根据实际输出宽高
+归一化相机 vertical aperture，使发布的 CameraInfo 保持方形像素（`fx` 约等于 `fy`），
+同样不会修改源 USD。
+
+authored 模式会把桌面和四条桌腿作为五个静态碰撞对象交给官方 cuMotion
+Static Planning Scene Server。由于 Isaac ROS 4.5 的 `.scene` 解析器把对象 header
+固定写成 `world`，原始消息先发布到 `/cumotion/static_planning_scene_raw`，随后 ARX
+frame adapter 将这些本来就以 `base_link` 数值编写的对象规范到 canonical
+`/planning_scene`。MoveIt 和行为树只消费后者。
+
+投放目标不是硬编码的世界位姿。目标客户端在每条 tag 1 检测自己的时间戳上取得相机
+TF，再应用 tag-relative `link6_offset_in_tag: [0, 0, -0.315]`。其中 `205 mm` 是顶抓时
+`link6` 到红块中心的距离，`75 mm` 是红块半高，余下 `35 mm` 是检测平面上方的投放
+净空。诊断链为：`-0.280 m` 只有 `0 mm`，`-0.295 m` 有 `15 mm` 但仍失败，当前
+`-0.315 m` 有 `35 mm` 并通过。当前工程预算显式包含 Object Attachment
+`max_overshoot=10 mm`、XRDF attached-object buffer `2 mm`、PnP 深度误差预算
+`10 mm` 和安全余量 `5 mm`，合计 `27 mm`，还保留 `8 mm`。较低目标即使纯运动学
+IK 可解，也可能因附着碰撞体进入静态桌面而由 cuMotion 返回
+`INVERSE_KINEMATICS_FAILURE`。
+
+tag 1 投放目标必须连续得到 `5` 个 exact-time、已转换到 `base_link` 的样本；客户端
+对三轴分别取中值，并要求整个窗口的最大两点欧氏距离不超过 `10 mm`，所以 `20 mm`
+深度摆动会被拒绝。目标丢失或仿真时钟回退会清空窗口。`drop_pose_ttl_sec` 默认
+`0.5 s`，`drop_pose_max_translation_spread_m` 默认 `0.01 m`；object server 的缓存
+TTL 为 `2.0 s`。
+
+官方行为树会持续调用 `/get_objects`。为避免成功投放后又发现同一红块并启动第二轮，
+authored 配置只在 `base_link` 的 source-zone
+`[0.20, -0.30, -0.39] .. [0.40, -0.08, -0.25] m` 内允许 discovery。这个门控只作用于
+`/get_objects`，不会改变当前任务使用的 `/get_object_pose` 缓存与 freshness 语义。
+
+### ZED X：固定眼在手外
+
+ZED 左目在世界中的位置和你手工场景保持不变，只把原来误放在 `/R5a` 根节点上的
+10° 变换等价搬到了 `/R5a/base_link/ZED_X`。因此机械臂与 D455 不再一起倾斜，
+`base_link -> zed_x_left_camera_optical_frame` 则始终是固定外参。
+
+终端 1 使用干净的 Conda `isaaclab` 环境：
+
+```bash
+conda activate isaaclab
+export ROS_DOMAIN_ID=25
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
+./scripts/run_zedx_sim.sh
+```
+
+终端 2 进入 `(isaac-ros)` shell，第一次先禁止自动运动：
+
+```bash
+export ROS_DOMAIN_ID=25
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
+./scripts/run_zedx_demo.sh auto_start:=False
+```
+
+只读验收：
+
+```bash
+./scripts/check_ros_graph.sh --zedx
+```
+
+ZED X 已现场完成官方 CUDA cuAprilTag、双指 PhysX contact、FixedJoint attach/release、
+Object Attachment `29` 个碰撞球以及 lift/drop/open/release 全流程。夹爪以 stalled
+成功，平均开度约 `0.0268 m`；最终 `status=1`、`Object 0 -> DONE`。投放后中心约为
+`base_link (0.0939, 0.2014, -0.3266) m`，相对 tag 1 平面中心的 XY 误差约 `6.7 mm`。
+
+### D455：腕部眼在手上
+
+先停止上一套 Isaac Sim，确保只有一个 `/clock` publisher。终端 1：
+
+```bash
+conda activate isaaclab
+export ROS_DOMAIN_ID=25
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
+./scripts/run_d455_sim.sh
+```
+
+终端 2 的 `(isaac-ros)` shell：
+
+```bash
+export ROS_DOMAIN_ID=25
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
+./scripts/run_d455_demo.sh auto_start:=False
+```
+
+`run_d455_sim.sh` 会把机械臂初始化到已完成端到端验收的观察位
+`[-1.3919817209, 1.8859872818, 0.5746622086, -0.6957563162, -0.6273930669, -1.9993159771, 0.044, 0.044]`，
+依次对应 `joint1..joint8`。官方 CUDA cuAprilTag 的 raw 输出在同一画面同时检测到
+ID 0 和 ID 1，其中心列约为 `x=960 px` 和 `x=325 px`；当前姿态的 cuMotion
+plan-only 约为 `0.74 s`。完整运行已通过双指 PhysX 接触、FixedJoint attach、Object
+Attachment `29` 个碰撞球、drop 和 release，最终 `workflow_status=1`。
+ros2_control hardware 使用全部八个初值；
+`joint8` 初值等于 `joint7`，后续也由 TopicBasedSystem 复制 `joint7` 命令，不会被
+controller 作为第二个夹爪自由度单独控制。
+`link6 -> d455_color_optical_frame` 是固定安装边，而
+`base_link -> link6` 随 `/joint_states` 变化。源物体和目标 Tag 都会按每条检测消息的
+原始时间戳异步等待 exact-time TF，绝不把旧图像配上 latest 腕部姿态。
+
+这里的“逐帧动态 TF”是 timestamp-correct 感知，不是 continuous visual servo。
+adapter 会过滤并缓存稳定的 `base_link` 目标；行为树开始后，cuMotion 使用该目标完成
+一次规划与执行，不会在机械臂运动期间随每一帧图像持续重规划。
+
+只读验收：
+
+```bash
+./scripts/check_ros_graph.sh --d455
+```
+
+确认检测、TF、controller 和规划服务均正常后，去掉 `auto_start:=False` 即可自动发送
+一次抓放任务。不要把 ZED 的 Isaac Sim 命令与 D455 的 ROS 脚本混用，也不要同时启动
+两套 ROS manipulation graph。
+
+authored demo 默认设置 `quiesce_on_terminal:=True`：官方 action 返回终态后，只暂停
+行为树的定时 tick，action server 和 executor 会继续存活，确保最终 result 已送达，同时
+避免成功后以 100 Hz 重复 discovery 并刷空检测日志。需要保留官方连续 tick 行为时可显式
+设置 `quiesce_on_terminal:=False`；再次执行 one-shot 任务则重启 ROS demo。
+
+## 程序生成固定相机 AprilTag Demo
+
+完整 demo 使用红色方块上的 `tag36h11:0` 作为抓取目标，并投放到桌面的
+`tag36h11:1`。先在 Conda `isaaclab` 终端启动桌面场景：
+
+```text
+Isaac Sim RGB + CameraInfo
+  -> Isaac ROS Rectify + GPU AprilTag
+  -> 官方 /tag_detections 原始输出
+  -> ARX AprilTag Object Server
+  -> 官方 Multi-Object Pick-and-Place 行为树接口
+  -> cuMotion action -> MoveIt ExecuteTrajectory -> ros2_control
+  -> /isaac_joint_commands -> Isaac Sim
+```
+
+```bash
+./scripts/run_isaac_sim.sh --scene tabletop
+```
+
+再在 `(isaac-ros)` 终端启动视觉、行为树、cuMotion、MoveIt 和控制链：
+
+```bash
+./scripts/run_apriltag_demo.sh
+```
+
+默认会自动发送一次抓放任务；仅检查感知时传入 `auto_start:=False`。依赖安装、
+workspace source 顺序、验证命令和当前物理边界见
+[AprilTag 抓放 Demo 指南](docs/apriltag-pick-place-demo.md)。
+
+已验证的仿真参数使用 `0.14 m` 顶抓 seed、`65 mm` approach/retract 和
+`0.165 m` 的投放 `link6` 高度偏移。它们为约 `157.6 mm` 的指尖几何保留约
+`7.6 mm` 桌面净空，同时不修改实机仓库的抓取配置。
+
+第一次启动建议使用 `auto_start:=False`，依次确认两个标签、`/get_objects`、
+`/get_object_pose`、`/arx_r5_demo/drop_pose` 和三个 controller，再手动发送 workflow。
+完整验收应同时看到 `Successfully loaded 1 grasp poses`、方块 attach/release 日志和
+`workflow_status: 1`；详细命令见 demo 指南。
+
+启动时会校验桌面 YAML 与 ARX overlay 中的 Tag 映射、相机外参、方块尺寸和坐标系；
+如果只修改其中一份配置，launch 会直接报出不一致字段，而不会静默使用错误的 TF。
+
 ## 验证运行状态
 
 `check_ros_graph.sh` 是只读健康检查，不会移动机器人。它验证话题类型、控制
 action 和三个 controller 是否为 `active`：
 
 ```bash
-export ROS_DOMAIN_ID=23
+export ROS_DOMAIN_ID=25
+export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim/scripts/check_ros_graph.sh"
 ```
 
@@ -253,9 +517,11 @@ ros2 topic echo /isaac_joint_states --once
 | `listing git files failed - pretending there aren't any` | 外部 `--base-paths` 下的 setuptools 文件枚举提示；只要包最终 `Finished` 即可。 |
 | `TopicBasedSystem::on_init ... deprecated` | 上游 TopicBasedSystem 针对新 Jazzy hardware interface 的编译警告，不影响运行。 |
 | 找不到 `ros_testing` | 构建命令没有正确收到 `-DBUILD_TESTING=OFF`；复制完整命令重新构建，避免在路径中间换行。 |
-| `PYTHONPATH contains Python 3.12` | Isaac Sim 终端被 ROS 环境污染；重新打开终端，只激活 `conda isaaclab`。 |
+| `PYTHONPATH contains Python 3.12` | Isaac Sim 终端被 ROS 环境污染；重新打开终端，只激活 `conda isaaclab`。如果 `~/.bashrc` 自动 source `/opt/ros/jazzy/setup.bash`，请把它移到 ROS 终端手动执行；不要在 Isaac Sim 终端 source ROS。 |
+| `LD_LIBRARY_PATH contains a ROS installation` | Isaac Sim 终端继承了 ROS 动态库路径；在干净的 Isaac Sim shell 中执行 `unset LD_LIBRARY_PATH`，再启动场景。 |
 | `No 3D sensor plugin(s) defined for octomap updates` | 当前未启用 Nvblox/ESDF，属于预期提示。 |
 | controller 卡在 `Initialize hardware` | 检查 `ros2 pkg prefix topic_based_ros2_control` 是否指向本地 workspace install，并最后 source 仿真 overlay。 |
+| `No module named 'isaac_ros_test'`，随后 RViz 报 `context is not valid` 并以 `-6` 退出 | 首发错误是 Isaac ROS Python overlay 路径错误，RViz 只是被 launch 连带关闭。执行 `export ISAAC_ROS_WS="$HOME/workspace/isaac_ros_source"`；脚本也会自动忽略不包含 `isaac_ros_common/isaac_ros_test` 的无关 workspace。 |
 
 ## 执行链路
 
@@ -270,8 +536,9 @@ flowchart LR
   Sim -->|/clock| ROS[ROS use_sim_time]
 ```
 
-`joint1..joint6` 属于 `manipulator`；`joint7` 是主动夹爪关节；`joint8` 只存在于
-URDF/PhysX mimic 关系中，不会被作为第二个独立命令关节。
+`joint1..joint6` 属于 `manipulator`；`joint7` 是主动夹爪 controller 关节；`joint8`
+不是第二个独立 controller 自由度，但它存在于 TopicBasedSystem hardware block 中。
+因此 `/isaac_joint_commands` 的 name/position 都有八项，最后一项由插件镜像 `joint7`。
 
 ## 仓库结构
 
@@ -321,11 +588,37 @@ USD 是生成物，默认不提交。仓库已为 `.usd`、`.usda`、`.usdc`、`
 
 ## 当前边界
 
-- 当前是固定基座、关节状态/命令、时钟和 cuMotion 执行闭环。
-- `read_esdf_world=False` 且 `add_ground_plane=False`；Isaac Sim 中可见的地面和
-  障碍物尚未进入 cuMotion 规划世界。
-- 相机、Nvblox ESDF、目标检测和抓取场景属于下一阶段。
-- 当前 ARX 模型仍需完成真实 TCP、碰撞几何和整机标定验收。
+- 当前包含固定基座执行闭环、固定 ZED X eye-to-hand、腕部 D455 eye-in-hand，
+  以及原有程序生成固定相机的 AprilTag 回归场景。
+- authored 双相机模式已通过静态 `.scene` 把桌面和四条桌腿共五个对象加入
+  `/planning_scene`。`read_esdf_world=False` 且 `add_ground_plane=False`，因此仍没有
+  Nvblox 动态 ESDF、独立 ground plane 或其他可见场景障碍物。
+- AprilTag 替代了 SAM/FoundationPose 感知前端；对象选择、行为树 action、cuMotion、
+  MoveIt 和 ros2_control 接口链保持一致。
+- authored tag 0 的物体位姿来自官方 cuAprilTag corners 的有界 IPPE refinement、
+  exact-time TF 和已配置的 tag-to-object 固定变换；官方原始结果保留在 `*_raw`。
+  tag 1 由目标客户端用同一时刻的相机 TF 和 tag-relative 末端偏移转换为投放 pose；
+  `35 mm` 投放净空也沿检测到的 tag 法向定义，不是硬编码的世界投放点。它们是仿真
+  姿态/任务适配，不是新的标签检测器。
+- authored USD 红块先以带碰撞的 kinematic 刚体等待。`joint7` 的 linear drive 使用有限
+  最大力，默认 `8 N`，可通过 `--gripper-drive-max-force` 调整。TopicBasedSystem 同时
+  向 `joint7` 和 `joint8` 发送相同位置目标，避免受力时只靠 PhysX mimic 导致双指状态
+  分离；`joint8` 仍不属于独立 controller。
+- 只有夹爪开度和 `grasp_frame` 距离都满足阈值，并且红块与 `link7`、`link8` 的双侧
+  PhysX 接触连续保持若干物理步后，红块才转为 dynamic 并创建连接 `link6` 的
+  FixedJoint。默认要求连续 `3` 步，可通过 `--grasp-contact-steps` 调整；张开夹爪会删除
+  joint。FixedJoint 只用于稳定搬运，这仍不是纯靠接触力与摩擦自然形成的夹持。
+  cuMotion Object Attachment 另行维护规划场景中的 attached object；程序生成的
+  `Camera_1` 回归场景仍使用旧的视觉 attachment。
+- D455 按每帧图像时间戳查询动态 TF，但当前流程不是 continuous visual servo。
+- ZED X 与 D455 authored 模式均已完成独立端到端验收并返回 `workflow_status=1`。
+  ZED X 的投放 XY 误差约为 `6.7 mm`；D455 raw cuAprilTag 同时检测 ID 0/1，并已通过
+  双侧接触、FixedJoint、29 spheres、drop/release。`2.0 mm` 只属于程序生成的固定相机
+  回归场景，不能混用为 authored 指标。
+- Nvblox/ESDF 与经标定的接触抓取仍属于下一阶段。
+- `7.6 mm` 净空是根据当前网格和目标姿态计算的名义值，不等同于接触碰撞验收。
+- 当前 ARX 模型仍需完成真实 TCP、相机外参、碰撞几何、整机标定和急停验收；仿真
+  成功不能保证实机必然成功。
 
 本项目是社区集成，并非 ARX Robotics 或 NVIDIA 官方发布。
 

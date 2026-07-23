@@ -16,6 +16,8 @@
 """Tests for the cross-process ARX R5A simulation contract."""
 
 from pathlib import Path
+import runpy
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from arx_r5_isaac_sim_bringup.contracts import (
@@ -23,6 +25,8 @@ from arx_r5_isaac_sim_bringup.contracts import (
     ARM_JOINTS,
     DEFAULT_JOINT_POSITIONS,
     DESCRIPTION_PACKAGE,
+    GRIPPER_COMMAND_JOINT,
+    GRIPPER_MIMIC_JOINT,
     INDEPENDENT_JOINTS,
     JOINT_COMMANDS_TOPIC,
     JOINT_POSITION_LIMITS,
@@ -30,7 +34,9 @@ from arx_r5_isaac_sim_bringup.contracts import (
     resolve_description_mesh_uris,
 )
 from arx_r5_isaac_sim_bringup.simulation import (
+    _direction_error_degrees,
     _parse_position_vector,
+    _quaternion_error_degrees,
     materialize_isaac_urdf,
 )
 
@@ -45,6 +51,32 @@ XACRO_NAMESPACE = {'xacro': 'http://www.ros.org/wiki/xacro'}
 
 def _yaml(relative_path):
     return yaml.safe_load((PACKAGE_ROOT / relative_path).read_text(encoding='utf-8'))
+
+
+def test_local_authored_tabletop_config_is_never_installed(monkeypatch):
+    """A private editor snapshot must stay outside package artifacts."""
+    with mock.patch('setuptools.setup') as setup_mock:
+        monkeypatch.chdir(PACKAGE_ROOT)
+        runpy.run_path(str(PACKAGE_ROOT / 'setup.py'), run_name='__setup_test__')
+
+    data_files = setup_mock.call_args.kwargs['data_files']
+    installed_configs = next(
+        sources for destination, sources in data_files
+        if destination.endswith('/config')
+    )
+    assert 'config/my_tabletop.yaml' not in installed_configs
+    assert 'config/authored_usd_apriltag_demo.yaml' in installed_configs
+
+    ignore_lines = {
+        line.strip()
+        for line in (PACKAGE_ROOT.parent / '.gitignore').read_text(
+            encoding='utf-8'
+        ).splitlines()
+    }
+    assert (
+        '/arx_r5_isaac_sim_bringup/config/my_tabletop.yaml'
+        in ignore_lines
+    )
 
 
 def test_ros2_control_uses_the_isaac_topic_bridge():
@@ -64,13 +96,13 @@ def test_ros2_control_uses_the_isaac_topic_bridge():
     assert parameters['joint_states_topic'] == f'/{JOINT_STATES_TOPIC}'
 
 
-def test_ros2_control_joint_contract_and_mimic_are_safe():
-    """The topic transport must expose exactly seven independent joints."""
+def test_ros2_control_publishes_eight_position_commands_with_a_safe_mimic():
+    """The transport must mirror joint7 without mismatched message arrays."""
     root = ET.parse(
         PACKAGE_ROOT / 'urdf' / 'r5a.isaac_sim.ros2_control.xacro'
     ).getroot()
     joints = root.findall('.//ros2_control/joint')
-    assert tuple(joint.attrib['name'] for joint in joints) == INDEPENDENT_JOINTS
+    assert tuple(joint.attrib['name'] for joint in joints) == ALL_JOINTS
 
     command_interfaces = {
         joint.attrib['name']: [
@@ -80,13 +112,29 @@ def test_ros2_control_joint_contract_and_mimic_are_safe():
         for joint in joints
     }
     assert all(
-        command_interfaces[name] == ['position'] for name in INDEPENDENT_JOINTS
+        command_interfaces[name] == ['position'] for name in ALL_JOINTS
     )
-    assert 'joint8' not in command_interfaces
+    assert len(command_interfaces) == len(ALL_JOINTS) == 8
+
+    mimic_joint = next(
+        joint for joint in joints
+        if joint.attrib['name'] == GRIPPER_MIMIC_JOINT
+    )
+    assert mimic_joint.attrib['mimic'] == 'false'
+    mimic_parameters = {
+        parameter.attrib['name']: parameter.text
+        for parameter in mimic_joint.findall('param')
+    }
+    assert mimic_parameters['mimic'] == GRIPPER_COMMAND_JOINT
+    assert float(mimic_parameters['multiplier']) == pytest.approx(1.0)
+    assert [
+        interface.attrib['name']
+        for interface in mimic_joint.findall('state_interface')
+    ] == ['position', 'velocity']
 
 
 def test_ros2_control_position_limits_match_the_cumotion_urdf():
-    """The command layer must enforce the same hard bounds as PhysX."""
+    """The simulator contract must publish the same hard bounds as PhysX."""
     root = ET.parse(
         PACKAGE_ROOT / 'urdf' / 'r5a.isaac_sim.ros2_control.xacro'
     ).getroot()
@@ -94,7 +142,7 @@ def test_ros2_control_position_limits_match_the_cumotion_urdf():
         joint.attrib['name']: joint for joint in root.findall('.//ros2_control/joint')
     }
 
-    for joint_name in INDEPENDENT_JOINTS:
+    for joint_name in ALL_JOINTS:
         command_interface = joints[joint_name].find(
             './command_interface[@name="position"]'
         )
@@ -112,7 +160,7 @@ def test_controller_and_moveit_arm_joint_order_match():
 
     assert ros2_control['controller_manager']['ros__parameters'][
         'enforce_command_limits'
-    ] is True
+    ] is False
     assert tuple(
         ros2_control['manipulator_controller']['ros__parameters']['joints']
     ) == ARM_JOINTS
@@ -121,6 +169,12 @@ def test_controller_and_moveit_arm_joint_order_match():
             'joints'
         ]
     ) == ARM_JOINTS
+    gripper_joint = ros2_control['gripper_controller']['ros__parameters'][
+        'joint'
+    ]
+    assert gripper_joint == GRIPPER_COMMAND_JOINT
+    assert ARM_JOINTS + (gripper_joint,) == INDEPENDENT_JOINTS
+    assert GRIPPER_MIMIC_JOINT not in ARM_JOINTS + (gripper_joint,)
 
 
 def test_initial_positions_cover_every_articulation_joint():
@@ -185,3 +239,15 @@ def test_startup_positions_must_respect_urdf_limits():
     """Reject startup targets that the imported articulation would clamp."""
     with pytest.raises(ValueError, match='exceed URDF limits'):
         _parse_position_vector('0,1,1.5,0,0,0,0.05,0.05')
+
+
+def test_authored_scene_rotation_checks_handle_direction_and_quaternion_sign():
+    """Scene validation must measure pitch and treat q/-q as equivalent."""
+    assert _direction_error_degrees(
+        (1.0, 0.0, 0.0),
+        (0.0, 0.0, -1.0),
+    ) == pytest.approx(90.0)
+    assert _quaternion_error_degrees(
+        (0.0, 0.0, 0.0, 1.0),
+        (0.0, 0.0, 0.0, -1.0),
+    ) == pytest.approx(0.0)

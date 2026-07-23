@@ -1,0 +1,13 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+
+# The authored USD runtime publishes world/base and camera optical transforms.
+# This valid disabled calibration keeps the reusable ARX perception launch from
+# creating a second, conflicting static transform publisher.
+schema_version: 1
+publish: false
+base_to_camera:
+  parent_frame: base_link
+  child_frame: authored_usd_camera_optical_frame
+  translation: [0.0, 0.0, 0.0]
+  rotation: [0.0, 0.0, 0.0, 1.0]

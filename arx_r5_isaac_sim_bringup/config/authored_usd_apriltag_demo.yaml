@@ -1,0 +1,78 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+
+schema_version: 1
+tag_family: tag36h11
+
+# Geometry measured from assets/scenes/arx_sim.usd. This file supplies the
+# manipulation and physical-grasp contract; camera topics come from
+# arx_sim_usd_scene.yaml so ZED X and D455 can share it.
+table:
+  top_center: [0.25, 0.0, -0.03]
+  top_size: [1.00, 0.80, 0.06]
+  leg_size: [0.06, 0.06, 0.60]
+  leg_inset: 0.05
+
+source_object:
+  center: [0.30, -0.18, 0.075]
+  size: [0.05, 0.05, 0.15]
+  tag_id: 0
+  tag_size: 0.04
+  tag_quad_size: 0.05
+  tag_texture: ../assets/apriltag/tag36h11_0.png
+
+# The upstream multi-object tree continuously discovers objects. Only offer
+# tag 0 while its transformed object centre remains at the source workstation;
+# after placement, GetObjectPose retains its normal freshness semantics but a
+# second discovery cycle cannot begin at the destination.
+source_zone:
+  enabled: true
+  frame: base_link
+  min_xyz: [0.20, -0.30, -0.39]
+  max_xyz: [0.40, -0.08, -0.25]
+
+drop_target:
+  center: [0.089674989, 0.196187780, 0.0005]
+  tag_id: 1
+  tag_size: 0.04
+  tag_quad_size: 0.05
+  tag_texture: ../assets/apriltag/tag36h11_1.png
+  # The desired link6 pose is expressed in the detected target-tag frame.
+  # The authored tag's +Z normal points into the table, so the link pose uses
+  # -Z: 0.075 m block half-height plus the 0.205 m object-center-to-link6
+  # grasp seed would only touch the detected plane. The final 0.035 m is
+  # placement clearance for both bounded PnP depth error and cuMotion's
+  # attached-object collision margin above the static table.
+  link6_offset_in_tag: [0.0, 0.0, -0.315]
+  # Rotate -90 degrees about tag Y so link6 +X (and grasp_frame) points down
+  # toward the table at the placement target.
+  link6_rotation_in_tag: [0.0, -0.7071068, 0.0, 0.7071068]
+
+# Compatibility fields required by the generated-scene config model. The
+# authored camera publishers use arx_sim_usd_scene.yaml instead.
+camera:
+  position: [-0.258655463, 0.06, 0.343849749]
+  look_at: [0.233748414, 0.06, 0.257025660]
+  world_up: [0.0, 0.0, 1.0]
+  width: 1280
+  height: 720
+  focal_length: 2.208
+  horizontal_aperture: 5.76
+  frame_skip_count: 2
+  optical_frame: zed_x_left_camera_optical_frame
+  color_image_topic: /zed_x/left/image_raw
+  color_info_topic: /zed_x/left/camera_info
+  depth_image_topic: /zed_x/aligned_depth_to_left/image_raw
+  depth_info_topic: /zed_x/aligned_depth_to_left/camera_info
+
+attachment:
+  grasp_frame_offset: [0.11, 0.0, 0.0]
+  # A 50 mm block stops each symmetric finger near a 25 mm joint position.
+  # Attach once that physical close has settled instead of waiting for the
+  # collision-constrained gripper to reach the impossible zero command.
+  close_threshold: 0.028
+  open_threshold: 0.035
+  # grasp_frame is 110 mm from link6 while the physical fingertips reach
+  # about 158 mm. The collision-safe grasp therefore leaves grasp_frame about
+  # 95 mm from the block centre while the fingers still overlap the block.
+  maximum_distance: 0.10

@@ -1,0 +1,20 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+
+format: isaac_grasp
+format_version: 1.0
+
+object_frame: /tagged_block
+gripper_frame: /link6
+
+grasps:
+  grasp_top:
+    confidence: 1.0
+    # Place link6 205 mm above the object centre. The fingertips reach about
+    # 158 mm along link6 +X, so they still overlap the block's upper 28 mm
+    # without driving the palm through its top face. This also avoids the
+    # folded joint2/joint4 contact posture reached by lower grasp seeds.
+    position: [0.0, 0.0, 0.205]
+    orientation: {w: 0.7071068, xyz: [0.0, 0.7071068, 0.0]}
+    cspace_position: {joint7: 0.0}
+    pregrasp_cspace_position: {joint7: 0.044}

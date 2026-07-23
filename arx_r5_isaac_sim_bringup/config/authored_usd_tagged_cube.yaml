@@ -1,0 +1,19 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+
+schema_version: 1
+tag_family: tag36h11
+tag_size: 0.04
+
+# In arx_sim.usd tag 0 is centered 26 mm outside the block's -X face. Isaac
+# ROS AprilTag +Z points into the block, so this transform advances 26 mm to
+# the center and rotates the detected tag axes back to the upright object frame.
+objects:
+  0:
+    class_id: tagged_block
+    object_name: tagged_block
+    confidence: 1.0
+    dimensions: [0.05, 0.05, 0.15]
+    tag_to_object:
+      translation: [0.0, 0.0, 0.026]
+      rotation: [0.0, -0.7071068, 0.0, 0.7071068]

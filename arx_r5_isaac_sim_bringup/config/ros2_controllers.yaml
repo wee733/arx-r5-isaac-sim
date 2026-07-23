@@ -5,7 +5,11 @@
 controller_manager:
   ros__parameters:
     update_rate: 100
-    enforce_command_limits: true
+    # cuMotion already time-parameterizes every trajectory against the ARX
+    # URDF/XRDF limits.  Re-limiting position commands from the delayed Isaac
+    # Sim feedback state makes the target recede indefinitely near a segment
+    # boundary and causes false GOAL_TOLERANCE_VIOLATED failures.
+    enforce_command_limits: false
 
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster

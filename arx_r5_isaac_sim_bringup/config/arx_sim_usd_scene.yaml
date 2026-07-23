@@ -1,0 +1,90 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+
+schema_version: 1
+
+robot:
+  robot_prim_path: /R5a
+  base_prim_path: /R5a/base_link
+  world_frame: world
+  base_frame: base_link
+  # Keep the articulation upright. The ZED-only +10 degree downward pitch is
+  # authored on its mount below, not on this robot root.
+  expected_world_to_base_rotation: [0.0, 0.0, 0.0, 1.0]
+  # The NVIDIA sensor assets carry their own dynamic rigid bodies. They are
+  # visual sensors mounted to articulation links here, so the runtime disables
+  # those nested rigid bodies in a non-persistent session layer.
+  sensor_rigid_body_paths:
+    - /R5a/base_link/ZED_X
+    - /R5a/link6/rsd455/RSD455
+
+# The binary USD remains exactly as the user authored it. Camera-specific
+# manipulation entry points select ``reachable`` in an anonymous session
+# layer: the robot base moves toward the work area while the ZED mount is
+# counter-translated, preserving the ZED's original world pose and local
+# +10-degree rotation. ``as-authored`` is retained for scene inspection.
+layouts:
+  as-authored:
+    prim_translations: {}
+    camera_parent_to_optical_translations: {}
+  reachable:
+    prim_translations:
+      /R5a: [0.0, 0.0, 0.4]
+      /R5a/base_link/ZED_X: [-0.2760323015, 0.0, -0.0683176448]
+    camera_parent_to_optical_translations:
+      zedx: [-0.2586554626, 0.06, -0.0561502512]
+
+# The hand-authored red block is visual-only in the source USD. Runtime
+# session overrides add a rigid body and collider without modifying that file.
+source_object:
+  prim_path: /World/Workspace/TaggedCube
+  collision_prim_path: /World/Workspace/TaggedCube/Body
+  grasp_body_prim_path: /R5a/link6
+  grasp_frame_prim_path: /R5a/link6/grasp_frame
+  mass_kg: 0.05
+
+tags:
+  source_texture_prim: /World/Workspace/TaggedCube/AprilTag_0/Material/Shader
+  target_texture_prim: /World/Workspace/DropTag_1/Material/Shader
+
+cameras:
+  zedx:
+    # Eye-to-hand mount: the USD keeps /R5a level and applies the intentional
+    # local +10 degree Y rotation only to the ZED X mount.
+    camera_prim_path: /R5a/base_link/ZED_X/base_link/ZED_X/CameraLeft
+    parent_prim_path: /R5a/base_link
+    parent_frame: base_link
+    optical_frame: zed_x_left_camera_optical_frame
+    # The ZED mount is rotated +10 degrees about base Y, so optical +Z looks
+    # 10 degrees downward. Its compensated mount translation preserves the
+    # camera's hand-authored world pose after making the robot root upright.
+    expected_parent_to_optical_translation: [0.2896500463, 0.06, -0.0561502512]
+    expected_optical_forward: [0.9848077530, 0.0, -0.1736481777]
+    # Keep the full 16:10 field of view selected by the authored 10 degree
+    # mount, but render at the ZED X native 1920x1200 mode. At 1280x800 the
+    # source tag spans only about 32 pixels and its PnP pose can flip between
+    # ambiguous solutions even though cuAprilTag still reports a detection.
+    width: 1920
+    height: 1200
+    frame_skip_count: 2
+    color_image_topic: /zed_x/left/image_raw
+    color_info_topic: /zed_x/left/camera_info
+    depth_image_topic: /zed_x/aligned_depth_to_left/image_raw
+    depth_info_topic: /zed_x/aligned_depth_to_left/camera_info
+
+  d455:
+    camera_prim_path: /R5a/link6/rsd455/RSD455/Camera_OmniVision_OV9782_Color
+    parent_prim_path: /R5a/link6
+    parent_frame: link6
+    optical_frame: d455_color_optical_frame
+    # This is a rigid hand-eye calibration edge. base_link -> link6 remains
+    # time-varying and comes from robot_state_publisher at the image timestamp.
+    expected_parent_to_optical_translation: [0.1044276157, -0.0115000179, 0.0767273606]
+    expected_optical_forward: [0.8660253514, 0.0, -0.5000000908]
+    width: 1280
+    height: 800
+    frame_skip_count: 2
+    color_image_topic: /d455/color/image_raw
+    color_info_topic: /d455/color/camera_info
+    depth_image_topic: /d455/aligned_depth_to_color/image_raw
+    depth_info_topic: /d455/aligned_depth_to_color/camera_info

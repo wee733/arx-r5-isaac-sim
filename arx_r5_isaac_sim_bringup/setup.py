@@ -22,6 +22,12 @@ from setuptools import find_packages, setup
 
 
 package_name = 'arx_r5_isaac_sim_bringup'
+local_config_basenames = {'my_tabletop.yaml'}
+config_files = sorted(
+    path
+    for path in glob('config/*.yaml') + glob('config/*.scene')
+    if os.path.basename(path) not in local_config_basenames
+)
 
 
 setup(
@@ -38,7 +44,22 @@ setup(
             os.path.join('share', package_name, 'LICENSES'),
             ['../LICENSES/BSD-3-Clause.txt'],
         ),
-        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (
+            os.path.join('share', package_name, 'config'),
+            config_files,
+        ),
+        (
+            os.path.join('share', package_name, 'assets', 'apriltag'),
+            glob('assets/apriltag/*.png'),
+        ),
+        (
+            os.path.join('share', package_name, 'assets', 'scenes'),
+            glob('assets/scenes/*.usd'),
+        ),
+        (
+            os.path.join('share', package_name, 'assets', 'meshes'),
+            glob('assets/meshes/*.obj'),
+        ),
         (
             os.path.join('share', package_name, 'launch'),
             glob('launch/*.launch.py'),
@@ -55,6 +76,14 @@ setup(
     entry_points={
         'console_scripts': [
             'start_arx_r5a_sim = arx_r5_isaac_sim_bringup.simulation:main',
+            'apriltag_pick_place_goal_client = '
+            'arx_r5_isaac_sim_bringup.tag_goal_client:main',
+            'sim_pick_place_orchestrator = '
+            'arx_r5_isaac_sim_bringup.sim_orchestrator:main',
+            'planning_scene_frame_adapter = '
+            'arx_r5_isaac_sim_bringup.planning_scene_frame_adapter:main',
+            'apriltag_pose_refiner = '
+            'arx_r5_isaac_sim_bringup.apriltag_pose_refiner:main',
         ],
     },
 )

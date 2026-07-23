@@ -87,7 +87,28 @@
         </state_interface>
         <state_interface name="velocity"/>
       </joint>
-      <!-- joint8 stays exclusively in the URDF/PhysX mimic relation. -->
+      <!--
+        joint8 is not claimed by a controller. TopicBasedSystem needs it in
+        the hardware block so its mimic pass can publish an eighth position
+        value matching the eighth joint name sent to Isaac Sim.
+      -->
+      <!--
+        Jazzy otherwise imports the robot URDF's mimic tag into ros2_control
+        and rejects this required transport command interface. Disable that
+        core mimic path here; TopicBasedSystem performs the explicit copy.
+      -->
+      <joint name="joint8" mimic="false">
+        <param name="mimic">joint7</param>
+        <param name="multiplier">1</param>
+        <command_interface name="position">
+          <param name="min">0.0</param>
+          <param name="max">0.044</param>
+        </command_interface>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['joint8']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+      </joint>
     </ros2_control>
   </xacro:macro>
 </robot>
