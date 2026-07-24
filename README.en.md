@@ -26,17 +26,18 @@ cuMotion / MoveIt FollowJointTrajectory
   -> ros2_control / MoveIt
 ```
 
-The current release has been validated end to end in simulation: cuMotion
+Earlier simulation runs validated the base control loop: cuMotion
 **Plan / Execute** succeeds in RViz, both the manipulator
 `FollowJointTrajectory` and gripper `GripperCommand` actions return
 `SUCCEEDED`, and joint states continuously return from Isaac Sim to MoveIt.
-Camera publishing, TF, and AprilTag perception are verified on the original
-authored USD. The only eye-to-hand entry is the ZED X fixed in front of ARX;
-the D455 is attached to `link6` and is the eye-in-hand entry. However, on
-2026-07-23 the source
-pose was approximately `base_link (0.892, -0.180, -0.173) m`, and cuMotion
-returned `INVERSE_KINEMATICS_FAILURE`. Neither authored ZED X nor D455 can
-currently be claimed as an end-to-end pick-and-place pass.
+Camera publishing, TF, and AprilTag perception are verified on the authored
+USD. The only eye-to-hand entry is the ZED X fixed in front of ARX; the D455 is
+attached to `link6` and is the eye-in-hand entry. On 2026-07-24, `/R5a` was
+permanently authored at `(-0.4, 0.0, 0.37) m`, placing the current source at
+approximately `base_link (0.741, -0.180, -0.169) m`. This new workcell pose
+still requires a fresh end-to-end cuMotion pick-and-place acceptance run. The
+2026-07-23 `INVERSE_KINEMATICS_FAILURE` was measured with the previous robot
+root pose.
 
 The tested baseline is Ubuntu 24.04, ROS 2 Jazzy, Isaac ROS 4.5, cuMotion 4.5,
 and Isaac Sim 5.1.0 installed in a conda environment named `isaaclab`.
@@ -294,10 +295,12 @@ perception entries. Both reuse the same Isaac ROS manipulation servers,
 upstream Multi-Object Pick-and-Place behavior tree, cuMotion, MoveIt, and
 ros2_control after perception.
 
-The LFS asset is a byte-for-byte copy of the original authored USD (SHA-256
-`7162ec49dedd9dabe7748a9fd1da16d8b2164cf385c297ac8c94797efd61f1c0`). It is
-treated as a read-only source layer; every runtime patch is authored into an
-anonymous session layer.
+The LFS asset is the current authored workcell USD (SHA-256
+`864be889853dd6829d3100352599b31a1fdb55ec41d7172d871dcf0511ebbcbc`). Its
+`/R5a` root translation is permanently stored as `[-0.4, 0.0, 0.37]`; the ZED
+X mount translation relative to `base_link` remains `[0.28, 0.0, -0.02]`.
+Runtime treats this file as a read-only source layer and writes temporary
+physics patches into an anonymous session layer.
 
 | Mode | Mount | Image | Rectified intermediate | cuAprilTag raw | Manipulation input |
 |---|---|---|---|---|---|
@@ -305,9 +308,9 @@ anonymous session layer.
 | D455 eye-in-hand | Fixed to the moving `link6` | `/d455/color/image_raw` | `/d455/apriltag/image_rect`, `/d455/apriltag/camera_info_rect` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
 
 The ZED X position and orientation come exactly from the USD scene you authored
-in Isaac Sim. It is in front of the ARX workcell; the simulator never moves the
-camera behind the arm, creates another eye-to-hand view, or repositions the
-robot.
+in Isaac Sim. It is in front of the ARX workcell. The current root pose is
+permanently stored in the asset; runtime does not move the camera, reorient the
+robot, or override `/R5a`.
 
 Both modes use the official
 `nvidia::isaac_ros::apriltag::AprilTagNode` with the CUDA/cuAprilTag backend.
@@ -323,13 +326,14 @@ refined stream instead of interleaving a native pose. The official output
 remains intact on `*_raw`. The downstream ARX object adapter then uses that
 unchanged image timestamp to transform the pose into `base_link`.
 
-Both simulator wrappers select `--authored-layout as-authored` by default. This
-profile has no pose overrides, so `/R5a`, ZED, D455, objects, targets, and any
-other authored environment geometry remain exactly where you placed them.
-Runtime changes are confined to the anonymous USD session layer: physics,
-materials, collision settings, and camera projection attributes needed by the
-ROS bridge. They never modify `assets/scenes/arx_sim.usd`. Camera vertical
-aperture is normalized in that session layer to match the selected output size.
+Both simulator wrappers directly use the permanently authored
+`/R5a = [-0.4, 0.0, 0.37]`. There is no runtime robot-root override or alternate
+front-demo layout. ZED, D455, objects, targets, and the rest of the environment
+retain their authored USD relationships. Runtime changes are confined to the
+anonymous USD session layer: physics, materials, collision settings, and
+camera projection attributes needed by the ROS bridge. They never modify
+`assets/scenes/arx_sim.usd`. Camera vertical aperture is normalized in that
+session layer to match the selected output size.
 
 The authored profiles load the tabletop and four legs as five static collision
 objects through the official cuMotion Static Planning Scene Server. Isaac ROS
@@ -345,8 +349,10 @@ tag-relative `link6_offset_in_tag: [0, 0, -0.315]`. Of that distance, `205 mm`
 is the top-grasp distance from `link6` to the block center, `75 mm` is the block
 half-height, and the remaining `35 mm` is clearance above the detected plane.
 The diagnostic sequence was `-0.280 m`/`0 mm`, then `-0.295 m`/`15 mm` which
-still failed, and finally the passing `-0.315 m`/`35 mm`. The explicit
-engineering budget is the Object Attachment `max_overshoot` of `10 mm`, the
+still failed, followed by `-0.315 m`/`35 mm`, which passed the earlier local
+clearance diagnostic. That result is not an end-to-end acceptance of the new
+permanent root pose. The explicit engineering budget is the Object Attachment
+`max_overshoot` of `10 mm`, the
 XRDF attached-object buffer of `2 mm`, a `10 mm` PnP depth-error allowance,
 and a `5 mm` safety margin: `27 mm` total with `8 mm` remaining. A lower goal
 can therefore have a valid kinematic IK solution while cuMotion correctly
@@ -362,7 +368,7 @@ TTL is `2.0 s`.
 
 Because the upstream tree continuously calls `/get_objects`, authored mode
 admits discovery only inside the `base_link` source zone
-`[0.20, -0.30, -0.39] .. [0.40, -0.08, -0.25] m`. This prevents a placed block
+`[0.65, -0.30, -0.25] .. [0.85, -0.08, -0.10] m`. This prevents a placed block
 from starting a second cycle. It gates only `/get_objects`; it does not alter
 the active task's `/get_object_pose` cache or freshness semantics.
 
@@ -394,12 +400,14 @@ Read-only acceptance check:
 ./scripts/check_ros_graph.sh --zedx
 ```
 
-The original authored USD has verified ZED X image, CameraInfo, TF, and official
-CUDA cuAprilTag perception, with the camera remaining in front of ARX. Its
-source is currently at approximately
-`base_link (0.892, -0.180, -0.173) m`; on 2026-07-23 cuMotion returned
-`INVERSE_KINEMATICS_FAILURE` before contact, attachment, transport, or
-placement.
+The authored USD has verified ZED X image, CameraInfo, TF, and official CUDA
+cuAprilTag perception, with the camera remaining in front of ARX. After the
+permanent root move, the source ground truth is approximately
+`base_link (0.741, -0.180, -0.169) m`; cuMotion, contact, attachment, transport,
+and placement must be accepted again. The old
+`base_link (0.892, -0.180, -0.173) m` pose returned
+`INVERSE_KINEMATICS_FAILURE` on 2026-07-23 and does not establish reachability
+for the current asset.
 
 ### D455: wrist-mounted eye-in-hand
 
@@ -426,10 +434,11 @@ cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
 `run_d455_sim.sh` initializes the arm at a retained D455 startup joint seed:
 `[-1.3919817209, 1.8859872818, 0.5746622086, -0.6957563162, -0.6273930669, -1.9993159771, 0.044, 0.044]`,
 ordered as `joint1..joint8`. It keeps the Isaac Sim and ros2_control startup
-states consistent. The source is outside the configured arm workspace and
-cuMotion returns
-`INVERSE_KINEMATICS_FAILURE`. ros2_control uses the corresponding eight startup
-values, with `joint8` equal to `joint7`.
+states consistent. This seed has not yet completed end-to-end acceptance with
+the new permanent robot-root pose; the previous root pose's
+`INVERSE_KINEMATICS_FAILURE` must not be reused as the current conclusion.
+ros2_control uses the corresponding eight startup values, with `joint8` equal
+to `joint7`.
 TopicBasedSystem continues to mirror the `joint7` command into `joint8`; no
 controller exposes it as a second gripper DOF.
 `link6 -> d455_color_optical_frame` is a fixed mount edge,
@@ -550,10 +559,10 @@ consecutive physics steps. The default is `3` steps and is adjustable with
 `link6` stabilizes transport; opening the gripper deletes the joint. This is
 not a purely friction-generated grasp. cuMotion Object Attachment separately
 maintains the planning-scene attachment. ZED X and D455 have verified camera,
-TF, and AprilTag perception, but the original source at
-`base_link (0.892, -0.180, -0.173) m` produced
-`INVERSE_KINEMATICS_FAILURE` on 2026-07-23, so authored end-to-end acceptance
-remains incomplete. Nvblox/ESDF, calibrated physical
+TF, and AprilTag perception. The current permanent root pose places the source
+at `base_link (0.741, -0.180, -0.169) m`, and authored end-to-end acceptance
+must be rerun. The 2026-07-23 `INVERSE_KINEMATICS_FAILURE` belongs to the old
+root pose. Nvblox/ESDF, calibrated physical
 grasping, real TCP/camera extrinsics, collision geometry, and emergency-stop
 validation remain required before real hardware use. Simulation success does
 not guarantee hardware success.

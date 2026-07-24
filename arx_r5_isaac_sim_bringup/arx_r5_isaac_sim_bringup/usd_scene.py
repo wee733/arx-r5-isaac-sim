@@ -44,17 +44,6 @@ class CameraPublisherConfig:
 
 
 @dataclass(frozen=True)
-class AuthoredLayoutConfig:
-    """Non-persistent transform overrides for one authored-scene layout."""
-
-    name: str
-    prim_translations: Dict[str, Tuple[float, float, float]]
-    camera_parent_to_optical_translations: Dict[
-        str, Tuple[float, float, float]
-    ]
-
-
-@dataclass(frozen=True)
 class UsdSceneConfig:
     """Validated paths and sensor profiles for the authored USD scene."""
 
@@ -62,6 +51,7 @@ class UsdSceneConfig:
     base_prim_path: str
     world_frame: str
     base_frame: str
+    expected_world_to_base_translation: Tuple[float, float, float]
     expected_world_to_base_rotation: Tuple[float, float, float, float]
     sensor_rigid_body_paths: Tuple[str, ...]
     source_object_prim_path: str
@@ -70,7 +60,6 @@ class UsdSceneConfig:
     grasp_frame_prim_path: str
     source_object_mass_kg: float
     cameras: Dict[str, CameraPublisherConfig]
-    layouts: Dict[str, AuthoredLayoutConfig]
     source_tag_texture_prim: str
     target_tag_texture_prim: str
 
@@ -233,59 +222,6 @@ def load_usd_scene_config(path: str | Path) -> UsdSceneConfig:
     if source_object_mass_kg <= 0.0:
         raise ValueError('source_object.mass_kg must be greater than zero')
 
-    layout_map = raw.get('layouts', {})
-    if not isinstance(layout_map, dict) or 'as-authored' not in layout_map:
-        raise ValueError('layouts must define an as-authored profile')
-    layouts = {}
-    for name, layout_raw in layout_map.items():
-        normalized_name = str(name).strip()
-        if not normalized_name or not isinstance(layout_raw, dict):
-            raise ValueError(f'layouts.{normalized_name} must be a mapping')
-        prim_translation_raw = layout_raw.get('prim_translations', {})
-        camera_translation_raw = layout_raw.get(
-            'camera_parent_to_optical_translations',
-            {},
-        )
-        if not isinstance(prim_translation_raw, dict):
-            raise ValueError(
-                f'layouts.{normalized_name}.prim_translations '
-                'must be a mapping'
-            )
-        if not isinstance(camera_translation_raw, dict):
-            raise ValueError(
-                f'layouts.{normalized_name}.'
-                'camera_parent_to_optical_translations must be a mapping'
-            )
-        camera_overrides = {}
-        for camera_name, translation in camera_translation_raw.items():
-            if camera_name not in cameras:
-                raise ValueError(
-                    f'layouts.{normalized_name} references unknown camera '
-                    f'{camera_name!r}'
-                )
-            camera_overrides[camera_name] = _finite_vector(
-                translation,
-                3,
-                f'layouts.{normalized_name}.'
-                'camera_parent_to_optical_translations.'
-                f'{camera_name}',
-            )
-        layouts[normalized_name] = AuthoredLayoutConfig(
-            name=normalized_name,
-            prim_translations={
-                _absolute_prim_path(
-                    prim_path,
-                    f'layouts.{normalized_name}.prim_translations',
-                ): _finite_vector(
-                    translation,
-                    3,
-                    f'layouts.{normalized_name}.prim_translations.'
-                    f'{prim_path}',
-                )
-                for prim_path, translation in prim_translation_raw.items()
-            },
-            camera_parent_to_optical_translations=camera_overrides,
-        )
     tags = raw.get('tags', {})
     return UsdSceneConfig(
         robot_prim_path=_absolute_prim_path(
@@ -296,6 +232,11 @@ def load_usd_scene_config(path: str | Path) -> UsdSceneConfig:
         ),
         world_frame=_frame(robot.get('world_frame', 'world'), 'robot.world_frame'),
         base_frame=_frame(robot.get('base_frame', 'base_link'), 'robot.base_frame'),
+        expected_world_to_base_translation=_finite_vector(
+            robot.get('expected_world_to_base_translation'),
+            3,
+            'robot.expected_world_to_base_translation',
+        ),
         expected_world_to_base_rotation=_unit_vector(
             robot.get('expected_world_to_base_rotation'),
             4,
@@ -319,7 +260,6 @@ def load_usd_scene_config(path: str | Path) -> UsdSceneConfig:
         ),
         source_object_mass_kg=source_object_mass_kg,
         cameras=cameras,
-        layouts=layouts,
         source_tag_texture_prim=_absolute_prim_path(
             tags.get('source_texture_prim'), 'tags.source_texture_prim'
         ),

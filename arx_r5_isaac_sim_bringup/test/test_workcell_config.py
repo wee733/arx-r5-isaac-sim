@@ -30,9 +30,6 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 AUTHORED_CONFIG_PATH = (
     PACKAGE_ROOT / 'config' / 'authored_usd_apriltag_demo.yaml'
 )
-FRONT_DEMO_CONFIG_PATH = (
-    PACKAGE_ROOT / 'config' / 'front_demo_apriltag_demo.yaml'
-)
 CONTROLLERS_PATH = PACKAGE_ROOT / 'config' / 'ros2_controllers.yaml'
 
 
@@ -52,30 +49,11 @@ def test_authored_source_zone_contains_pick_but_not_drop_workstation():
     """Continuous discovery must not rediscover a placed block."""
     config = load_demo_config(AUTHORED_CONFIG_PATH)
     zone = config.source_zone
-    source_in_base = (0.8918535, -0.180, -0.1727558)
-    drop_in_base = (0.6976606, 0.1961878, -0.2826465)
+    source_in_base = (0.7405916395, -0.180, -0.1689645628)
+    drop_in_base = (0.5463987272, 0.1961877804, -0.2788552953)
 
     assert zone.enabled is True
     assert zone.frame == 'base_link'
-    assert all(
-        zone.minimum[index] <= source_in_base[index] <= zone.maximum[index]
-        for index in range(3)
-    )
-    assert not all(
-        zone.minimum[index] <= drop_in_base[index] <= zone.maximum[index]
-        for index in range(3)
-    )
-
-
-def test_front_demo_source_zone_matches_the_translated_robot_root():
-    """The opt-in root translation needs its own discovery zone."""
-    config = load_demo_config(FRONT_DEMO_CONFIG_PATH)
-    zone = config.source_zone
-    source_in_base = (0.3518780, -0.180, -0.2679681)
-    drop_in_base = (0.1576851, 0.1961878, -0.3778588)
-
-    assert zone.minimum == pytest.approx((0.27, -0.30, -0.34))
-    assert zone.maximum == pytest.approx((0.44, -0.08, -0.19))
     assert all(
         zone.minimum[index] <= source_in_base[index] <= zone.maximum[index]
         for index in range(3)
@@ -152,9 +130,8 @@ def test_destination_tag_maps_to_the_configured_link6_offset():
 
 def test_workcell_configs_do_not_define_a_generated_camera():
     """Camera geometry belongs only to the authored USD sensor contract."""
-    for path in (AUTHORED_CONFIG_PATH, FRONT_DEMO_CONFIG_PATH):
-        raw = yaml.safe_load(path.read_text(encoding='utf-8'))
-        assert 'camera' not in raw
+    raw = yaml.safe_load(AUTHORED_CONFIG_PATH.read_text(encoding='utf-8'))
+    assert 'camera' not in raw
 
 
 def test_legacy_generated_camera_files_are_removed():
@@ -167,6 +144,9 @@ def test_legacy_generated_camera_files_are_removed():
         PACKAGE_ROOT / 'config' / 'tabletop_apriltag_behavior_tree.yaml',
         PACKAGE_ROOT / 'config' / 'tabletop_apriltag_blackboard.yaml',
         PACKAGE_ROOT / 'config' / 'tabletop_tagged_cube_grasps.yaml',
+        PACKAGE_ROOT / 'config' / 'front_demo_apriltag_demo.yaml',
+        PACKAGE_ROOT / 'config' / 'front_demo_table.scene',
+        PACKAGE_ROOT / 'launch' / 'arx_r5a_zedx_front_demo.launch.py',
     )
 
     assert all(not path.exists() for path in removed_paths)
@@ -201,5 +181,7 @@ def test_simulation_publishes_only_authored_camera_streams():
     assert 'IsaacCreateRenderProduct' in source
     assert '_validate_grasp_frame_import(stage, robot_path)' in source
     assert 'create_tabletop_scene' not in source
+    assert '_apply_authored_layout' not in source
+    assert '--authored-layout' not in source
     assert "'camera_1'" not in source
     assert '/World/Sensors/Camera_1' not in source

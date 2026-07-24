@@ -27,7 +27,6 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_ROOT = PACKAGE_ROOT / 'config'
 LAUNCH_ROOT = PACKAGE_ROOT / 'launch'
 SHARED_LAUNCH = LAUNCH_ROOT / 'arx_r5a_authored_usd_demo.launch.py'
-FRONT_LAUNCH = LAUNCH_ROOT / 'arx_r5a_zedx_front_demo.launch.py'
 MOTION_LAUNCH = LAUNCH_ROOT / 'arx_r5a_isaac_sim.launch.py'
 POSE_REFINER = (
     PACKAGE_ROOT / 'arx_r5_isaac_sim_bringup' / 'apriltag_pose_refiner.py'
@@ -82,20 +81,6 @@ def test_shared_launch_selects_unique_camera_contracts():
     assert "'expected_camera_frame': camera.optical_frame" in source
 
 
-def test_front_demo_launch_selects_a_paired_layout_contract():
-    """The opt-in front demo must select ZED and matching scene inputs."""
-    shared_source = SHARED_LAUNCH.read_text(encoding='utf-8')
-    front_source = FRONT_LAUNCH.read_text(encoding='utf-8')
-
-    assert "'layout_profile': 'front-demo'" in front_source
-    assert "'camera_profile': 'zedx'" in front_source
-    assert "'front-demo': (" in shared_source
-    assert "'front_demo_apriltag_demo.yaml'" in shared_source
-    assert "'front_demo_table.scene'" in shared_source
-    assert "'layout_profile'" in shared_source
-    assert "'collision_scene_file': collision_scene_file" in shared_source
-
-
 def test_authored_workflow_discovers_objects_only_in_the_source_zone():
     """A placed tag must not start a second official behavior-tree cycle."""
     source = SHARED_LAUNCH.read_text(encoding='utf-8')
@@ -106,8 +91,8 @@ def test_authored_workflow_discovers_objects_only_in_the_source_zone():
 
     assert source_zone['enabled'] is True
     assert source_zone['frame'] == 'base_link'
-    assert source_zone['min_xyz'] == pytest.approx([0.80, -0.30, -0.25])
-    assert source_zone['max_xyz'] == pytest.approx([1.00, -0.08, -0.10])
+    assert source_zone['min_xyz'] == pytest.approx([0.65, -0.30, -0.25])
+    assert source_zone['max_xyz'] == pytest.approx([0.85, -0.08, -0.10])
     assert 'demo_config.source_zone.frame != scene_config.base_frame' in source
     assert 'source_zone.frame must match the USD scene base_frame' in source
     assert "'source_zone_enabled': demo_config.source_zone.enabled" in source
@@ -302,52 +287,11 @@ def test_authored_table_is_loaded_by_the_official_cumotion_scene_server():
         )
 
     expected_centers = {
-        'TableTop': (0.860846171, 0.0, -0.284843037),
-        'FrontLeftLeg': (0.504530813, -0.32, -0.682761830),
-        'FrontRightLeg': (0.504530813, 0.32, -0.682761830),
-        'RearLeftLeg': (1.331769326, -0.32, -0.536897361),
-        'RearRightLeg': (1.331769326, 0.32, -0.536897361),
-    }
-    expected_orientation = (0.0, -0.087155743, 0.0, 0.996194698)
-
-    assert set(object_poses) == set(expected_centers)
-    for object_name, expected_center in expected_centers.items():
-        center, orientation = object_poses[object_name]
-        assert center == pytest.approx(expected_center, abs=1e-9)
-        assert orientation == pytest.approx(
-            expected_orientation,
-            abs=1e-9,
-        )
-
-
-def test_front_demo_table_is_expressed_in_its_translated_base_frame():
-    """cuMotion collision boxes must follow the opt-in /R5a translation."""
-    scene_path = CONFIG_ROOT / 'front_demo_table.scene'
-    scene_lines = [
-        line.strip()
-        for line in scene_path.read_text(encoding='utf-8').splitlines()
-        if line.strip()
-    ]
-    object_poses = {}
-    for index, line in enumerate(scene_lines):
-        if line.startswith('* '):
-            object_poses[line[2:]] = (
-                tuple(
-                    float(value)
-                    for value in scene_lines[index + 1].split()
-                ),
-                tuple(
-                    float(value)
-                    for value in scene_lines[index + 2].split()
-                ),
-            )
-
-    expected_centers = {
-        'TableTop': (0.320870655, 0.0, -0.380055289),
-        'FrontLeftLeg': (-0.035444703, -0.32, -0.777974082),
-        'FrontRightLeg': (-0.035444703, 0.32, -0.777974082),
-        'RearLeftLeg': (0.791793810, -0.32, -0.632109613),
-        'RearRightLeg': (0.791793810, 0.32, -0.632109613),
+        'TableTop': (0.709584310, 0.0, -0.281051785),
+        'FrontLeftLeg': (0.353268954, -0.32, -0.678970593),
+        'FrontRightLeg': (0.353268954, 0.32, -0.678970593),
+        'RearLeftLeg': (1.180507484, -0.32, -0.533106121),
+        'RearRightLeg': (1.180507484, 0.32, -0.533106121),
     }
     expected_orientation = (0.0, -0.087155743, 0.0, 0.996194698)
 

@@ -16,15 +16,14 @@
 [cuMotion MoveIt + Isaac Sim 4.5 教程](https://nvidia-isaac-ros.github.io/v/release-4.5/concepts/manipulation/cumotion_moveit/tutorial_isaac_sim.html)
 实现从 GPU 规划到 PhysX 执行、再到 ROS 2 状态回传的完整闭环，而不只是显示 URDF。
 
-当前版本已经完成仿真端到端验证：RViz 中的 cuMotion **Plan / Execute** 成功，
+此前的仿真运行已经完成基础控制链验证：RViz 中的 cuMotion **Plan / Execute** 成功，
 机械臂 `FollowJointTrajectory` 与夹爪 `GripperCommand` action 均返回 `SUCCEEDED`；
 `joint8 <- joint7` TopicBasedSystem 命令镜像、ROS 2 Bridge 和 MoveIt 状态回传均已接通。
-原始 authored USD 的相机发布、TF 和 AprilTag 感知已经验证。眼在手外入口唯一为
-固定在 ARX 前方的 ZED X；D455 固定在 `link6`，作为眼在手上入口。但 2026-07-23
-使用原始布局时，source 在 `base_link`
-中约为 `(0.892, -0.180, -0.173) m`，cuMotion 返回
-`INVERSE_KINEMATICS_FAILURE`。因此目前不能宣称 ZED X 或 D455 authored 模式已完成
-端到端抓放验收。
+authored USD 的相机发布、TF 和 AprilTag 感知已经验证。眼在手外入口唯一为固定在 ARX
+前方的 ZED X；D455 固定在 `link6`，作为眼在手上入口。2026-07-24 已把资产中的
+`/R5a` 永久设为 `(-0.4, 0.0, 0.37) m`，当前 source 真值约为
+`base_link (0.741, -0.180, -0.169) m`。这个新工作位尚需重新完成 cuMotion 端到端
+抓放验收；2026-07-23 的 `INVERSE_KINEMATICS_FAILURE` 属于旧根位姿下的历史结果。
 
 ## 功能概览
 
@@ -297,9 +296,11 @@ You can start planning now!
 Isaac ROS manipulation、官方 Multi-Object Pick-and-Place 行为树、cuMotion、MoveIt
 和 ros2_control：
 
-该 LFS 资产是你原始 authored USD 的逐字节副本（SHA-256
-`7162ec49dedd9dabe7748a9fd1da16d8b2164cf385c297ac8c94797efd61f1c0`）。
-程序把它作为只读源层，所有运行时补丁都进入匿名 session layer。
+该 LFS 资产是当前工作的 authored USD（SHA-256
+`864be889853dd6829d3100352599b31a1fdb55ec41d7172d871dcf0511ebbcbc`）。其中 `/R5a`
+根平移已永久保存为 `[-0.4, 0.0, 0.37]`；ZED X 相对 `base_link` 的 mount 平移仍为
+`[0.28, 0.0, -0.02]`。程序运行时把文件作为只读源层，临时物理补丁进入匿名 session
+layer。
 
 | 模式 | 安装关系 | 图像 | rectified 中间话题 | cuAprilTag raw | manipulation 输入 |
 |---|---|---|---|---|---|
@@ -307,7 +308,8 @@ Isaac ROS manipulation、官方 Multi-Object Pick-and-Place 行为树、cuMotion
 | D455 eye-in-hand | 固定在随关节运动的 `link6` | `/d455/color/image_raw` | `/d455/apriltag/image_rect`、`/d455/apriltag/camera_info_rect` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
 
 ZED X 的位置和朝向完全来自你在 Isaac Sim 中设计并保存的 USD；它位于 ARX
-前方。程序不会把相机搬到机械臂后方，也不会为了“可达”而旋转或平移整台机械臂。
+前方。当前根位姿已经永久写入资产，程序运行时不会再搬动相机、旋转机械臂或覆盖
+`/R5a` 根位姿。
 
 两种模式的检测器都是官方
 `nvidia::isaac_ros::apriltag::AprilTagNode`，后端为 CUDA/cuAprilTag。其原始 ID、
@@ -323,11 +325,12 @@ manipulation 话题。缺少同时间戳图像、图像无效、求解失败或�
 `config/arx_sim_usd_scene.yaml` 中的 authored contract 校验；ROS launch 不再叠加任何
 手写的相机角度或位姿。
 
-两个仿真 wrapper 默认选择 `--authored-layout as-authored`。该 profile 的所有位姿覆盖
-都是空的，因此 `/R5a`、ZED、D455、物体、目标和任何用户设计的环境都保持原样。运行时
-只在匿名 USD session layer 中添加必要的物理、材质、碰撞和相机投影属性；这些修改不会
-写回 `assets/scenes/arx_sim.usd`。相机 vertical aperture 也只在 session layer 中按实际
-输出宽高归一化，以保持 CameraInfo 与渲染图像一致。
+两个仿真 wrapper 都直接使用资产中永久保存的 `/R5a = [-0.4, 0.0, 0.37]`，不再提供
+运行时根节点位姿覆盖或另一套 front-demo 布局。ZED、D455、物体、目标和其他用户设计的
+环境保持 USD 中的 authored 关系。运行时只在匿名 USD session layer 中添加必要的物理、
+材质、碰撞和相机投影属性；这些修改不会写回 `assets/scenes/arx_sim.usd`。相机 vertical
+aperture 也只在 session layer 中按实际输出宽高归一化，以保持 CameraInfo 与渲染图像
+一致。
 
 authored 模式会把桌面和四条桌腿作为五个静态碰撞对象交给官方 cuMotion
 Static Planning Scene Server。由于 Isaac ROS 4.5 的 `.scene` 解析器把对象 header
@@ -339,7 +342,8 @@ frame adapter 将这些本来就以 `base_link` 数值编写的对象规范到 c
 TF，再应用 tag-relative `link6_offset_in_tag: [0, 0, -0.315]`。其中 `205 mm` 是顶抓时
 `link6` 到红块中心的距离，`75 mm` 是红块半高，余下 `35 mm` 是检测平面上方的投放
 净空。诊断链为：`-0.280 m` 只有 `0 mm`，`-0.295 m` 有 `15 mm` 但仍失败，当前
-`-0.315 m` 有 `35 mm` 并通过。当前工程预算显式包含 Object Attachment
+`-0.315 m` 有 `35 mm`，并通过了此前的局部碰撞裕量诊断；这不等于当前永久根位姿已经
+完成整条抓放流程。工程预算显式包含 Object Attachment
 `max_overshoot=10 mm`、XRDF attached-object buffer `2 mm`、PnP 深度误差预算
 `10 mm` 和安全余量 `5 mm`，合计 `27 mm`，还保留 `8 mm`。较低目标即使纯运动学
 IK 可解，也可能因附着碰撞体进入静态桌面而由 cuMotion 返回
@@ -353,7 +357,7 @@ TTL 为 `2.0 s`。
 
 官方行为树会持续调用 `/get_objects`。为避免成功投放后又发现同一红块并启动第二轮，
 authored 配置只在 `base_link` 的 source-zone
-`[0.20, -0.30, -0.39] .. [0.40, -0.08, -0.25] m` 内允许 discovery。这个门控只作用于
+`[0.65, -0.30, -0.25] .. [0.85, -0.08, -0.10] m` 内允许 discovery。这个门控只作用于
 `/get_objects`，不会改变当前任务使用的 `/get_object_pose` 缓存与 freshness 语义。
 
 ### ZED X：固定眼在手外
@@ -387,10 +391,11 @@ cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
 ./scripts/check_ros_graph.sh --zedx
 ```
 
-原始 authored USD 已验证 ZED X 图像、CameraInfo、TF 和官方 CUDA cuAprilTag 感知；
-ZED 相机保持在 ARX 前方。当前原始布局中的 source 位于
-`base_link ≈ (0.892, -0.180, -0.173) m`，2026-07-23 的 cuMotion 规划返回
-`INVERSE_KINEMATICS_FAILURE`，尚未进入接触、attach、搬运和投放阶段。
+authored USD 已验证 ZED X 图像、CameraInfo、TF 和官方 CUDA cuAprilTag 感知；ZED
+相机保持在 ARX 前方。永久移动后的 source 真值为
+`base_link ≈ (0.741, -0.180, -0.169) m`，需要重新运行 cuMotion、接触、attach、搬运和
+投放验收。旧 `base_link ≈ (0.892, -0.180, -0.173) m` 根位姿曾在 2026-07-23 返回
+`INVERSE_KINEMATICS_FAILURE`，不能代表当前资产的可达性。
 
 ### D455：腕部眼在手上
 
@@ -416,8 +421,8 @@ cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
 `run_d455_sim.sh` 会把机械臂初始化到一个保留的 D455 启动关节位
 `[-1.3919817209, 1.8859872818, 0.5746622086, -0.6957563162, -0.6273930669, -1.9993159771, 0.044, 0.044]`，
 依次对应 `joint1..joint8`。它只用于让 Isaac Sim 与 ros2_control 以一致初值启动。
-当前原始布局的 source 同样超出已配置机械臂工作域，cuMotion 返回
-`INVERSE_KINEMATICS_FAILURE`。
+这个关节 seed 尚未在新的永久根位姿上重新完成端到端验收；旧根位姿下的
+`INVERSE_KINEMATICS_FAILURE` 不能直接沿用为当前结论。
 ros2_control hardware 使用全部八个初值；
 `joint8` 初值等于 `joint7`，后续也由 TopicBasedSystem 复制 `joint7` 命令，不会被
 controller 作为第二个夹爪自由度单独控制。
@@ -573,9 +578,9 @@ USD 是生成物，默认不提交。仓库已为 `.usd`、`.usda`、`.usdc`、`
   joint。FixedJoint 只用于稳定搬运，这仍不是纯靠接触力与摩擦自然形成的夹持。
   cuMotion Object Attachment 另行维护规划场景中的 attached object。
 - D455 按每帧图像时间戳查询动态 TF，但当前流程不是 continuous visual servo。
-- ZED X 与 D455 authored 模式已验证相机、TF 和 AprilTag 感知，但原始布局中的 source
-  为 `base_link ≈ (0.892, -0.180, -0.173) m`，cuMotion 于 2026-07-23 返回
-  `INVERSE_KINEMATICS_FAILURE`，尚未完成端到端抓放。
+- ZED X 与 D455 authored 模式已验证相机、TF 和 AprilTag 感知。当前永久根位姿下的
+  source 为 `base_link ≈ (0.741, -0.180, -0.169) m`，尚需重新完成端到端抓放；
+  2026-07-23 的 `INVERSE_KINEMATICS_FAILURE` 是旧根位姿的历史结果。
 - Nvblox/ESDF 与经标定的接触抓取仍属于下一阶段。
 - 当前 ARX 模型仍需完成真实 TCP、相机外参、碰撞几何、整机标定和急停验收；仿真
   成功不能保证实机必然成功。

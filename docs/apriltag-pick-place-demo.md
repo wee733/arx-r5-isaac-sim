@@ -11,10 +11,11 @@
 - ID `0` 贴在 authored USD 的 `50 × 50 × 150 mm` 红色待抓取物体上；
 - ID `1` 贴在桌面另一侧，是投放目标。
 
-2026-07-23 使用原始 authored 布局时，
-source 在 `base_link` 中约为 `(0.892, -0.180, -0.173) m`，cuMotion 返回
-`INVERSE_KINEMATICS_FAILURE`。因此目前只能宣称 ZED X 位于 ARX 前方且两套相机的
-感知链已验证，不能宣称 authored ZED X 或 D455 已完成端到端抓放。
+2026-07-24 已把 authored USD 中的 `/R5a` 永久设为 `(-0.4, 0.0, 0.37) m`；当前
+source 真值约为 `base_link (0.741, -0.180, -0.169) m`。ZED X 位于 ARX 前方且两套
+相机的感知链已经验证，但新工作位仍需重新完成端到端抓放验收。2026-07-23 的
+`INVERSE_KINEMATICS_FAILURE` 来自旧根位姿下约
+`base_link (0.892, -0.180, -0.173) m` 的 source，不是当前资产的验收结论。
 
 本文档的已验证通信配置为：
 
@@ -81,10 +82,11 @@ ros2_control 和 Isaac Sim 控制话题仍走标准接口。
 两种 authored USD 模式一次只能运行一套。Isaac Sim 和 ROS 终端必须选择相同相机，
 并保持相同的 `ROS_DOMAIN_ID` 与 `RMW_IMPLEMENTATION`。
 
-两个仿真入口默认使用 `--authored-layout as-authored`。该 profile 不包含任何位姿覆盖，
-所以 `/R5a`、ZED、D455、物体、目标和你在 Isaac Sim 中设计的环境都保持原样。运行时
-只在匿名 USD session layer 中添加必要的物理、材质、碰撞和相机投影属性；退出 Isaac
-Sim 后这些修改消失，源文件 `assets/scenes/arx_sim.usd` 不会被覆盖。
+两个仿真入口都直接使用资产中永久保存的 `/R5a = [-0.4, 0.0, 0.37]`，不再支持运行时
+根位姿覆盖或另一套 front-demo 布局。ZED、D455、物体、目标和你在 Isaac Sim 中设计的
+其他环境保持 authored 关系。运行时只在匿名 USD session layer 中添加必要的物理、
+材质、碰撞和相机投影属性；退出 Isaac Sim 后这些临时修改消失，源文件
+`assets/scenes/arx_sim.usd` 不会被覆盖。
 
 authored USD 的相机输出为 16:10。启动时会在同一个非持久 session layer 中按
 `vertical_aperture = horizontal_aperture × height / width` 规范相机投影，避免用
@@ -121,9 +123,9 @@ Rectify 中间话题为 `/zed_x/apriltag/image_rect` 和
 前方。运行时外参从 USD 层级变换读取并校验，
 不会在 ROS launch 中再手写或叠加任何角度。
 
-原始 authored USD 已验证 ZED X 图像、CameraInfo、TF 和官方 CUDA cuAprilTag 感知；
-当前 source 位于 `base_link ≈ (0.892, -0.180, -0.173) m`，2026-07-23 的 cuMotion
-规划返回 `INVERSE_KINEMATICS_FAILURE`，尚未进入接触、attach、搬运和投放阶段。
+authored USD 已验证 ZED X 图像、CameraInfo、TF 和官方 CUDA cuAprilTag 感知。永久
+移动后的 source 真值为 `base_link ≈ (0.741, -0.180, -0.169) m`，需要重新运行
+cuMotion、接触、attach、搬运和投放验收。2026-07-23 的失败结果属于旧根位姿。
 
 ### D455 eye-in-hand
 
@@ -160,9 +162,8 @@ TopicBasedSystem 的 `mimic=joint7, multiplier=1` 生成第八个位置命令，
 controller DOF。源物体和目标 Tag 都使用异步 exact-time TF 查询，允许渲染帧先于对应动态
 TF 到达，但绝不回退到 latest TF。
 
-该启动位只用于让仿真与 ros2_control 从一致关节状态开始，不构成感知或规划验收。
-当前原始布局 source 超出配置的机械臂工作域，cuMotion 返回
-`INVERSE_KINEMATICS_FAILURE`。
+该启动位只用于让仿真与 ros2_control 从一致关节状态开始，不构成感知或规划验收；
+新的永久根位姿仍需重新执行 D455 端到端验收。
 
 “逐帧动态 TF”表示每条检测都使用它自己的采集时间，不表示 continuous visual
 servo。object adapter 会在 `base_link` 中过滤并缓存稳定目标；行为树开始后，cuMotion
@@ -175,7 +176,7 @@ tag 1 的投放目标使用 `5` 个连续、按各自检测时间戳转换到 `b
 `drop_pose_max_translation_spread_m` 默认 `0.01 m`。
 
 官方行为树会持续 discovery。authored 配置因此把 `/get_objects` 限制在
-`base_link` source-zone `[0.20, -0.30, -0.39] .. [0.40, -0.08, -0.25] m`；红块放到
+`base_link` source-zone `[0.65, -0.30, -0.25] .. [0.85, -0.08, -0.10] m`；红块放到
 tag 1 后位于区外，不会触发第二轮。该门控只过滤新的 `/get_objects` 发现结果，不会
 改变当前任务使用的 `/get_object_pose` 缓存或 freshness；object server 的 pose TTL
 仍为 `2.0 s`。
@@ -211,7 +212,8 @@ ros2 action send_goal /get_object_pose \
 
 tag 0 的物体中心真值由当前 authored USD 的 `/World/Workspace/TaggedCube` 和
 `/R5a/base_link` 层级变换计算得到。比较 AprilTag/PnP 输出时应先把它转换到
-`base_link`；这不是宣称当前相机模式已经达到某个误差指标。还应读取所选相机的
+`base_link`；当前资产中的真值约为 `(0.741, -0.180, -0.169) m`。这不是宣称当前相机
+模式已经达到某个误差指标。还应读取所选相机的
 CameraInfo，确认 16:10
 投影修正后 `k[0]`（`fx`）约等于 `k[4]`（`fy`）：
 
@@ -356,7 +358,8 @@ link6_offset_in_tag: [0.0, 0.0, -0.315]
 它完全相对于实时检测到的 tag 1 定义，不使用世界坐标真值。标签 `+Z` 指向桌内，因而
 负 Z 把 `link6` 抬离桌面；`0.315 m = 0.205 m` 顶抓中心偏移 `+ 0.075 m` 红块半高
 `+ 0.035 m` 投放净空。诊断顺序为 `-0.280 m`/`0 mm`、
-`-0.295 m`/`15 mm`（仍失败）、`-0.315 m`/`35 mm`（通过）。当前碰撞预算明确包含
+`-0.295 m`/`15 mm`（仍失败）、`-0.315 m`/`35 mm`（通过此前的局部裕量诊断）。这不
+代表当前永久根位姿已经完成整条抓放流程。碰撞预算明确包含
 Object Attachment `max_overshoot=10 mm`、XRDF attached-object buffer `2 mm`、PnP
 深度误差预算 `10 mm` 和额外安全余量 `5 mm`，合计 `27 mm`，还剩 `8 mm`。纯运动学
 可以求解较低目标，但加入官方 Object Attachment 的 29 个碰撞球与静态桌面后会表现为
@@ -403,8 +406,9 @@ Object Attachment `max_overshoot=10 mm`、XRDF attached-object buffer `2 mm`、P
 - D455 使用 detection 原始时间戳的动态 TF，但当前任务是稳定 pose 后的一次规划执行，
   不是 continuous visual servo。
 - ZED X 和 D455 authored 模式已验证图像、TF 和官方 cuAprilTag 感知；ZED 位于 ARX
-  前方。但原始布局 source 为 `base_link ≈ (0.892, -0.180, -0.173) m`，cuMotion
-  于 2026-07-23 返回 `INVERSE_KINEMATICS_FAILURE`，尚未完成端到端抓放。
+  前方。当前永久根位姿下的 source 为
+  `base_link ≈ (0.741, -0.180, -0.169) m`，尚需重新完成端到端抓放；2026-07-23 的
+  `INVERSE_KINEMATICS_FAILURE` 是旧根位姿的历史结果。
 - 这个 demo 验证了话题、action、行为树、规划和控制接口闭环，但不能替代真实 TCP、
   相机外参、抓取力、碰撞几何、控制周期、限位和急停验收。仿真成功不能保证实机必然
   成功。
@@ -418,7 +422,7 @@ authored 抓放特有的检查项：
 |---|---|
 | `Successfully loaded 4 grasp poses` | 旧 blackboard/config 仍在 overlay 中；重建仿真包并最后 source `$ARX_SIM_WS/install/setup.bash`。 |
 | `INVERSE_KINEMATICS_FAILURE` 且 `link6` 目标接近桌面 | 确认 authored 配置加载的是 `tagged_block` 的单个 `0.205 m` 顶抓 seed，并核对当前 approach/retract 参数。 |
-| authored 抬升成功，但 `Plan To Drop Pose` 连续 `INVERSE_KINEMATICS_FAILURE` | 检查安装后的 `authored_usd_apriltag_demo.yaml` 是否仍为旧值；当前值应为 tag-relative `-0.315 m`，它给附着的 150 mm 红块保留 `35 mm` 名义净空，可越过 cuMotion 的桌面碰撞裕量。 |
+| authored 抬升成功，但 `Plan To Drop Pose` 连续 `INVERSE_KINEMATICS_FAILURE` | 检查安装后的 `authored_usd_apriltag_demo.yaml` 是否仍为旧值；当前值应为 tag-relative `-0.315 m`，它给附着的 150 mm 红块保留 `35 mm` 名义净空。该值通过了此前的局部裕量诊断，但当前永久根位姿仍需重新规划验证。 |
 | 投放目标方向或高度异常 | 检查 `link6_offset_in_tag: [0.0, 0.0, -0.315]` 及 tag-relative quaternion；authored 流程不使用固定世界坐标投放高度。 |
 | 看见标签但没有自动运动 | 确认没有设置 `auto_start:=False`，并检查 `/multi_object_pick_and_place`、`/cumotion/motion_plan`、`/execute_trajectory` 和 controller actions。 |
 

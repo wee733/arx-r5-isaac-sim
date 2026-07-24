@@ -26,12 +26,12 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = PACKAGE_ROOT / 'config' / 'arx_sim_usd_scene.yaml'
 USD_PATH = PACKAGE_ROOT / 'assets' / 'scenes' / 'arx_sim.usd'
 AUTHORED_USD_SHA256 = (
-    '7162ec49dedd9dabe7748a9fd1da16d8b2164cf385c297ac8c94797efd61f1c0'
+    '864be889853dd6829d3100352599b31a1fdb55ec41d7172d871dcf0511ebbcbc'
 )
 
 
-def test_committed_usd_is_the_original_authored_asset():
-    """The LFS object must remain byte-for-byte identical to the user USD."""
+def test_committed_usd_is_the_approved_authored_workcell():
+    """The LFS object must remain the approved permanent workcell asset."""
     contents = USD_PATH.read_bytes()
     if contents.startswith(b'version https://git-lfs.github.com/spec/v1'):
         pointer = contents.decode('ascii')
@@ -69,6 +69,9 @@ def test_authored_robot_and_zed_transforms_are_the_source_of_truth():
     config = load_usd_scene_config(CONFIG_PATH)
     zed = config.cameras['zedx']
 
+    assert config.expected_world_to_base_translation == pytest.approx(
+        (-0.4, 0.0, 0.37)
+    )
     assert config.expected_world_to_base_rotation == pytest.approx(
         (0.0, 0.0871557427, 0.0, 0.9961946981)
     )
@@ -89,29 +92,6 @@ def test_camera_projection_is_normalized_without_changing_horizontal_fov():
         source
     )
     assert '_normalize_camera_projection(stage, camera)' in source
-
-
-def test_authored_layout_has_no_runtime_pose_overrides():
-    """The default layout must preserve every pose from the source USD."""
-    config = load_usd_scene_config(CONFIG_PATH)
-
-    assert tuple(config.layouts) == ('as-authored', 'front-demo')
-    authored = config.layouts['as-authored']
-    assert authored.prim_translations == {}
-    assert authored.camera_parent_to_optical_translations == {}
-
-
-def test_front_demo_moves_only_the_complete_robot_camera_assembly():
-    """The optional demo must never counter-translate the front ZED mount."""
-    config = load_usd_scene_config(CONFIG_PATH)
-    layout = config.layouts['front-demo']
-
-    assert layout.prim_translations == {
-        '/R5a': pytest.approx((0.0, 0.0, 0.4)),
-    }
-    assert '/R5a/base_link/ZED_X' not in layout.prim_translations
-    assert layout.camera_parent_to_optical_translations == {}
-    assert config.cameras['zedx'].expected_parent_to_optical_translation[0] > 0.0
 
 
 def test_d455_contract_is_rigidly_attached_to_link6():
@@ -242,7 +222,7 @@ def test_authored_workspace_contact_offsets_only_touch_existing_colliders():
     assert normalize_call < attach_call
 
 
-def test_authored_layout_is_session_only_and_cannot_overwrite_source_usd():
+def test_runtime_session_cannot_overwrite_source_usd():
     """Only transient physics/material edits may enter the session layer."""
     simulation_path = (
         PACKAGE_ROOT / 'arx_r5_isaac_sim_bringup' / 'simulation.py'
@@ -251,9 +231,8 @@ def test_authored_layout_is_session_only_and_cannot_overwrite_source_usd():
 
     assert 'stage.GetEditTarget().GetLayer() != stage.GetSessionLayer()' in source
     assert '--save-usd must not overwrite the selected authored USD' in source
-    config = load_usd_scene_config(CONFIG_PATH)
-    assert config.layouts['as-authored'].prim_translations == {}
-    assert config.layouts['as-authored'].camera_parent_to_optical_translations == {}
+    assert '_apply_authored_layout' not in source
+    assert '--authored-layout' not in source
 
 
 def test_duplicate_camera_topics_are_rejected(tmp_path):

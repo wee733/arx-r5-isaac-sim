@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Retained D455 startup joint seed. It keeps Isaac Sim and ros2_control on the
-# same initial state, but is not an end-to-end acceptance pose for the original
-# authored USD. On 2026-07-23 that layout's source was outside the configured
-# arm workspace and cuMotion returned INVERSE_KINEMATICS_FAILURE.
+# same initial state, but is not an end-to-end acceptance pose for the current
+# authored workcell. Reachability must be revalidated after the permanent
+# /R5a root move to (-0.4, 0, 0.37).
 initial_positions:
   joint1: -1.3919817209
   joint2: 1.8859872818

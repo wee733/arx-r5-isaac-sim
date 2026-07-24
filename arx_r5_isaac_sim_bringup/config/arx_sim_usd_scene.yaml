@@ -8,9 +8,9 @@ robot:
   base_prim_path: /R5a/base_link
   world_frame: world
   base_frame: base_link
-  # This quaternion is the transform authored in arx_sim.usd. Do not replace
-  # it with an identity pose: the scene was deliberately designed in Isaac
-  # Sim, including the robot's small Y rotation and its world placement.
+  # Permanent authored pose approved for every simulation. Runtime code must
+  # never replace this root transform with a temporary reachability layout.
+  expected_world_to_base_translation: [-0.4, 0.0, 0.37]
   expected_world_to_base_rotation: [0.0, 0.0871557427, 0.0, 0.9961946981]
   # The NVIDIA sensor assets carry their own dynamic rigid bodies. They are
   # visual sensors mounted to articulation links here, so the runtime disables
@@ -18,23 +18,6 @@ robot:
   sensor_rigid_body_paths:
     - /R5a/base_link/ZED_X
     - /R5a/link6/rsd455/RSD455
-
-# The binary USD is the user's authored workcell and is the source of truth.
-# ``as-authored`` is always the default and never moves any authored prim.
-# ``front-demo`` is an explicit, opt-in anonymous session layout for the
-# front-camera reachability demo. It translates only the robot root; in
-# particular, it deliberately does not counter-translate the ZED mount.
-layouts:
-  as-authored:
-    prim_translations: {}
-    camera_parent_to_optical_translations: {}
-  front-demo:
-    # Authored /R5a is (-0.548305509, 0, 0.4). Replacing only this root
-    # translation with (0, 0, 0.4) moves the complete ARX/ZED assembly by
-    # +0.548305509 m in world X, so ZED remains +X from base_link.
-    prim_translations:
-      /R5a: [0.0, 0.0, 0.4]
-    camera_parent_to_optical_translations: {}
 
 # The hand-authored red block is visual-only in the source USD. Runtime
 # session overrides add a rigid body and collider without modifying that file.

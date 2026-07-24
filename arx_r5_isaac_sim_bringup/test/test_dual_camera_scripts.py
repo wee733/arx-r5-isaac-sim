@@ -78,8 +78,7 @@ def test_camera_script_selects_one_matching_pipeline(
     )
     assert '--usd' in sim_script
     assert f'--camera-mode {camera_mode}' in sim_script
-    assert '--authored-layout as-authored' in sim_script
-    assert '--authored-layout reachable' not in sim_script
+    assert '--authored-layout' not in sim_script
     assert '--reset-usd-joints' in sim_script
 
 
@@ -109,26 +108,10 @@ def test_d455_sim_and_ros_start_from_the_validated_observation_pose():
     assert sim_positions == pytest.approx(validated_positions)
 
 
-def test_front_zed_entry_points_are_explicitly_opt_in():
-    """The front layout must never replace the default authored entry point."""
-    sim_script = (SCRIPTS_ROOT / 'run_zedx_front_sim.sh').read_text(
-        encoding='utf-8'
-    )
-    demo_script = (SCRIPTS_ROOT / 'run_zedx_front_demo.sh').read_text(
-        encoding='utf-8'
-    )
-
-    assert '--usd' in sim_script
-    assert '--camera-mode zedx' in sim_script
-    assert '--authored-layout front-demo' in sim_script
-    assert 'front_demo_apriltag_demo.yaml' in sim_script
-    assert "ARX_DEMO_LAUNCH_FILE='arx_r5a_zedx_front_demo.launch.py'" in (
-        demo_script
-    )
-    assert 'run_zedx_front_sim.sh' in demo_script
-    assert '--authored-layout as-authored' not in (
-        SCRIPTS_ROOT / 'run_zedx_front_sim.sh'
-    ).read_text(encoding='utf-8')
+def test_obsolete_front_layout_entry_points_are_removed():
+    """Every camera wrapper must use the permanent authored /R5a pose."""
+    assert not (SCRIPTS_ROOT / 'run_zedx_front_sim.sh').exists()
+    assert not (SCRIPTS_ROOT / 'run_zedx_front_demo.sh').exists()
 
 
 def test_graph_checker_verifies_both_camera_contracts_and_cuda_backend():

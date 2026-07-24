@@ -58,16 +58,18 @@ The authored USD has two mutually exclusive perception profiles:
 | `d455` | fixed `link6 -> d455_color_optical_frame` (eye-in-hand) | `/d455/color/image_raw` | `/d455/apriltag/image_rect`, `/d455/apriltag/camera_info_rect` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
 
 The ZED X pose is taken directly from the authored USD (the camera is placed in
-front of the ARX workcell). `/R5a`, the ZED mount, and the wrist-mounted D455
-are not reoriented by the simulator.
+front of the ARX workcell). The asset permanently stores
+`/R5a = [-0.4, 0.0, 0.37]`; its ZED mount remains
+`base_link translation = [0.28, 0.0, -0.02]`. The simulator does not apply a
+second robot-root layout or reorient either camera.
 
-The `run_zedx_sim.sh` and `run_d455_sim.sh` entry points select the
-`as-authored` layout. It contains no pose overrides: the robot, cameras,
-objects, targets, and environment remain exactly as authored. The committed
-`assets/scenes/arx_sim.usd` is never rewritten. The anonymous session layer is
-used only for runtime physics/material/collision setup and camera projection
-normalization, so CameraInfo matches the selected render aspect ratio without
-persisting an edit to the source USD.
+The `run_zedx_sim.sh` and `run_d455_sim.sh` entry points both use that permanent
+asset pose. The robot, cameras, objects, targets, and environment remain in
+their authored relationships. The committed `assets/scenes/arx_sim.usd` is
+never rewritten at runtime. The anonymous session layer is used only for
+runtime physics/material/collision setup and camera projection normalization,
+so CameraInfo matches the selected render aspect ratio without persisting a
+runtime edit to the source USD.
 
 For D455, `robot_state_publisher` supplies the time-varying
 `base_link -> link6` transform from joint states. The ARX adapter looks up that
@@ -160,12 +162,13 @@ Opening the gripper removes the joint and clears the contact gate. The
 FixedJoint exists only to stabilize transport after verified bilateral
 contact; this is not a grasp formed purely by contact forces and friction.
 cuMotion Object Attachment independently maintains the attached collision
-object in its planning scene. The original authored USD has verified camera,
-TF, and official cuAprilTag perception, with the ZED X in front of ARX. On
-2026-07-23, however, its source pose was approximately
-`base_link (0.892, -0.180, -0.173) m` and cuMotion returned
-`INVERSE_KINEMATICS_FAILURE`; authored end-to-end pick-and-place is therefore
-still incomplete.
+object in its planning scene. The authored USD has verified camera, TF, and
+official cuAprilTag perception, with the ZED X in front of ARX. The permanent
+root move places the current source at approximately
+`base_link (0.741, -0.180, -0.169) m`; authored end-to-end pick-and-place must
+be accepted again. The 2026-07-23 `INVERSE_KINEMATICS_FAILURE` was measured at
+the previous source pose, approximately
+`base_link (0.892, -0.180, -0.173) m`.
 
 ## Startup ordering
 

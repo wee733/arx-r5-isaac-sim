@@ -44,7 +44,6 @@ from arx_r5_isaac_sim_bringup.demo_config import (
     load_demo_config,
 )
 from arx_r5_isaac_sim_bringup.usd_scene import (
-    AuthoredLayoutConfig,
     CameraPublisherConfig,
     load_usd_scene_config,
     UsdSceneConfig,
@@ -368,15 +367,6 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         choices=('none', 'zedx', 'd455', 'both'),
         default='both',
         help='Camera streams to publish when --usd is selected.',
-    )
-    parser.add_argument(
-        '--authored-layout',
-        default='as-authored',
-        help=(
-            'Named non-persistent layout from arx_sim_usd_scene.yaml. '
-            'as-authored preserves every source transform; front-demo '
-            'translates only the /R5a root and never counter-translates ZED.'
-        ),
     )
     parser.add_argument(
         '--reset-usd-joints',
@@ -737,6 +727,17 @@ def _world_to_base_transform(stage, config: UsdSceneConfig) -> RosTransform:
         raise RuntimeError(f'base prim does not exist: {config.base_prim_path}')
     matrix = UsdGeom.XformCache().GetLocalToWorldTransform(base_prim)
     translation, rotation = _gf_matrix_pose(matrix)
+    translation_error = math.dist(
+        translation,
+        config.expected_world_to_base_translation,
+    )
+    if translation_error > 1e-5:
+        raise RuntimeError(
+            f'authored world-to-base translation differs by '
+            f'{translation_error:.6f} m from the scene contract; preserve '
+            'the approved /R5a authored pose or update the USD and scene '
+            'contract together'
+        )
     rotation_error = _quaternion_error_degrees(
         rotation,
         config.expected_world_to_base_rotation,
@@ -797,49 +798,6 @@ def _remove_sensor_body_apis(stage, prim_paths: Sequence[str]) -> None:
             )
         print(
             f'[arx-r5-sim] mounted sensor as link payload: {prim_path}',
-            flush=True,
-        )
-
-
-def _apply_authored_layout(stage, layout: AuthoredLayoutConfig) -> None:
-    """Apply a named layout only to the anonymous runtime session layer."""
-    from pxr import Gf, UsdGeom
-
-    if stage.GetEditTarget().GetLayer() != stage.GetSessionLayer():
-        raise RuntimeError(
-            'authored layout overrides require the runtime session layer as '
-            'the USD edit target'
-        )
-
-    for prim_path, translation in layout.prim_translations.items():
-        prim = stage.GetPrimAtPath(prim_path)
-        if not prim.IsValid() or not prim.IsA(UsdGeom.Xformable):
-            raise RuntimeError(
-                f'layout {layout.name!r} references invalid Xform {prim_path}'
-            )
-        translate_ops = [
-            operation
-            for operation in UsdGeom.Xformable(prim).GetOrderedXformOps()
-            if operation.GetOpType() == UsdGeom.XformOp.TypeTranslate
-        ]
-        if len(translate_ops) != 1:
-            raise RuntimeError(
-                f'layout {layout.name!r} expected one translate op at '
-                f'{prim_path}, found {len(translate_ops)}'
-            )
-        operation = translate_ops[0]
-        value = (
-            Gf.Vec3f(*translation)
-            if operation.GetPrecision() == UsdGeom.XformOp.PrecisionFloat
-            else Gf.Vec3d(*translation)
-        )
-        if not operation.Set(value):
-            raise RuntimeError(
-                f'failed to apply layout {layout.name!r} at {prim_path}'
-            )
-        print(
-            f'[arx-r5-sim] layout {layout.name}: {prim_path} -> '
-            f'{tuple(translation)}',
             flush=True,
         )
 
@@ -1074,7 +1032,6 @@ def _attach_prepared_authored_stage(
     usd_scene_path: Path,
     config: UsdSceneConfig,
     demo_config: DemoConfig,
-    layout: AuthoredLayoutConfig,
 ):
     """Prepare session overrides before Hydra and PhysX parse the stage."""
     from pxr import Sdf, Usd
@@ -1088,7 +1045,6 @@ def _attach_prepared_authored_stage(
         raise RuntimeError(f'failed to compose USD stage: {usd_scene_path}')
     stage.SetEditTarget(session_layer)
 
-    _apply_authored_layout(stage, layout)
     _disable_authored_gripper_mimic(stage)
     _configure_authored_gripper_collisions(stage)
     _configure_authored_workspace_contacts(stage)
@@ -1589,20 +1545,11 @@ def _run_simulation(args: argparse.Namespace) -> None:
         )
     usd_scene_config = None
     usd_scene_path = None
-    authored_layout = None
     if authored_usd:
         usd_scene_config = load_usd_scene_config(
             find_usd_scene_config(args.usd_scene_config)
         )
         usd_scene_path = find_usd_scene(args.usd)
-        try:
-            authored_layout = usd_scene_config.layouts[args.authored_layout]
-        except KeyError as error:
-            available = ', '.join(sorted(usd_scene_config.layouts))
-            raise ValueError(
-                f'unknown authored layout {args.authored_layout!r}; '
-                f'available: {available}'
-            ) from error
         if (
             args.save_usd and
             Path(args.save_usd).expanduser().resolve() == usd_scene_path
@@ -1649,7 +1596,6 @@ def _run_simulation(args: argparse.Namespace) -> None:
         if authored_usd:
             assert usd_scene_config is not None
             assert usd_scene_path is not None
-            assert authored_layout is not None
             print(f'[arx-r5-sim] opening authored USD: {usd_scene_path}', flush=True)
             context = omni.usd.get_context()
             assert demo_config is not None
@@ -1659,7 +1605,6 @@ def _run_simulation(args: argparse.Namespace) -> None:
                 usd_scene_path,
                 usd_scene_config,
                 demo_config,
-                authored_layout,
             )
             world = World(
                 stage_units_in_meters=1.0,
@@ -1681,16 +1626,12 @@ def _run_simulation(args: argparse.Namespace) -> None:
             ]
             for camera in selected_cameras:
                 _normalize_camera_projection(stage, camera)
-            expected_camera_translations = (
-                authored_layout.camera_parent_to_optical_translations
-            )
             static_transforms = [
                 _world_to_base_transform(stage, usd_scene_config),
                 *(
                     _camera_optical_transform(
                         stage,
                         camera,
-                        expected_camera_translations.get(camera.name),
                     )
                     for camera in selected_cameras
                 ),
