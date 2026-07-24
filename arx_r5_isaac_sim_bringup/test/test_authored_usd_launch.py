@@ -75,8 +75,10 @@ def test_shared_launch_selects_unique_camera_contracts():
     assert "'d455': '/d455/tag_detections'" in source
     assert "'zedx': '/zed_x/tag_detections_raw'" in source
     assert "'d455': '/d455/tag_detections_raw'" in source
-    assert "src='/camera_1/image_raw'" in source
-    assert 'dst=camera.color_image_topic' in source
+    assert "'zedx': 'zed_x'" in source
+    assert "'d455': 'd455'" in source
+    assert "'perception_namespace': perception_namespace" in source
+    assert "src='/camera_1/image_raw'" not in source
     assert "'expected_camera_frame': camera.optical_frame" in source
 
 
@@ -135,10 +137,10 @@ def test_drop_pose_requires_a_low_spread_base_frame_window():
     assert "'d455_observation_positions.yaml'" in source
     assert "'enable_nvblox': 'False'" in source
     assert "executable='apriltag_pose_refiner'" in source
-    assert "'camera_info_topic': '/camera_1/apriltag/camera_info_rect'" in (
-        source
-    )
-    assert "'image_topic': '/camera_1/apriltag/image_rect'" in source
+    assert "'camera_info_topic': rectified_camera_info_topic" in source
+    assert "'image_topic': rectified_image_topic" in source
+    assert "f'/{perception_namespace}/apriltag/image_rect'" in source
+    assert "f'/{perception_namespace}/apriltag/camera_info_rect'" in source
     assert "'apriltag_backends': 'CUDA'" in source
     assert "'apriltag_backend': 'CUDA'" in source
     assert "'expected_camera_frame': camera.optical_frame" in source
@@ -513,7 +515,8 @@ def test_d455_eye_in_hand_chain_uses_dynamic_exact_time_tf_and_single_bin():
     assert d455['color_info_topic'] == '/d455/color/camera_info'
     assert "'d455': '/d455/tag_detections_raw'" in shared_source
     assert "'d455': '/d455/tag_detections'" in shared_source
-    assert 'dst=camera.color_image_topic' in shared_source
+    assert "'color_image_topic': camera.color_image_topic" in shared_source
+    assert "'perception_namespace': perception_namespace" in shared_source
     assert "'expected_camera_frame': camera.optical_frame" in shared_source
     assert "'output_frame': scene_config.base_frame" in shared_source
     assert "'d455_observation_positions.yaml'" in shared_source

@@ -19,11 +19,9 @@
 当前版本已经完成仿真端到端验证：RViz 中的 cuMotion **Plan / Execute** 成功，
 机械臂 `FollowJointTrajectory` 与夹爪 `GripperCommand` action 均返回 `SUCCEEDED`；
 `joint8 <- joint7` TopicBasedSystem 命令镜像、ROS 2 Bridge 和 MoveIt 状态回传均已接通。
-程序生成的固定 `Camera_1` AprilTag 回归场景也已完成一次完整的检测、规划、抓取、
-搬运和投放，最终 `workflow_status=1`。投放后视觉计算出的方块中心为
-`(0.29907, 0.17823, 0.02520) m`，与目标标签中心的平面误差约为 `2.0 mm`。这个指标
-只属于程序生成的回归场景。原始 authored USD 的相机发布、TF 和 AprilTag 感知已经
-验证，ZED X 位于 ARX 前方；但 2026-07-23 使用原始布局时，source 在 `base_link`
+原始 authored USD 的相机发布、TF 和 AprilTag 感知已经验证。眼在手外入口唯一为
+固定在 ARX 前方的 ZED X；D455 固定在 `link6`，作为眼在手上入口。但 2026-07-23
+使用原始布局时，source 在 `base_link`
 中约为 `(0.892, -0.180, -0.173) m`，cuMotion 返回
 `INVERSE_KINEMATICS_FAILURE`。因此目前不能宣称 ZED X 或 D455 authored 模式已完成
 端到端抓放验收。
@@ -36,7 +34,7 @@
 - Isaac Sim 发布 `/clock`、`/isaac_joint_states`，并订阅 `/isaac_joint_commands`。
 - `joint8` 不是独立 controller DOF，但 TopicBasedSystem 会把 `joint7` 位置命令以
   `mimic=joint7, multiplier=1` 复制到第八个命令项，使两指都收到 drive target。
-- 可选桌面 AprilTag Demo 串联 GPU 检测、官方行为树、cuMotion 和自动抓放。
+- authored USD AprilTag Demo 串联 GPU 检测、官方行为树、cuMotion 和自动抓放。
 - 支持 GUI、headless、USD 导出、CPU 契约测试和可复现模型审计。
 
 ## 版本基线
@@ -303,10 +301,10 @@ Isaac ROS manipulation、官方 Multi-Object Pick-and-Place 行为树、cuMotion
 `7162ec49dedd9dabe7748a9fd1da16d8b2164cf385c297ac8c94797efd61f1c0`）。
 程序把它作为只读源层，所有运行时补丁都进入匿名 session layer。
 
-| 模式 | 安装关系 | 图像 | cuAprilTag raw | manipulation 输入 |
-|---|---|---|---|---|
-| ZED X eye-to-hand | 固定在 authored `base_link`（位于 ARX 前方） | `/zed_x/left/image_raw` | `/zed_x/tag_detections_raw` | `/zed_x/tag_detections` |
-| D455 eye-in-hand | 固定在随关节运动的 `link6` | `/d455/color/image_raw` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
+| 模式 | 安装关系 | 图像 | rectified 中间话题 | cuAprilTag raw | manipulation 输入 |
+|---|---|---|---|---|---|
+| ZED X eye-to-hand | 固定在 authored `base_link`（位于 ARX 前方） | `/zed_x/left/image_raw` | `/zed_x/apriltag/image_rect`、`/zed_x/apriltag/camera_info_rect` | `/zed_x/tag_detections_raw` | `/zed_x/tag_detections` |
+| D455 eye-in-hand | 固定在随关节运动的 `link6` | `/d455/color/image_raw` | `/d455/apriltag/image_rect`、`/d455/apriltag/camera_info_rect` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
 
 ZED X 的位置和朝向完全来自你在 Isaac Sim 中设计并保存的 USD；它位于 ARX
 前方。程序不会把相机搬到机械臂后方，也不会为了“可达”而旋转或平移整台机械臂。
@@ -362,7 +360,7 @@ authored 配置只在 `base_link` 的 source-zone
 
 ZED 左目在世界中的位置和朝向就是 authored USD 中的位置；`base_link ->
 zed_x_left_camera_optical_frame` 由 USD 层级变换计算并固定发布。仿真入口不会再创建
-一个“reachable”布局，也不会修改你的机器人根节点或相机 mount。
+其他眼在手外视角，也不会修改你的机器人根节点或相机 mount。
 
 终端 1 使用干净的 Conda `isaaclab` 环境：
 
@@ -392,9 +390,7 @@ cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
 原始 authored USD 已验证 ZED X 图像、CameraInfo、TF 和官方 CUDA cuAprilTag 感知；
 ZED 相机保持在 ARX 前方。当前原始布局中的 source 位于
 `base_link ≈ (0.892, -0.180, -0.173) m`，2026-07-23 的 cuMotion 规划返回
-`INVERSE_KINEMATICS_FAILURE`，尚未进入接触、attach、搬运和投放阶段。因此旧
-reachable 布局得到的 `6.7 mm`、`status=1` 等结果不属于当前原始 USD，不能作为验收
-声明。
+`INVERSE_KINEMATICS_FAILURE`，尚未进入接触、attach、搬运和投放阶段。
 
 ### D455：腕部眼在手上
 
@@ -419,8 +415,7 @@ cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
 
 `run_d455_sim.sh` 会把机械臂初始化到一个保留的 D455 启动关节位
 `[-1.3919817209, 1.8859872818, 0.5746622086, -0.6957563162, -0.6273930669, -1.9993159771, 0.044, 0.044]`，
-依次对应 `joint1..joint8`。它用于让 Isaac Sim 与 ros2_control 以一致初值启动，不再
-宣称原始 authored USD 中存在 `x=960/325`、`0.74 s` 或完整抓放通过等验收结果。
+依次对应 `joint1..joint8`。它只用于让 Isaac Sim 与 ros2_control 以一致初值启动。
 当前原始布局的 source 同样超出已配置机械臂工作域，cuMotion 返回
 `INVERSE_KINEMATICS_FAILURE`。
 ros2_control hardware 使用全部八个初值；
@@ -448,47 +443,6 @@ authored demo 默认设置 `quiesce_on_terminal:=True`：官方 action 返回终
 行为树的定时 tick，action server 和 executor 会继续存活，确保最终 result 已送达，同时
 避免成功后以 100 Hz 重复 discovery 并刷空检测日志。需要保留官方连续 tick 行为时可显式
 设置 `quiesce_on_terminal:=False`；再次执行 one-shot 任务则重启 ROS demo。
-
-## 程序生成固定相机 AprilTag Demo
-
-完整 demo 使用红色方块上的 `tag36h11:0` 作为抓取目标，并投放到桌面的
-`tag36h11:1`。先在 Conda `isaaclab` 终端启动桌面场景：
-
-```text
-Isaac Sim RGB + CameraInfo
-  -> Isaac ROS Rectify + GPU AprilTag
-  -> 官方 /tag_detections 原始输出
-  -> ARX AprilTag Object Server
-  -> 官方 Multi-Object Pick-and-Place 行为树接口
-  -> cuMotion action -> MoveIt ExecuteTrajectory -> ros2_control
-  -> /isaac_joint_commands -> Isaac Sim
-```
-
-```bash
-./scripts/run_isaac_sim.sh --scene tabletop
-```
-
-再在 `(isaac-ros)` 终端启动视觉、行为树、cuMotion、MoveIt 和控制链：
-
-```bash
-./scripts/run_apriltag_demo.sh
-```
-
-默认会自动发送一次抓放任务；仅检查感知时传入 `auto_start:=False`。依赖安装、
-workspace source 顺序、验证命令和当前物理边界见
-[AprilTag 抓放 Demo 指南](docs/apriltag-pick-place-demo.md)。
-
-已验证的仿真参数使用 `0.14 m` 顶抓 seed、`65 mm` approach/retract 和
-`0.165 m` 的投放 `link6` 高度偏移。它们为约 `157.6 mm` 的指尖几何保留约
-`7.6 mm` 桌面净空，同时不修改实机仓库的抓取配置。
-
-第一次启动建议使用 `auto_start:=False`，依次确认两个标签、`/get_objects`、
-`/get_object_pose`、`/arx_r5_demo/drop_pose` 和三个 controller，再手动发送 workflow。
-完整验收应同时看到 `Successfully loaded 1 grasp poses`、方块 attach/release 日志和
-`workflow_status: 1`；详细命令见 demo 指南。
-
-启动时会校验桌面 YAML 与 ARX overlay 中的 Tag 映射、相机外参、方块尺寸和坐标系；
-如果只修改其中一份配置，launch 会直接报出不一致字段，而不会静默使用错误的 TF。
 
 ## 验证运行状态
 
@@ -596,8 +550,9 @@ USD 是生成物，默认不提交。仓库已为 `.usd`、`.usda`、`.usdc`、`
 
 ## 当前边界
 
-- 当前包含固定基座执行闭环、固定 ZED X eye-to-hand、腕部 D455 eye-in-hand，
-  以及原有程序生成固定相机的 AprilTag 回归场景。
+- 当前包含固定基座执行闭环，以及 authored USD 中两条互斥的相机入口：固定在
+  `base_link` 前方的 ZED X eye-to-hand 和固定在 `link6` 的 D455 eye-in-hand。眼在手外
+  不再提供其他模拟相机视角。
 - authored 双相机模式已通过静态 `.scene` 把桌面和四条桌腿共五个对象加入
   `/planning_scene`。`read_esdf_world=False` 且 `add_ground_plane=False`，因此仍没有
   Nvblox 动态 ESDF、独立 ground plane 或其他可见场景障碍物。
@@ -616,15 +571,12 @@ USD 是生成物，默认不提交。仓库已为 `.usd`、`.usda`、`.usdc`、`
   PhysX 接触连续保持若干物理步后，红块才转为 dynamic 并创建连接 `link6` 的
   FixedJoint。默认要求连续 `3` 步，可通过 `--grasp-contact-steps` 调整；张开夹爪会删除
   joint。FixedJoint 只用于稳定搬运，这仍不是纯靠接触力与摩擦自然形成的夹持。
-  cuMotion Object Attachment 另行维护规划场景中的 attached object；程序生成的
-  `Camera_1` 回归场景仍使用旧的视觉 attachment。
+  cuMotion Object Attachment 另行维护规划场景中的 attached object。
 - D455 按每帧图像时间戳查询动态 TF，但当前流程不是 continuous visual servo。
 - ZED X 与 D455 authored 模式已验证相机、TF 和 AprilTag 感知，但原始布局中的 source
   为 `base_link ≈ (0.892, -0.180, -0.173) m`，cuMotion 于 2026-07-23 返回
-  `INVERSE_KINEMATICS_FAILURE`，尚未完成端到端抓放。`2.0 mm` 和
-  `workflow_status=1` 只属于程序生成的固定相机回归场景，不能混用为 authored 指标。
+  `INVERSE_KINEMATICS_FAILURE`，尚未完成端到端抓放。
 - Nvblox/ESDF 与经标定的接触抓取仍属于下一阶段。
-- `7.6 mm` 净空是根据当前网格和目标姿态计算的名义值，不等同于接触碰撞验收。
 - 当前 ARX 模型仍需完成真实 TCP、相机外参、碰撞几何、整机标定和急停验收；仿真
   成功不能保证实机必然成功。
 

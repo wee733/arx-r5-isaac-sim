@@ -36,9 +36,9 @@ eight-name/seven-position `JointState`.
 The OmniGraph runs on `OnPhysicsStep`, so commands, joint states, and clock use
 the fixed physics cadence rather than the display frame rate.
 
-## Tabletop AprilTag workflow
+## Authored-workcell AprilTag workflow
 
-The optional tabletop demos replace only the perception front end. Isaac Sim
+The authored-USD demos replace only the perception front end. Isaac Sim
 publishes RGB-D and camera calibration topics; Isaac ROS Rectify and the
 official GPU `nvidia::isaac_ros::apriltag::AprilTagNode` produce raw
 detections. For authored cameras, a simulation-side refiner re-solves the
@@ -52,10 +52,10 @@ and `/get_object_pose` action contracts. The destination tag is converted into a
 
 The authored USD has two mutually exclusive perception profiles:
 
-| Profile | Camera mount | RGB input | Official raw | Refined manipulation input |
-|---|---|---|---|---|
-| `zedx` | fixed `base_link -> zed_x_left_camera_optical_frame` (eye-to-hand) | `/zed_x/left/image_raw` | `/zed_x/tag_detections_raw` | `/zed_x/tag_detections` |
-| `d455` | fixed `link6 -> d455_color_optical_frame` (eye-in-hand) | `/d455/color/image_raw` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
+| Profile | Camera mount | RGB input | Rectified intermediate | Official raw | Refined manipulation input |
+|---|---|---|---|---|---|
+| `zedx` | fixed `base_link -> zed_x_left_camera_optical_frame` (the only eye-to-hand entry) | `/zed_x/left/image_raw` | `/zed_x/apriltag/image_rect`, `/zed_x/apriltag/camera_info_rect` | `/zed_x/tag_detections_raw` | `/zed_x/tag_detections` |
+| `d455` | fixed `link6 -> d455_color_optical_frame` (eye-in-hand) | `/d455/color/image_raw` | `/d455/apriltag/image_rect`, `/d455/apriltag/camera_info_rect` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
 
 The ZED X pose is taken directly from the authored USD (the camera is placed in
 front of the ARX workcell). `/R5a`, the ZED mount, and the wrist-mounted D455
@@ -105,7 +105,7 @@ Isaac ROS cuAprilTag raw detections
   -> Isaac Sim articulation
 ```
 
-Simulation-only YAML selects one reachable top grasp and shorter tabletop
+Simulation-only YAML selects the authored block's top grasp and workcell
 approach/retract offsets. It does not fork the upstream behavior-tree code or
 change the real-robot grasp configuration.
 
@@ -160,16 +160,12 @@ Opening the gripper removes the joint and clears the contact gate. The
 FixedJoint exists only to stabilize transport after verified bilateral
 contact; this is not a grasp formed purely by contact forces and friction.
 cuMotion Object Attachment independently maintains the attached collision
-object in its planning scene.
-
-The generated fixed-`Camera_1` regression scene retains its older visual
-attachment controller. Its recorded `workflow_status=1` and placement metric
-must not be presented as final acceptance of either authored-camera profile.
-The original authored USD has verified camera, TF, and official cuAprilTag
-perception, with the ZED X in front of ARX. On 2026-07-23, however, its source
-pose was approximately `base_link (0.892, -0.180, -0.173) m` and cuMotion
-returned `INVERSE_KINEMATICS_FAILURE`; authored end-to-end pick-and-place is
-therefore still incomplete.
+object in its planning scene. The original authored USD has verified camera,
+TF, and official cuAprilTag perception, with the ZED X in front of ARX. On
+2026-07-23, however, its source pose was approximately
+`base_link (0.892, -0.180, -0.173) m` and cuMotion returned
+`INVERSE_KINEMATICS_FAILURE`; authored end-to-end pick-and-place is therefore
+still incomplete.
 
 ## Startup ordering
 

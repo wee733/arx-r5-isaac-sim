@@ -25,7 +25,6 @@ from arx_r5_isaac_sim_bringup.usd_scene import load_usd_scene_config
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
-    GroupAction,
     IncludeLaunchDescription,
     OpaqueFunction,
     TimerAction,
@@ -34,7 +33,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 
-from launch_ros.actions import Node, SetRemap
+from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
@@ -49,6 +48,10 @@ DETECTION_TOPICS = {
 RAW_DETECTION_TOPICS = {
     'zedx': '/zed_x/tag_detections_raw',
     'd455': '/d455/tag_detections_raw',
+}
+PERCEPTION_NAMESPACES = {
+    'zedx': 'zed_x',
+    'd455': 'd455',
 }
 RAW_PLANNING_SCENE_TOPIC = '/cumotion/static_planning_scene_raw'
 PLANNING_SCENE_TOPIC = '/planning_scene'
@@ -154,6 +157,13 @@ def launch_setup(context, *args, **kwargs):
         detections_override or DETECTION_TOPICS[camera_profile]
     )
     raw_tag_detections_topic = RAW_DETECTION_TOPICS[camera_profile]
+    perception_namespace = PERCEPTION_NAMESPACES[camera_profile]
+    rectified_image_topic = (
+        f'/{perception_namespace}/apriltag/image_rect'
+    )
+    rectified_camera_info_topic = (
+        f'/{perception_namespace}/apriltag/camera_info_rect'
+    )
 
     simulation_motion_stack = _include(
         PACKAGE_NAME,
@@ -184,7 +194,6 @@ def launch_setup(context, *args, **kwargs):
             'use_sim_time': 'True',
             'headless': _value(context, 'headless'),
             'log_level': _value(context, 'log_level'),
-            'start_camera': 'False',
             'start_apriltag': 'True',
             'start_apriltag_object_server': 'False',
             'start_object_selection_server': 'True',
@@ -198,6 +207,7 @@ def launch_setup(context, *args, **kwargs):
             'color_image_topic': camera.color_image_topic,
             'color_camera_info_topic': camera.color_info_topic,
             'camera_optical_frame': camera.optical_frame,
+            'perception_namespace': perception_namespace,
             'apriltag_backends': 'CUDA',
             'tag_config_file': _value(context, 'tag_config_file'),
             'camera_calibration_file': _value(
@@ -210,17 +220,6 @@ def launch_setup(context, *args, **kwargs):
             'pose_ttl_sec': '1.0',
         },
     )
-    perception_stack = GroupAction(actions=[
-        # Isaac ROS 4.5 RectifyNode resolves ``image_raw`` below its hard-coded
-        # camera_1 namespace in the reusable ARX launch. Adapt only that input;
-        # the selected authored camera keeps its public topic and frame names.
-        SetRemap(
-            src='/camera_1/image_raw',
-            dst=camera.color_image_topic,
-        ),
-        perception_launch,
-    ])
-
     pose_refiner = Node(
         package=PACKAGE_NAME,
         executable='apriltag_pose_refiner',
@@ -230,8 +229,8 @@ def launch_setup(context, *args, **kwargs):
             'use_sim_time': True,
             'input_topic': raw_tag_detections_topic,
             'output_topic': tag_detections_topic,
-            'camera_info_topic': '/camera_1/apriltag/camera_info_rect',
-            'image_topic': '/camera_1/apriltag/image_rect',
+            'camera_info_topic': rectified_camera_info_topic,
+            'image_topic': rectified_image_topic,
             'expected_frame': camera.optical_frame,
             'apriltag_backend': 'CUDA',
             'tag_size': demo_config.source_object.tag_size,
@@ -374,7 +373,7 @@ def launch_setup(context, *args, **kwargs):
 
     return [
         simulation_motion_stack,
-        perception_stack,
+        perception_launch,
         pose_refiner,
         planning_scene_adapter,
         object_server,

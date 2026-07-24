@@ -150,8 +150,26 @@ def test_graph_checker_verifies_both_camera_contracts_and_cuda_backend():
         '/d455/tag_detections',
     ):
         assert topic in script
-    assert 'ros2 param get /camera_1/apriltag backends' in script
+    assert 'perception_namespace=' in script
+    assert 'ros2 param get "/${perception_namespace}/apriltag" backends' in (
+        script
+    )
+    assert '--demo' not in script
+    assert '/camera_1/' not in script
     assert 'AprilTag backend: CUDA (Isaac ROS cuAprilTag)' in script
+
+
+def test_shared_demo_runner_defaults_to_zed_x():
+    """Calling the shared runner directly must select the fixed ZED X."""
+    script = (SCRIPTS_ROOT / 'run_apriltag_demo.sh').read_text(
+        encoding='utf-8'
+    )
+
+    assert 'arx_r5a_zedx_eye_to_hand.launch.py' in script
+    assert '/zed_x/left/image_raw' in script
+    assert '/zed_x/left/camera_info' in script
+    assert 'run_zedx_sim.sh' in script
+    assert 'Camera_1' not in script
 
 
 @pytest.mark.parametrize('readme_name', ('README.md', 'README.en.md'))

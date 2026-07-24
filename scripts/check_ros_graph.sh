@@ -12,17 +12,9 @@ depth_image_topic=''
 depth_info_topic=''
 detections_topic=''
 raw_detections_topic=''
+perception_namespace=''
 case "${1:-}" in
   '') ;;
-  --demo)
-    mode='demo'
-    camera_label='generated fixed Camera_1'
-    color_image_topic='/camera_1/color/image_raw'
-    color_info_topic='/camera_1/color/camera_info'
-    depth_image_topic='/camera_1/aligned_depth_to_color/image_raw'
-    depth_info_topic='/camera_1/aligned_depth_to_color/camera_info'
-    detections_topic='/tag_detections'
-    ;;
   --zedx)
     mode='zedx'
     camera_label='ZED X eye-to-hand'
@@ -32,6 +24,7 @@ case "${1:-}" in
     depth_info_topic='/zed_x/aligned_depth_to_left/camera_info'
     detections_topic='/zed_x/tag_detections'
     raw_detections_topic='/zed_x/tag_detections_raw'
+    perception_namespace='zed_x'
     ;;
   --d455)
     mode='d455'
@@ -42,29 +35,29 @@ case "${1:-}" in
     depth_info_topic='/d455/aligned_depth_to_color/camera_info'
     detections_topic='/d455/tag_detections'
     raw_detections_topic='/d455/tag_detections_raw'
+    perception_namespace='d455'
     ;;
   -h|--help)
     cat <<'EOF'
-Usage: check_ros_graph.sh [--demo|--zedx|--d455]
+Usage: check_ros_graph.sh [--zedx|--d455]
 
 Without arguments, check the ARX R5A Isaac Sim joint/control contract.
 With a camera mode, also check that mode's image, CameraInfo, depth, Isaac ROS
-AprilTag CUDA output, drop-pose, and pick-and-place action contracts. --demo is
-the original generated fixed-camera scene; --zedx is the fixed eye-to-hand
-camera; --d455 is the moving eye-in-hand camera. This script is read-only and
-never sends an action goal.
+AprilTag CUDA output, drop-pose, and pick-and-place action contracts. --zedx
+is the fixed eye-to-hand camera; --d455 is the moving eye-in-hand camera. This
+script is read-only and never sends an action goal.
 EOF
     exit 0
     ;;
   *)
     echo "unknown argument: ${1}" >&2
-    echo "usage: ${0##*/} [--demo|--zedx|--d455]" >&2
+    echo "usage: ${0##*/} [--zedx|--d455]" >&2
     exit 2
     ;;
 esac
 
 if (( $# > 1 )); then
-  echo "usage: ${0##*/} [--demo|--zedx|--d455]" >&2
+  echo "usage: ${0##*/} [--zedx|--d455]" >&2
   exit 2
 fi
 
@@ -99,8 +92,8 @@ if [[ "${mode}" != 'basic' ]]; then
   expected_topics["${color_info_topic}"]='sensor_msgs/msg/CameraInfo'
   expected_topics["${depth_image_topic}"]='sensor_msgs/msg/Image'
   expected_topics["${depth_info_topic}"]='sensor_msgs/msg/CameraInfo'
-  expected_topics[/camera_1/apriltag/image_rect]='sensor_msgs/msg/Image'
-  expected_topics[/camera_1/apriltag/camera_info_rect]='sensor_msgs/msg/CameraInfo'
+  expected_topics["/${perception_namespace}/apriltag/image_rect"]='sensor_msgs/msg/Image'
+  expected_topics["/${perception_namespace}/apriltag/camera_info_rect"]='sensor_msgs/msg/CameraInfo'
   if [[ -n "${raw_detections_topic}" ]]; then
     expected_topics["${raw_detections_topic}"]='isaac_ros_apriltag_interfaces/msg/AprilTagDetectionArray'
   fi
@@ -228,16 +221,11 @@ probe_topic /clock
 probe_topic /isaac_joint_states
 if [[ "${mode}" != 'basic' ]]; then
   probe_topic "${color_image_topic}"
-  if [[ "${mode}" == 'demo' ]]; then
-    # Keep the original generated-camera acceptance path explicit.
-    probe_topic /tag_detections
-  else
-    probe_topic "${raw_detections_topic}"
-    probe_topic "${detections_topic}"
-  fi
+  probe_topic "${raw_detections_topic}"
+  probe_topic "${detections_topic}"
   if apriltag_backend="$(
     timeout "${probe_timeout_seconds}s" \
-      ros2 param get /camera_1/apriltag backends 2>/dev/null
+      ros2 param get "/${perception_namespace}/apriltag" backends 2>/dev/null
   )" && grep -Eq '(^|[[:space:]])CUDA([[:space:]]|$)' \
       <<<"${apriltag_backend}"; then
     echo 'AprilTag backend: CUDA (Isaac ROS cuAprilTag)'

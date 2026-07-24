@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Load and validate the tabletop AprilTag demo configuration."""
+"""Load and validate the manipulation workcell configuration."""
 
 from dataclasses import dataclass
 from math import isfinite, sqrt
@@ -44,96 +44,6 @@ def _positive(value, field_name: str) -> float:
     if not isfinite(number) or number <= 0.0:
         raise ValueError(f'{field_name} must be greater than zero')
     return number
-
-
-def _normalize(vector: Vector3, field_name: str) -> Vector3:
-    magnitude = sqrt(sum(component * component for component in vector))
-    if magnitude <= 1e-12:
-        raise ValueError(f'{field_name} must not be a zero vector')
-    return tuple(component / magnitude for component in vector)
-
-
-def _cross(left: Vector3, right: Vector3) -> Vector3:
-    return (
-        left[1] * right[2] - left[2] * right[1],
-        left[2] * right[0] - left[0] * right[2],
-        left[0] * right[1] - left[1] * right[0],
-    )
-
-
-def _matrix_to_quaternion(matrix) -> Quaternion:
-    trace = matrix[0][0] + matrix[1][1] + matrix[2][2]
-    if trace > 0.0:
-        scale = sqrt(trace + 1.0) * 2.0
-        quaternion = (
-            (matrix[2][1] - matrix[1][2]) / scale,
-            (matrix[0][2] - matrix[2][0]) / scale,
-            (matrix[1][0] - matrix[0][1]) / scale,
-            0.25 * scale,
-        )
-    elif matrix[0][0] > matrix[1][1] and matrix[0][0] > matrix[2][2]:
-        scale = sqrt(1.0 + matrix[0][0] - matrix[1][1] - matrix[2][2]) * 2.0
-        quaternion = (
-            0.25 * scale,
-            (matrix[0][1] + matrix[1][0]) / scale,
-            (matrix[0][2] + matrix[2][0]) / scale,
-            (matrix[2][1] - matrix[1][2]) / scale,
-        )
-    elif matrix[1][1] > matrix[2][2]:
-        scale = sqrt(1.0 + matrix[1][1] - matrix[0][0] - matrix[2][2]) * 2.0
-        quaternion = (
-            (matrix[0][1] + matrix[1][0]) / scale,
-            0.25 * scale,
-            (matrix[1][2] + matrix[2][1]) / scale,
-            (matrix[0][2] - matrix[2][0]) / scale,
-        )
-    else:
-        scale = sqrt(1.0 + matrix[2][2] - matrix[0][0] - matrix[1][1]) * 2.0
-        quaternion = (
-            (matrix[0][2] + matrix[2][0]) / scale,
-            (matrix[1][2] + matrix[2][1]) / scale,
-            0.25 * scale,
-            (matrix[1][0] - matrix[0][1]) / scale,
-        )
-    magnitude = sqrt(sum(component * component for component in quaternion))
-    return tuple(component / magnitude for component in quaternion)
-
-
-def multiply_quaternions(left: Quaternion, right: Quaternion) -> Quaternion:
-    """Return the xyzw quaternion product ``left * right``."""
-    left_x, left_y, left_z, left_w = left
-    right_x, right_y, right_z, right_w = right
-    quaternion = (
-        left_w * right_x + left_x * right_w + left_y * right_z - left_z * right_y,
-        left_w * right_y - left_x * right_z + left_y * right_w + left_z * right_x,
-        left_w * right_z + left_x * right_y - left_y * right_x + left_z * right_w,
-        left_w * right_w - left_x * right_x - left_y * right_y - left_z * right_z,
-    )
-    magnitude = sqrt(sum(component * component for component in quaternion))
-    if magnitude <= 1e-12:
-        raise ValueError('quaternion product has zero magnitude')
-    return tuple(component / magnitude for component in quaternion)
-
-
-def optical_look_at_quaternion(
-    position: Vector3,
-    target: Vector3,
-    world_up: Vector3,
-) -> Quaternion:
-    """Return the base-to-ROS-optical xyzw quaternion for a look-at camera."""
-    forward = _normalize(
-        tuple(target[index] - position[index] for index in range(3)),
-        'camera look-at direction',
-    )
-    up = _normalize(world_up, 'camera world_up')
-    right = _normalize(_cross(forward, up), 'camera right axis')
-    down = _normalize(_cross(forward, right), 'camera down axis')
-    rotation = (
-        (right[0], down[0], forward[0]),
-        (right[1], down[1], forward[1]),
-        (right[2], down[2], forward[2]),
-    )
-    return _matrix_to_quaternion(rotation)
 
 
 @dataclass(frozen=True)
@@ -172,42 +82,6 @@ class DropTargetConfig:
 
 
 @dataclass(frozen=True)
-class CameraConfig:
-    """Fixed RGB-D camera and ROS contract."""
-
-    position: Vector3
-    look_at: Vector3
-    world_up: Vector3
-    width: int
-    height: int
-    focal_length: float
-    horizontal_aperture: float
-    frame_skip_count: int
-    optical_frame: str
-    color_image_topic: str
-    color_info_topic: str
-    depth_image_topic: str
-    depth_info_topic: str
-
-    @property
-    def optical_rotation(self) -> Quaternion:
-        """Return the camera optical frame orientation in the base frame."""
-        return optical_look_at_quaternion(
-            self.position,
-            self.look_at,
-            self.world_up,
-        )
-
-    @property
-    def usd_rotation(self) -> Quaternion:
-        """Return the USD camera orientation for the same optical pose."""
-        return multiply_quaternions(
-            self.optical_rotation,
-            (1.0, 0.0, 0.0, 0.0),
-        )
-
-
-@dataclass(frozen=True)
 class AttachmentConfig:
     """Deterministic visual attachment thresholds."""
 
@@ -229,13 +103,12 @@ class SourceZoneConfig:
 
 @dataclass(frozen=True)
 class DemoConfig:
-    """Complete tabletop AprilTag demo configuration."""
+    """Complete manipulation workcell configuration."""
 
     tag_family: str
     table: TableConfig
     source_object: SourceObjectConfig
     drop_target: DropTargetConfig
-    camera: CameraConfig
     attachment: AttachmentConfig
     source_zone: SourceZoneConfig
 
@@ -328,46 +201,6 @@ def load_demo_config(path: str | Path) -> DemoConfig:
     if abs(source.tag_size - drop.tag_size) > 1e-9:
         raise ValueError('source and drop target tag sizes must match')
 
-    camera_raw = raw.get('camera', {})
-    width = int(camera_raw.get('width', 0))
-    height = int(camera_raw.get('height', 0))
-    if width <= 0 or height <= 0:
-        raise ValueError('camera width and height must be positive')
-    frame_skip_count = int(camera_raw.get('frame_skip_count', 0))
-    if frame_skip_count < 0:
-        raise ValueError('camera.frame_skip_count must be non-negative')
-    topic_fields = (
-        'optical_frame',
-        'color_image_topic',
-        'color_info_topic',
-        'depth_image_topic',
-        'depth_info_topic',
-    )
-    topics = {
-        name: str(camera_raw.get(name, '')).strip() for name in topic_fields
-    }
-    if any(not value for value in topics.values()):
-        raise ValueError('camera frame and topic names must be non-empty')
-    camera = CameraConfig(
-        position=_vector(camera_raw.get('position'), 3, 'camera.position'),
-        look_at=_vector(camera_raw.get('look_at'), 3, 'camera.look_at'),
-        world_up=_vector(camera_raw.get('world_up'), 3, 'camera.world_up'),
-        width=width,
-        height=height,
-        focal_length=_positive(camera_raw.get('focal_length'), 'camera.focal_length'),
-        horizontal_aperture=_positive(
-            camera_raw.get('horizontal_aperture'),
-            'camera.horizontal_aperture',
-        ),
-        frame_skip_count=frame_skip_count,
-        optical_frame=topics['optical_frame'],
-        color_image_topic=topics['color_image_topic'],
-        color_info_topic=topics['color_info_topic'],
-        depth_image_topic=topics['depth_image_topic'],
-        depth_info_topic=topics['depth_info_topic'],
-    )
-    camera.optical_rotation
-
     attachment_raw = raw.get('attachment', {})
     attachment = AttachmentConfig(
         grasp_frame_offset=_vector(
@@ -441,159 +274,6 @@ def load_demo_config(path: str | Path) -> DemoConfig:
         table=table,
         source_object=source,
         drop_target=drop,
-        camera=camera,
         attachment=attachment,
         source_zone=source_zone,
     )
-
-
-def _load_yaml_mapping(path: str | Path, label: str) -> dict:
-    config_path = Path(path).expanduser().resolve()
-    if not config_path.is_file():
-        raise FileNotFoundError(f'{label} not found: {config_path}')
-    with config_path.open('r', encoding='utf-8') as config_file:
-        raw = yaml.safe_load(config_file)
-    if not isinstance(raw, dict):
-        raise ValueError(f'{label} must contain a YAML mapping')
-    return raw
-
-
-def _vectors_match(left, right, tolerance: float = 1e-6) -> bool:
-    return len(left) == len(right) and all(
-        abs(left[index] - right[index]) <= tolerance
-        for index in range(len(left))
-    )
-
-
-def _quaternions_match(left, right, tolerance: float = 1e-6) -> bool:
-    left_magnitude = sqrt(sum(value * value for value in left))
-    right_magnitude = sqrt(sum(value * value for value in right))
-    if left_magnitude <= 1e-12 or right_magnitude <= 1e-12:
-        return False
-    dot_product = sum(
-        left[index] * right[index]
-        for index in range(4)
-    ) / (left_magnitude * right_magnitude)
-    return abs(abs(dot_product) - 1.0) <= tolerance
-
-
-def validate_demo_dependency_configs(
-    config: DemoConfig,
-    tag_config_path: str | Path,
-    camera_calibration_path: str | Path,
-) -> None:
-    """Reject external tag or camera files inconsistent with the scene."""
-    tag_raw = _load_yaml_mapping(tag_config_path, 'AprilTag object config')
-    calibration_raw = _load_yaml_mapping(
-        camera_calibration_path,
-        'camera calibration',
-    )
-    mismatches = []
-
-    if tag_raw.get('tag_family') != config.tag_family:
-        mismatches.append('tag_family')
-    try:
-        tag_size = float(tag_raw.get('tag_size'))
-    except (TypeError, ValueError):
-        tag_size = float('nan')
-    if not isfinite(tag_size) or abs(
-        tag_size - config.source_object.tag_size
-    ) > 1e-9:
-        mismatches.append('tag_size')
-
-    objects = tag_raw.get('objects', {})
-    source_mapping = None
-    if isinstance(objects, dict):
-        source_mapping = objects.get(config.source_object.tag_id)
-        if source_mapping is None:
-            source_mapping = objects.get(str(config.source_object.tag_id))
-    if not isinstance(source_mapping, dict):
-        mismatches.append('source tag mapping')
-    else:
-        if source_mapping.get('class_id') != 'tagged_cube':
-            mismatches.append('source class_id')
-        try:
-            dimensions = _vector(
-                source_mapping.get('dimensions'),
-                3,
-                'objects.source.dimensions',
-            )
-        except ValueError:
-            dimensions = ()
-        if not _vectors_match(dimensions, config.source_object.size):
-            mismatches.append('source dimensions')
-
-        transform = source_mapping.get('tag_to_object', {})
-        if not isinstance(transform, dict):
-            transform = {}
-        try:
-            translation = _vector(
-                transform.get('translation'),
-                3,
-                'objects.source.tag_to_object.translation',
-            )
-        except ValueError:
-            translation = ()
-        expected_translation = (
-            0.0,
-            0.0,
-            -config.source_object.size[2] / 2.0,
-        )
-        if not _vectors_match(translation, expected_translation):
-            mismatches.append('source tag_to_object translation')
-        try:
-            rotation = _vector(
-                transform.get('rotation'),
-                4,
-                'objects.source.tag_to_object.rotation',
-            )
-        except ValueError:
-            rotation = ()
-        if len(rotation) != 4 or not _quaternions_match(
-            rotation,
-            (0.0, 0.0, 0.0, 1.0),
-        ):
-            mismatches.append('source tag_to_object rotation')
-
-    calibration_transform = calibration_raw.get('base_to_camera', {})
-    if not calibration_raw.get('publish'):
-        mismatches.append('camera publish flag')
-    if not isinstance(calibration_transform, dict):
-        calibration_transform = {}
-    if calibration_transform.get('parent_frame') != 'base_link':
-        mismatches.append('camera parent_frame')
-    if (
-        calibration_transform.get('child_frame')
-        != config.camera.optical_frame
-    ):
-        mismatches.append('camera child_frame')
-    try:
-        camera_translation = _vector(
-            calibration_transform.get('translation'),
-            3,
-            'base_to_camera.translation',
-        )
-    except ValueError:
-        camera_translation = ()
-    if not _vectors_match(camera_translation, config.camera.position):
-        mismatches.append('camera translation')
-    try:
-        camera_rotation = _vector(
-            calibration_transform.get('rotation'),
-            4,
-            'base_to_camera.rotation',
-        )
-    except ValueError:
-        camera_rotation = ()
-    if len(camera_rotation) != 4 or not _quaternions_match(
-        camera_rotation,
-        config.camera.optical_rotation,
-    ):
-        mismatches.append('camera rotation')
-
-    if mismatches:
-        details = ', '.join(mismatches)
-        raise ValueError(
-            'tabletop demo configuration disagrees with its external '
-            f'dependency files: {details}'
-        )

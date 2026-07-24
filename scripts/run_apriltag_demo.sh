@@ -45,15 +45,15 @@ if [[ ! -f "${isaac_ros_test_python_site}/isaac_ros_test/__init__.py" &&
 fi
 export ISAAC_ROS_TEST_PYTHON_SITE="${isaac_ros_test_python_site}"
 wait_seconds="${ARX_DEMO_WAIT_SECONDS:-30}"
-demo_launch_file="${ARX_DEMO_LAUNCH_FILE:-arx_r5a_apriltag_demo.launch.py}"
-demo_camera_label="${ARX_DEMO_CAMERA_LABEL:-generated fixed Camera_1}"
-color_image_topic="${ARX_DEMO_COLOR_IMAGE_TOPIC:-/camera_1/color/image_raw}"
-color_info_topic="${ARX_DEMO_COLOR_INFO_TOPIC:-/camera_1/color/camera_info}"
-sim_start_command="${ARX_DEMO_SIM_COMMAND:-${repo_root}/scripts/run_isaac_sim.sh --scene tabletop}"
+demo_launch_file="${ARX_DEMO_LAUNCH_FILE:-arx_r5a_zedx_eye_to_hand.launch.py}"
+demo_camera_label="${ARX_DEMO_CAMERA_LABEL:-ZED X eye-to-hand camera}"
+color_image_topic="${ARX_DEMO_COLOR_IMAGE_TOPIC:-/zed_x/left/image_raw}"
+color_info_topic="${ARX_DEMO_COLOR_INFO_TOPIC:-/zed_x/left/camera_info}"
+sim_start_command="${ARX_DEMO_SIM_COMMAND:-${repo_root}/scripts/run_zedx_sim.sh}"
 
 usage() {
   cat <<EOF
-Run the ROS 2 half of the ARX R5A tabletop AprilTag pick-and-place demo.
+Run the ROS 2 half of the ARX R5A AprilTag pick-and-place demo.
 
 Start Isaac Sim first in a clean conda isaaclab terminal:
   ${sim_start_command}

@@ -52,23 +52,6 @@ drop_target:
   # toward the table at the placement target.
   link6_rotation_in_tag: [0.0, -0.7071068, 0.0, 0.7071068]
 
-# Compatibility fields required by the generated-scene config model. The
-# authored camera publishers use arx_sim_usd_scene.yaml instead.
-camera:
-  position: [-0.258655463, 0.06, 0.343849749]
-  look_at: [0.233748414, 0.06, 0.257025660]
-  world_up: [0.0, 0.0, 1.0]
-  width: 1280
-  height: 720
-  focal_length: 2.208
-  horizontal_aperture: 5.76
-  frame_skip_count: 2
-  optical_frame: zed_x_left_camera_optical_frame
-  color_image_topic: /zed_x/left/image_raw
-  color_info_topic: /zed_x/left/camera_info
-  depth_image_topic: /zed_x/aligned_depth_to_left/image_raw
-  depth_info_topic: /zed_x/aligned_depth_to_left/camera_info
-
 attachment:
   grasp_frame_offset: [0.11, 0.0, 0.0]
   # A 50 mm block stops each symmetric finger near a 25 mm joint position.

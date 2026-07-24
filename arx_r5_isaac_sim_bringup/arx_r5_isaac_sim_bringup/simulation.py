@@ -43,7 +43,6 @@ from arx_r5_isaac_sim_bringup.demo_config import (
     DemoConfig,
     load_demo_config,
 )
-from arx_r5_isaac_sim_bringup.tabletop_scene import create_tabletop_scene
 from arx_r5_isaac_sim_bringup.usd_scene import (
     AuthoredLayoutConfig,
     CameraPublisherConfig,
@@ -53,7 +52,6 @@ from arx_r5_isaac_sim_bringup.usd_scene import (
 
 
 BRINGUP_PACKAGE = 'arx_r5_isaac_sim_bringup'
-TABLETOP_DEMO_CONFIG = 'tabletop_apriltag_demo.yaml'
 AUTHORED_USD_DEMO_CONFIG = 'authored_usd_apriltag_demo.yaml'
 USD_SCENE_CONFIG = 'arx_sim_usd_scene.yaml'
 USD_SCENE_ASSET = 'arx_sim.usd'
@@ -218,9 +216,9 @@ def find_description_share(explicit_path: Optional[str]) -> Path:
 
 def find_demo_config(
     explicit_path: Optional[str],
-    default_filename: str = TABLETOP_DEMO_CONFIG,
+    default_filename: str = AUTHORED_USD_DEMO_CONFIG,
 ) -> Path:
-    """Find the installed or source-tree tabletop demo configuration."""
+    """Find the installed or source-tree authored-workcell configuration."""
     candidates = []
     if explicit_path:
         candidates.append(Path(explicit_path))
@@ -444,14 +442,8 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         help='Exit after import, graph creation, initialization, and optional export.',
     )
     parser.add_argument(
-        '--scene',
-        choices=('empty', 'tabletop'),
-        default='empty',
-        help='Optional workcell scene to add around the fixed-base robot.',
-    )
-    parser.add_argument(
         '--demo-config',
-        help='Tabletop demo YAML; defaults to the package configuration.',
+        help='Authored-workcell YAML; defaults to the package configuration.',
     )
     return parser
 
@@ -1590,18 +1582,10 @@ def _run_simulation(args: argparse.Namespace) -> None:
         raise ValueError('grasp contact steps must be at least one')
 
     authored_usd = args.usd is not None
-    if authored_usd and args.scene != 'empty':
-        raise ValueError('--usd cannot be combined with --scene tabletop')
-
     demo_config: Optional[DemoConfig] = None
-    if authored_usd or args.scene == 'tabletop':
-        default_demo_config = (
-            AUTHORED_USD_DEMO_CONFIG
-            if authored_usd
-            else TABLETOP_DEMO_CONFIG
-        )
+    if authored_usd:
         demo_config = load_demo_config(
-            find_demo_config(args.demo_config, default_demo_config)
+            find_demo_config(args.demo_config)
         )
     usd_scene_config = None
     usd_scene_path = None
@@ -1727,14 +1711,7 @@ def _run_simulation(args: argparse.Namespace) -> None:
                 physics_dt=args.physics_dt,
                 rendering_dt=args.rendering_dt,
             )
-            ground_height = 0.0
-            if demo_config is not None:
-                ground_height = (
-                    demo_config.table.top_center[2]
-                    - demo_config.table.top_size[2] / 2.0
-                    - demo_config.table.leg_size[2]
-                )
-            world.scene.add_default_ground_plane(z_position=ground_height)
+            world.scene.add_default_ground_plane(z_position=0.0)
             stage = omni.usd.get_context().get_stage()
 
             distant_light = UsdLux.DistantLight.Define(
@@ -1812,21 +1789,7 @@ def _run_simulation(args: argparse.Namespace) -> None:
             SingleArticulation(prim_path=articulation_path, name='arx_r5a')
         )
 
-        tabletop_scene = None
         authored_attachment = None
-        if demo_config is not None and not authored_usd:
-            tabletop_scene = create_tabletop_scene(
-                world,
-                stage,
-                robot,
-                robot_path,
-                demo_config,
-            )
-            camera_streams = [(
-                'camera_1',
-                tabletop_scene.camera_path,
-                demo_config.camera,
-            )]
 
         set_camera_view(
             eye=[1.1, 1.1, 0.8],
@@ -1884,8 +1847,6 @@ def _run_simulation(args: argparse.Namespace) -> None:
         )
         while simulation_app.is_running():
             world.step(render=True)
-            if tabletop_scene is not None:
-                tabletop_scene.attachment.update()
             if authored_attachment is not None:
                 authored_attachment.update()
             step_count += 1

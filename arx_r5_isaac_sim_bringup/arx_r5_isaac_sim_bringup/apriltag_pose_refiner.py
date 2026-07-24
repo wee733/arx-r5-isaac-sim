@@ -79,13 +79,13 @@ class AprilTagPoseRefiner(Node):
         self._camera_info_topic = str(
             self.declare_parameter(
                 'camera_info_topic',
-                '/camera_1/apriltag/camera_info_rect',
+                '/zed_x/apriltag/camera_info_rect',
             ).value
         ).strip()
         self._image_topic = str(
             self.declare_parameter(
                 'image_topic',
-                '/camera_1/apriltag/image_rect',
+                '/zed_x/apriltag/image_rect',
             ).value
         ).strip()
         self._expected_frame = str(

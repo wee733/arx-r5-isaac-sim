@@ -30,13 +30,10 @@ The current release has been validated end to end in simulation: cuMotion
 **Plan / Execute** succeeds in RViz, both the manipulator
 `FollowJointTrajectory` and gripper `GripperCommand` actions return
 `SUCCEEDED`, and joint states continuously return from Isaac Sim to MoveIt.
-The generated fixed-`Camera_1` AprilTag regression scene also completed
-detection, planning, grasp, transport, and placement with
-`workflow_status=1`. After placement, the estimated cube center was
-`(0.29907, 0.17823, 0.02520) m`, about `2.0 mm` from the destination tag in the
-table plane. That metric belongs only to the generated regression scene.
 Camera publishing, TF, and AprilTag perception are verified on the original
-authored USD, with the ZED X in front of ARX. However, on 2026-07-23 its source
+authored USD. The only eye-to-hand entry is the ZED X fixed in front of ARX;
+the D455 is attached to `link6` and is the eye-in-hand entry. However, on
+2026-07-23 the source
 pose was approximately `base_link (0.892, -0.180, -0.173) m`, and cuMotion
 returned `INVERSE_KINEMATICS_FAILURE`. Neither authored ZED X nor D455 can
 currently be claimed as an end-to-end pick-and-place pass.
@@ -302,15 +299,15 @@ The LFS asset is a byte-for-byte copy of the original authored USD (SHA-256
 treated as a read-only source layer; every runtime patch is authored into an
 anonymous session layer.
 
-| Mode | Mount | Image | cuAprilTag raw | Manipulation input |
-|---|---|---|---|---|
-| ZED X eye-to-hand | Fixed to authored `base_link` (in front of ARX) | `/zed_x/left/image_raw` | `/zed_x/tag_detections_raw` | `/zed_x/tag_detections` |
-| D455 eye-in-hand | Fixed to the moving `link6` | `/d455/color/image_raw` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
+| Mode | Mount | Image | Rectified intermediate | cuAprilTag raw | Manipulation input |
+|---|---|---|---|---|---|
+| ZED X eye-to-hand | Fixed to authored `base_link` (in front of ARX) | `/zed_x/left/image_raw` | `/zed_x/apriltag/image_rect`, `/zed_x/apriltag/camera_info_rect` | `/zed_x/tag_detections_raw` | `/zed_x/tag_detections` |
+| D455 eye-in-hand | Fixed to the moving `link6` | `/d455/color/image_raw` | `/d455/apriltag/image_rect`, `/d455/apriltag/camera_info_rect` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
 
 The ZED X position and orientation come exactly from the USD scene you authored
 in Isaac Sim. It is in front of the ARX workcell; the simulator never moves the
-camera behind the arm or repositions the robot to manufacture a "reachable"
-layout.
+camera behind the arm, creates another eye-to-hand view, or repositions the
+robot.
 
 Both modes use the official
 `nvidia::isaac_ros::apriltag::AprilTagNode` with the CUDA/cuAprilTag backend.
@@ -402,8 +399,7 @@ CUDA cuAprilTag perception, with the camera remaining in front of ARX. Its
 source is currently at approximately
 `base_link (0.892, -0.180, -0.173) m`; on 2026-07-23 cuMotion returned
 `INVERSE_KINEMATICS_FAILURE` before contact, attachment, transport, or
-placement. The old reachable-layout `6.7 mm` and `status=1` results therefore
-do not qualify the current original USD.
+placement.
 
 ### D455: wrist-mounted eye-in-hand
 
@@ -430,9 +426,8 @@ cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
 `run_d455_sim.sh` initializes the arm at a retained D455 startup joint seed:
 `[-1.3919817209, 1.8859872818, 0.5746622086, -0.6957563162, -0.6273930669, -1.9993159771, 0.044, 0.044]`,
 ordered as `joint1..joint8`. It keeps the Isaac Sim and ros2_control startup
-states consistent; the original authored USD no longer claims the old
-`x=960/325`, `0.74 s`, or complete pick-and-place acceptance results. Its
-source is outside the configured arm workspace and cuMotion returns
+states consistent. The source is outside the configured arm workspace and
+cuMotion returns
 `INVERSE_KINEMATICS_FAILURE`. ros2_control uses the corresponding eight startup
 values, with `joint8` equal to `joint7`.
 TopicBasedSystem continues to mirror the `joint7` command into `joint8`; no
@@ -465,53 +460,6 @@ the action server and executor remain alive so the result is delivered, while
 the tree no longer repeats discovery at 100 Hz. Set
 `quiesce_on_terminal:=False` to retain upstream continuous ticking, or restart
 the ROS demo for another one-shot task.
-
-## Generated fixed-camera AprilTag tabletop demo
-
-The complete demo uses `tag36h11:0` on a red cube as the source object and
-places it on table tag `tag36h11:1`. Start the workcell in the conda
-`isaaclab` terminal:
-
-```text
-Isaac Sim RGB + CameraInfo
-  -> Isaac ROS Rectify + GPU AprilTag
-  -> official /tag_detections output (unchanged)
-  -> ARX AprilTag Object Server
-  -> upstream Multi-Object Pick-and-Place action contract
-  -> cuMotion action -> MoveIt ExecuteTrajectory -> ros2_control
-  -> /isaac_joint_commands -> Isaac Sim
-```
-
-```bash
-./scripts/run_isaac_sim.sh --scene tabletop
-```
-
-Then start perception, the behavior tree, cuMotion, MoveIt, and the controller
-chain in the `(isaac-ros)` terminal:
-
-```bash
-./scripts/run_apriltag_demo.sh
-```
-
-The default launch automatically sends one pick-and-place goal. Use
-`auto_start:=False` for perception-only inspection. See the
-[AprilTag demo runbook](docs/apriltag-pick-place-demo.md) for dependencies,
-workspace setup, verification, and current physics limitations.
-
-The validated simulation uses a `0.14 m` top-grasp seed, `65 mm`
-approach/retract distances, and a `0.165 m` drop offset for `link6`. With the
-current approximately `157.6 mm` fingertip reach, this leaves about `7.6 mm`
-of nominal clearance above the table without changing the real-robot grasp
-configuration.
-
-For a first run, use `auto_start:=False` and verify both tags, `/get_objects`,
-`/get_object_pose`, `/arx_r5_demo/drop_pose`, and all three controllers before
-sending the workflow manually. Full acceptance requires
-`Successfully loaded 1 grasp poses`, the simulated cube attach/release logs,
-and `workflow_status: 1`; the runbook contains the exact commands. Launch also
-cross-checks the tabletop YAML against the ARX Tag map and camera calibration,
-so a partial custom configuration fails explicitly instead of silently using
-inconsistent TF or object dimensions.
 
 ## Verify the ROS bridge and controllers
 
@@ -569,10 +517,10 @@ collision-mesh, and XRDF coverage limitations.
 
 ## Current scope
 
-This release provides a fixed-base execution loop, a fixed ZED X eye-to-hand
-profile, a wrist-mounted D455 eye-in-hand profile, and the generated fixed
-camera regression scene. The two authored-camera profiles are mutually
-exclusive. Their static `.scene` adds the tabletop and four legs as five
+This release provides a fixed-base execution loop and two mutually exclusive
+authored-camera profiles: the ZED X fixed to `base_link` in front of ARX as the
+only eye-to-hand entry, and the wrist-mounted D455 as the eye-in-hand entry.
+Their static `.scene` adds the tabletop and four legs as five
 objects on canonical `/planning_scene`. Because `read_esdf_world=False` and
 `add_ground_plane=False`, there is still no dynamic Nvblox ESDF, separate
 ground plane, or coverage for other visible scene obstacles.
@@ -601,11 +549,8 @@ consecutive physics steps. The default is `3` steps and is adjustable with
 `--grasp-contact-steps`. The block then becomes dynamic and a FixedJoint to
 `link6` stabilizes transport; opening the gripper deletes the joint. This is
 not a purely friction-generated grasp. cuMotion Object Attachment separately
-maintains the planning-scene attachment. The generated `Camera_1` regression
-scene keeps its older visual attachment. Its `2.0 mm` result and
-`workflow_status=1`, plus its `7.6 mm` nominal clearance, do not qualify the
-authored profiles. ZED X and D455 have
-verified camera, TF, and AprilTag perception, but the original source at
+maintains the planning-scene attachment. ZED X and D455 have verified camera,
+TF, and AprilTag perception, but the original source at
 `base_link (0.892, -0.180, -0.173) m` produced
 `INVERSE_KINEMATICS_FAILURE` on 2026-07-23, so authored end-to-end acceptance
 remains incomplete. Nvblox/ESDF, calibrated physical
