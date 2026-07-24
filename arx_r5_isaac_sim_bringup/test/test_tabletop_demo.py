@@ -36,6 +36,9 @@ DEMO_CONFIG_PATH = PACKAGE_ROOT / 'config' / 'tabletop_apriltag_demo.yaml'
 AUTHORED_DEMO_CONFIG_PATH = (
     PACKAGE_ROOT / 'config' / 'authored_usd_apriltag_demo.yaml'
 )
+FRONT_DEMO_CONFIG_PATH = (
+    PACKAGE_ROOT / 'config' / 'front_demo_apriltag_demo.yaml'
+)
 CALIBRATION_PATH = PACKAGE_ROOT / 'config' / 'tabletop_camera_extrinsics.yaml'
 GRASP_CONFIG_PATH = PACKAGE_ROOT / 'config' / 'tabletop_tagged_cube_grasps.yaml'
 BLACKBOARD_PATH = PACKAGE_ROOT / 'config' / 'tabletop_apriltag_blackboard.yaml'
@@ -87,11 +90,32 @@ def test_authored_source_zone_contains_pick_but_not_drop_workstation():
         AUTHORED_DEMO_CONFIG_PATH
     )
     zone = config.source_zone
-    source_in_base = (0.303, -0.180, -0.335)
-    drop_in_base = (0.094, 0.201, -0.327)
+    source_in_base = (0.8918535, -0.180, -0.1727558)
+    drop_in_base = (0.6976606, 0.1961878, -0.2826465)
 
     assert zone.enabled is True
     assert zone.frame == 'base_link'
+    assert all(
+        zone.minimum[index] <= source_in_base[index] <= zone.maximum[index]
+        for index in range(3)
+    )
+    assert not all(
+        zone.minimum[index] <= drop_in_base[index] <= zone.maximum[index]
+        for index in range(3)
+    )
+
+
+def test_front_demo_source_zone_matches_the_translated_robot_root():
+    """The opt-in root translation needs its own base-frame discovery zone."""
+    config = load_demo_config(FRONT_DEMO_CONFIG_PATH)
+    zone = config.source_zone
+    source_in_base = (0.3518780, -0.180, -0.2679681)
+    drop_in_base = (0.1576851, 0.1961878, -0.3778588)
+
+    assert zone.enabled is True
+    assert zone.frame == 'base_link'
+    assert zone.minimum == pytest.approx((0.27, -0.30, -0.34))
+    assert zone.maximum == pytest.approx((0.44, -0.08, -0.19))
     assert all(
         zone.minimum[index] <= source_in_base[index] <= zone.maximum[index]
         for index in range(3)

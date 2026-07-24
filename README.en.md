@@ -34,11 +34,12 @@ The generated fixed-`Camera_1` AprilTag regression scene also completed
 detection, planning, grasp, transport, and placement with
 `workflow_status=1`. After placement, the estimated cube center was
 `(0.29907, 0.17823, 0.02520) m`, about `2.0 mm` from the destination tag in the
-table plane. That metric belongs only to the generated regression scene. The
-ZED X authored-USD profile has now also passed its own end-to-end acceptance;
-the D455 authored-USD profile has likewise passed the official CUDA cuAprilTag
-and complete physical pick-and-place workflow. Both finish with
-`workflow_status=1`.
+table plane. That metric belongs only to the generated regression scene.
+Camera publishing, TF, and AprilTag perception are verified on the original
+authored USD, with the ZED X in front of ARX. However, on 2026-07-23 its source
+pose was approximately `base_link (0.892, -0.180, -0.173) m`, and cuMotion
+returned `INVERSE_KINEMATICS_FAILURE`. Neither authored ZED X nor D455 can
+currently be claimed as an end-to-end pick-and-place pass.
 
 The tested baseline is Ubuntu 24.04, ROS 2 Jazzy, Isaac ROS 4.5, cuMotion 4.5,
 and Isaac Sim 5.1.0 installed in a conda environment named `isaaclab`.
@@ -296,14 +297,20 @@ perception entries. Both reuse the same Isaac ROS manipulation servers,
 upstream Multi-Object Pick-and-Place behavior tree, cuMotion, MoveIt, and
 ros2_control after perception.
 
+The LFS asset is a byte-for-byte copy of the original authored USD (SHA-256
+`7162ec49dedd9dabe7748a9fd1da16d8b2164cf385c297ac8c94797efd61f1c0`). It is
+treated as a read-only source layer; every runtime patch is authored into an
+anonymous session layer.
+
 | Mode | Mount | Image | cuAprilTag raw | Manipulation input |
 |---|---|---|---|---|
-| ZED X eye-to-hand | Fixed to `base_link` | `/zed_x/left/image_raw` | `/zed_x/tag_detections_raw` | `/zed_x/tag_detections` |
+| ZED X eye-to-hand | Fixed to authored `base_link` (in front of ARX) | `/zed_x/left/image_raw` | `/zed_x/tag_detections_raw` | `/zed_x/tag_detections` |
 | D455 eye-in-hand | Fixed to the moving `link6` | `/d455/color/image_raw` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
 
-The ZED X mount retains the authored local `+10 deg` Y rotation needed to see
-the placement area. The `/R5a` root remains level, so that angle is not
-accidentally applied to the robot or the D455.
+The ZED X position and orientation come exactly from the USD scene you authored
+in Isaac Sim. It is in front of the ARX workcell; the simulator never moves the
+camera behind the arm or repositions the robot to manufacture a "reachable"
+layout.
 
 Both modes use the official
 `nvidia::isaac_ros::apriltag::AprilTagNode` with the CUDA/cuAprilTag backend.
@@ -319,14 +326,13 @@ refined stream instead of interleaving a native pose. The official output
 remains intact on `*_raw`. The downstream ARX object adapter then uses that
 unchanged image timestamp to transform the pose into `base_link`.
 
-Both simulator wrappers select `--authored-layout reachable` by default. An
-anonymous USD session layer moves the robot into the reachable work area and
-counter-translates the ZED mount, preserving the ZED left camera's world pose
-and authored local `+10 deg` Y pitch. These runtime edits never modify
-`assets/scenes/arx_sim.usd`; the `as-authored` layout is for scene inspection,
-not the current manipulation entry points. The runtime also normalizes each
-camera's vertical aperture for its output aspect ratio, so CameraInfo retains
-square pixels (`fx` approximately equals `fy`) without changing the source USD.
+Both simulator wrappers select `--authored-layout as-authored` by default. This
+profile has no pose overrides, so `/R5a`, ZED, D455, objects, targets, and any
+other authored environment geometry remain exactly where you placed them.
+Runtime changes are confined to the anonymous USD session layer: physics,
+materials, collision settings, and camera projection attributes needed by the
+ROS bridge. They never modify `assets/scenes/arx_sim.usd`. Camera vertical
+aperture is normalized in that session layer to match the selected output size.
 
 The authored profiles load the tabletop and four legs as five static collision
 objects through the official cuMotion Static Planning Scene Server. Isaac ROS
@@ -391,13 +397,13 @@ Read-only acceptance check:
 ./scripts/check_ros_graph.sh --zedx
 ```
 
-The ZED X profile has completed an on-system run with official CUDA
-cuAprilTag, bilateral PhysX finger contact, FixedJoint attach/release, all 29
-Object Attachment collision spheres, and successful lift/drop/open/release.
-The stalled gripper result was accepted at about `0.0268 m` mean aperture; the
-workflow ended with `status=1` and `Object 0 -> DONE`. The placed center was
-approximately `base_link (0.0939, 0.2014, -0.3266) m`, about `6.7 mm` in XY
-from the tag 1 plane center.
+The original authored USD has verified ZED X image, CameraInfo, TF, and official
+CUDA cuAprilTag perception, with the camera remaining in front of ARX. Its
+source is currently at approximately
+`base_link (0.892, -0.180, -0.173) m`; on 2026-07-23 cuMotion returned
+`INVERSE_KINEMATICS_FAILURE` before contact, attachment, transport, or
+placement. The old reachable-layout `6.7 mm` and `status=1` results therefore
+do not qualify the current original USD.
 
 ### D455: wrist-mounted eye-in-hand
 
@@ -421,15 +427,14 @@ cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
 ./scripts/run_d455_demo.sh auto_start:=False
 ```
 
-`run_d455_sim.sh` initializes the arm at the validated D455 observation pose:
+`run_d455_sim.sh` initializes the arm at a retained D455 startup joint seed:
 `[-1.3919817209, 1.8859872818, 0.5746622086, -0.6957563162, -0.6273930669, -1.9993159771, 0.044, 0.044]`,
-ordered as `joint1..joint8`. Official CUDA cuAprilTag raw output detects IDs 0
-and 1 simultaneously, with image-center columns near `x=960 px` and
-`x=325 px`; cuMotion plan-only at this pose takes approximately `0.74 s`.
-The complete run passed bilateral PhysX contact, FixedJoint attachment, all
-29 Object Attachment collision spheres, drop, and release, ending with
-`workflow_status=1`. ros2_control uses the corresponding eight startup values,
-with `joint8` equal to `joint7`.
+ordered as `joint1..joint8`. It keeps the Isaac Sim and ros2_control startup
+states consistent; the original authored USD no longer claims the old
+`x=960/325`, `0.74 s`, or complete pick-and-place acceptance results. Its
+source is outside the configured arm workspace and cuMotion returns
+`INVERSE_KINEMATICS_FAILURE`. ros2_control uses the corresponding eight startup
+values, with `joint8` equal to `joint7`.
 TopicBasedSystem continues to mirror the `joint7` command into `joint8`; no
 controller exposes it as a second gripper DOF.
 `link6 -> d455_color_optical_frame` is a fixed mount edge,
@@ -597,11 +602,13 @@ consecutive physics steps. The default is `3` steps and is adjustable with
 `link6` stabilizes transport; opening the gripper deletes the joint. This is
 not a purely friction-generated grasp. cuMotion Object Attachment separately
 maintains the planning-scene attachment. The generated `Camera_1` regression
-scene keeps its older visual attachment. Its `2.0 mm` result and `7.6 mm`
-nominal clearance do not qualify the authored profiles. ZED X has separately
-passed with `status=1` and about `6.7 mm` placement XY error. D455 has also
-passed with simultaneous raw IDs 0/1, bilateral contact, FixedJoint, all 29
-spheres, drop/release, and `workflow_status=1`. Nvblox/ESDF, calibrated physical
+scene keeps its older visual attachment. Its `2.0 mm` result and
+`workflow_status=1`, plus its `7.6 mm` nominal clearance, do not qualify the
+authored profiles. ZED X and D455 have
+verified camera, TF, and AprilTag perception, but the original source at
+`base_link (0.892, -0.180, -0.173) m` produced
+`INVERSE_KINEMATICS_FAILURE` on 2026-07-23, so authored end-to-end acceptance
+remains incomplete. Nvblox/ESDF, calibrated physical
 grasping, real TCP/camera extrinsics, collision geometry, and emergency-stop
 validation remain required before real hardware use. Simulation success does
 not guarantee hardware success.

@@ -57,18 +57,17 @@ The authored USD has two mutually exclusive perception profiles:
 | `zedx` | fixed `base_link -> zed_x_left_camera_optical_frame` (eye-to-hand) | `/zed_x/left/image_raw` | `/zed_x/tag_detections_raw` | `/zed_x/tag_detections` |
 | `d455` | fixed `link6 -> d455_color_optical_frame` (eye-in-hand) | `/d455/color/image_raw` | `/d455/tag_detections_raw` | `/d455/tag_detections` |
 
-The authored ZED X mount alone carries a local `+10 deg` Y rotation so its
-view includes the placement area. `/R5a` remains level; the wrist-mounted D455
-therefore receives no unintended global camera tilt.
+The ZED X pose is taken directly from the authored USD (the camera is placed in
+front of the ARX workcell). `/R5a`, the ZED mount, and the wrist-mounted D455
+are not reoriented by the simulator.
 
-The `run_zedx_sim.sh` and `run_d455_sim.sh` entry points select the `reachable`
-layout. It exists only in the stage's anonymous session layer: the robot is
-moved into the reachable work area and the ZED mount is counter-translated so
-that its authored world pose and local `+10 deg` pitch remain unchanged. The
-committed `assets/scenes/arx_sim.usd` is never rewritten. The same session
-layer normalizes vertical camera aperture to the selected render aspect ratio,
-which keeps CameraInfo square-pixel intrinsics (`fx` approximately equal to
-`fy`) without persisting a camera edit.
+The `run_zedx_sim.sh` and `run_d455_sim.sh` entry points select the
+`as-authored` layout. It contains no pose overrides: the robot, cameras,
+objects, targets, and environment remain exactly as authored. The committed
+`assets/scenes/arx_sim.usd` is never rewritten. The anonymous session layer is
+used only for runtime physics/material/collision setup and camera projection
+normalization, so CameraInfo matches the selected render aspect ratio without
+persisting an edit to the source USD.
 
 For D455, `robot_state_publisher` supplies the time-varying
 `base_link -> link6` transform from joint states. The ARX adapter looks up that
@@ -166,6 +165,11 @@ object in its planning scene.
 The generated fixed-`Camera_1` regression scene retains its older visual
 attachment controller. Its recorded `workflow_status=1` and placement metric
 must not be presented as final acceptance of either authored-camera profile.
+The original authored USD has verified camera, TF, and official cuAprilTag
+perception, with the ZED X in front of ARX. On 2026-07-23, however, its source
+pose was approximately `base_link (0.892, -0.180, -0.173) m` and cuMotion
+returned `INVERSE_KINEMATICS_FAILURE`; authored end-to-end pick-and-place is
+therefore still incomplete.
 
 ## Startup ordering
 

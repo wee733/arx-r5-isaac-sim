@@ -28,8 +28,12 @@ source_object:
 source_zone:
   enabled: true
   frame: base_link
-  min_xyz: [0.20, -0.30, -0.39]
-  max_xyz: [0.40, -0.08, -0.25]
+  # The authored base is at (-0.548305509, 0, 0.4) with a +10 degree Y
+  # rotation. The source block centre therefore transforms from world
+  # (0.3, -0.18, 0.075) to approximately
+  # (0.8918535, -0.18, -0.1727558) in base_link.
+  min_xyz: [0.80, -0.30, -0.25]
+  max_xyz: [1.00, -0.08, -0.10]
 
 drop_target:
   center: [0.089674989, 0.196187780, 0.0005]

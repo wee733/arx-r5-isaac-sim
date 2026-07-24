@@ -15,9 +15,10 @@
 下面的 `2.0 mm` 结果特指程序生成的固定相机回归场景：完整流程已经端到端跑通并
 返回 `workflow_status=1`。投放后由 tag 0 计算出的
 方块中心为 `(0.29907, 0.17823, 0.02520) m`，与 tag 1 目标中心的平面距离约为
-`2.0 mm`，这组指标不能用于 authored 模式。ZED X authored 模式已经单独完成端到端
-验收；D455 authored 模式也已用官方 CUDA cuAprilTag 与完整物理抓放链完成端到端
-验收，两者最终都返回 `workflow_status=1`。
+`2.0 mm`，这组指标不能用于 authored 模式。2026-07-23 使用原始 authored 布局时，
+source 在 `base_link` 中约为 `(0.892, -0.180, -0.173) m`，cuMotion 返回
+`INVERSE_KINEMATICS_FAILURE`。因此目前只能宣称 ZED X 位于 ARX 前方且两套相机的
+感知链已验证，不能宣称 authored ZED X 或 D455 已完成端到端抓放。
 
 本文档的已验证通信配置为：
 
@@ -84,10 +85,10 @@ ros2_control 和 Isaac Sim 控制话题仍走标准接口。
 两种 authored USD 模式一次只能运行一套。Isaac Sim 和 ROS 终端必须选择相同相机，
 并保持相同的 `ROS_DOMAIN_ID` 与 `RMW_IMPLEMENTATION`。
 
-两个仿真入口默认使用 `--authored-layout reachable`。该布局只写入匿名 USD session
-layer：机械臂被移入可达工作域，ZED mount 同时反向补偿，所以 ZED 左目的世界位姿与
-局部 Y 轴 `+10°` 下俯保持不变。退出 Isaac Sim 后这些变换消失，源文件
-`assets/scenes/arx_sim.usd` 不会被覆盖；`as-authored` 只用于检查原始布局。
+两个仿真入口默认使用 `--authored-layout as-authored`。该 profile 不包含任何位姿覆盖，
+所以 `/R5a`、ZED、D455、物体、目标和你在 Isaac Sim 中设计的环境都保持原样。运行时
+只在匿名 USD session layer 中添加必要的物理、材质、碰撞和相机投影属性；退出 Isaac
+Sim 后这些修改消失，源文件 `assets/scenes/arx_sim.usd` 不会被覆盖。
 
 authored USD 的相机输出为 16:10。启动时会在同一个非持久 session layer 中按
 `vertical_aperture = horizontal_aperture × height / width` 规范相机投影，避免用
@@ -118,14 +119,14 @@ cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
 ZED X 左目输出 `/zed_x/left/image_raw` 和 `/zed_x/left/camera_info`；官方
 Isaac ROS AprilTag 输出 `/zed_x/tag_detections_raw`，pose refiner 输出供 manipulation
 消费的 `/zed_x/tag_detections`。相机安装 TF 是固定的
-`base_link -> zed_x_left_camera_optical_frame`。场景只在 ZED X 安装节点上保留
-局部 Y 轴 `+10°` 旋转以覆盖放置区；机械臂 `/R5a` 根节点保持水平。运行时外参从
-USD 层级变换读取并校验，不会在 ROS launch 中再手写或叠加 10°。
+`base_link -> zed_x_left_camera_optical_frame`。相机位于你 authored USD 设计的 ARX
+前方。运行时外参从 USD 层级变换读取并校验，
+不会在 ROS launch 中再手写或叠加任何角度。
 
-ZED X 已现场跑通官方 CUDA cuAprilTag、双指 PhysX contact、FixedJoint attach/release、
-Object Attachment `29` 个碰撞球以及 lift/drop/open/release。夹爪以 stalled 成功，平均
-开度约 `0.0268 m`；行为树最终返回 `status=1`、`Object 0 -> DONE`。投放后红块中心约为
-`base_link (0.0939, 0.2014, -0.3266) m`，相对 tag 1 平面中心的 XY 误差约 `6.7 mm`。
+原始 authored USD 已验证 ZED X 图像、CameraInfo、TF 和官方 CUDA cuAprilTag 感知；
+当前 source 位于 `base_link ≈ (0.892, -0.180, -0.173) m`，2026-07-23 的 cuMotion
+规划返回 `INVERSE_KINEMATICS_FAILURE`，尚未进入接触、attach、搬运和投放阶段。旧
+reachable 布局的 `6.7 mm` 和 `status=1` 结果不属于当前原始 USD。
 
 ### D455 eye-in-hand
 
@@ -153,18 +154,17 @@ AprilTag 输出 `/d455/tag_detections_raw`，refiner 输出 `/d455/tag_detection
 `link6 -> d455_color_optical_frame` 固定，`base_link -> link6` 则由 URDF、
 `/joint_states` 和 `robot_state_publisher` 随关节实时更新。ARX object adapter 使用
 检测消息原始时间戳转换到 `base_link`，避免把腕部相机的旧图像配上最新关节 TF。
-启动脚本使用已经完成端到端验收的 D455 观察姿态
+启动脚本使用保留的 D455 启动关节位
 `[-1.3919817209, 1.8859872818, 0.5746622086, -0.6957563162, -0.6273930669, -1.9993159771, 0.044, 0.044]`，
-依次对应 `joint1..joint8`，并让 Isaac Sim 与
+依次对应 `joint1..joint8`，用于让 Isaac Sim 与
 ros2_control hardware 的全部八个关节使用一致初值；`joint8` 初值等于 `joint7`，之后由
 TopicBasedSystem 的 `mimic=joint7, multiplier=1` 生成第八个位置命令，而不是独立的
 controller DOF。源物体和目标 Tag 都使用异步 exact-time TF 查询，允许渲染帧先于对应动态
 TF 到达，但绝不回退到 latest TF。
 
-在该姿态下，官方 CUDA cuAprilTag 的 raw 输出在同一画面同时检测到 ID 0 和 ID 1，
-中心列约为 `x=960 px` 与 `x=325 px`；cuMotion plan-only 约为 `0.74 s`。完整运行已经
-依次通过双指 PhysX 接触、FixedJoint attach、Object Attachment `29` 个碰撞球、drop
-与 release，行为树最终返回 `workflow_status=1`。
+该启动位不再作为原始 authored USD 的感知或规划验收声明；旧文档中的
+`x=960/325`、`0.74 s` 和 `workflow_status=1` 来自已废弃的 reachable 布局。当前原始
+布局 source 超出配置的机械臂工作域，cuMotion 返回 `INVERSE_KINEMATICS_FAILURE`。
 
 “逐帧动态 TF”表示每条检测都使用它自己的采集时间，不表示 continuous visual
 servo。object adapter 会在 `base_link` 中过滤并缓存稳定目标；行为树开始后，cuMotion
@@ -210,9 +210,10 @@ ros2 action send_goal /get_object_pose \
   '{object_id: 0, class_id: tagged_block}'
 ```
 
-reachable 布局中 tag 0 对应物体中心的仿真真值为
-`base_link (0.30, -0.18, -0.325) m`。这是比较 AprilTag/PnP 输出的真值，不是宣称
-当前相机模式已经达到某个误差指标。还应读取所选相机的 CameraInfo，确认 16:10
+tag 0 的物体中心真值由当前 authored USD 的 `/World/Workspace/TaggedCube` 和
+`/R5a/base_link` 层级变换计算得到，不再使用旧 reachable 布局的硬编码坐标。比较
+AprilTag/PnP 输出时应先把它转换到 `base_link`；这不是宣称当前相机模式已经达到某个
+误差指标。还应读取所选相机的 CameraInfo，确认 16:10
 投影修正后 `k[0]`（`fx`）约等于 `k[4]`（`fy`）：
 
 ```bash
@@ -635,12 +636,13 @@ Object Attachment `max_overshoot=10 mm`、XRDF attached-object buffer `2 mm`、P
   彩色图和对应 CameraInfo。
 - 固定相机外参、tag 1 的目标投放平面和物体尺寸来自仿真真值。authored canonical
   pose 由官方 corners 经有界 IPPE refinement 后得到，raw 官方 pose 始终保留用于
-  对照。`2.0 mm` 只属于 generated 场景，不是对真实相机噪声或 authored 模式的指标。
+  对照。`2.0 mm`、`workflow_status=1` 和 `7.6 mm` 名义净空只属于 generated 场景，
+  不是对真实相机噪声或 authored 模式的指标。
 - D455 使用 detection 原始时间戳的动态 TF，但当前任务是稳定 pose 后的一次规划执行，
   不是 continuous visual servo。
-- ZED X authored 模式已经返回 `status=1`，完成双侧接触、attach、抬升、投放、张开和
-  release；投放 XY 误差约 `6.7 mm`。D455 同样返回 `workflow_status=1`，raw cuAprilTag
-  同时检测 ID 0/1，并通过双侧接触、FixedJoint、29 spheres、drop/release。
+- ZED X 和 D455 authored 模式已验证图像、TF 和官方 cuAprilTag 感知；ZED 位于 ARX
+  前方。但原始布局 source 为 `base_link ≈ (0.892, -0.180, -0.173) m`，cuMotion
+  于 2026-07-23 返回 `INVERSE_KINEMATICS_FAILURE`，尚未完成端到端抓放。
 - `7.6 mm` 是基于当前网格和目标姿态计算的名义净空，不等于完成了 PhysX 接触碰撞、
   自碰撞或实机安全验收。
 - 这个 demo 验证了话题、action、行为树、规划和控制接口闭环，但不能替代真实 TCP、

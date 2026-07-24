@@ -15,7 +15,7 @@
 
 """Contract tests for the authored dual-camera USD workcell."""
 
-from math import atan2, degrees
+import hashlib
 from pathlib import Path
 
 from arx_r5_isaac_sim_bringup.usd_scene import load_usd_scene_config
@@ -24,6 +24,26 @@ import pytest
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = PACKAGE_ROOT / 'config' / 'arx_sim_usd_scene.yaml'
+USD_PATH = PACKAGE_ROOT / 'assets' / 'scenes' / 'arx_sim.usd'
+AUTHORED_USD_SHA256 = (
+    '7162ec49dedd9dabe7748a9fd1da16d8b2164cf385c297ac8c94797efd61f1c0'
+)
+
+
+def test_committed_usd_is_the_original_authored_asset():
+    """The LFS object must remain byte-for-byte identical to the user USD."""
+    contents = USD_PATH.read_bytes()
+    if contents.startswith(b'version https://git-lfs.github.com/spec/v1'):
+        pointer = contents.decode('ascii')
+        digest = next(
+            line.removeprefix('oid sha256:')
+            for line in pointer.splitlines()
+            if line.startswith('oid sha256:')
+        )
+    else:
+        digest = hashlib.sha256(contents).hexdigest()
+
+    assert digest == AUTHORED_USD_SHA256
 
 
 def test_authored_scene_has_two_unambiguous_camera_profiles():
@@ -44,21 +64,17 @@ def test_authored_scene_has_two_unambiguous_camera_profiles():
     )
 
 
-def test_zed_pitch_belongs_to_the_fixed_camera_not_the_robot_root():
-    """The intended 10-degree look-down must not tilt the articulation."""
+def test_authored_robot_and_zed_transforms_are_the_source_of_truth():
+    """The runtime contract must match the hand-authored USD transforms."""
     config = load_usd_scene_config(CONFIG_PATH)
     zed = config.cameras['zedx']
 
     assert config.expected_world_to_base_rotation == pytest.approx(
-        (0.0, 0.0, 0.0, 1.0)
+        (0.0, 0.0871557427, 0.0, 0.9961946981)
     )
-    pitch_degrees = degrees(atan2(
-        -zed.expected_optical_forward[2],
-        zed.expected_optical_forward[0],
-    ))
-    assert pitch_degrees == pytest.approx(10.0, abs=1e-6)
+    assert zed.expected_optical_forward == pytest.approx((1.0, 0.0, 0.0))
     assert zed.expected_parent_to_optical_translation == pytest.approx(
-        (0.2896500463, 0.06, -0.0561502512)
+        (0.295, 0.06, -0.005)
     )
 
 
@@ -75,38 +91,27 @@ def test_camera_projection_is_normalized_without_changing_horizontal_fov():
     assert '_normalize_camera_projection(stage, camera)' in source
 
 
-def test_reachable_layout_preserves_the_fixed_zed_world_pose():
-    """Moving the fixed base closer must not move or unpitch the external camera."""
+def test_authored_layout_has_no_runtime_pose_overrides():
+    """The default layout must preserve every pose from the source USD."""
     config = load_usd_scene_config(CONFIG_PATH)
-    layout = config.layouts['reachable']
 
-    assert tuple(config.layouts) == ('as-authored', 'reachable')
-    assert config.layouts['as-authored'].prim_translations == {}
-    assert layout.prim_translations['/R5a'] == pytest.approx(
-        (0.0, 0.0, 0.4)
-    )
-    assert layout.prim_translations['/R5a/base_link/ZED_X'] == pytest.approx(
-        (-0.2760323015, 0.0, -0.0683176448)
-    )
+    assert tuple(config.layouts) == ('as-authored', 'front-demo')
+    authored = config.layouts['as-authored']
+    assert authored.prim_translations == {}
+    assert authored.camera_parent_to_optical_translations == {}
 
-    # The source USD base is at x=-0.5483055088. Its original camera offset
-    # plus that base translation equals the reachable session-layer offset.
-    authored_world_translation = (
-        -0.5483055088
-        + config.cameras['zedx'].expected_parent_to_optical_translation[0],
-        config.cameras['zedx'].expected_parent_to_optical_translation[1],
-        0.4
-        + config.cameras['zedx'].expected_parent_to_optical_translation[2],
-    )
-    reachable_world_translation = (
-        layout.camera_parent_to_optical_translations['zedx'][0],
-        layout.camera_parent_to_optical_translations['zedx'][1],
-        0.4 + layout.camera_parent_to_optical_translations['zedx'][2],
-    )
-    assert reachable_world_translation == pytest.approx(
-        authored_world_translation,
-        abs=1e-9,
-    )
+
+def test_front_demo_moves_only_the_complete_robot_camera_assembly():
+    """The optional demo must never counter-translate the front ZED mount."""
+    config = load_usd_scene_config(CONFIG_PATH)
+    layout = config.layouts['front-demo']
+
+    assert layout.prim_translations == {
+        '/R5a': pytest.approx((0.0, 0.0, 0.4)),
+    }
+    assert '/R5a/base_link/ZED_X' not in layout.prim_translations
+    assert layout.camera_parent_to_optical_translations == {}
+    assert config.cameras['zedx'].expected_parent_to_optical_translation[0] > 0.0
 
 
 def test_d455_contract_is_rigidly_attached_to_link6():
@@ -238,7 +243,7 @@ def test_authored_workspace_contact_offsets_only_touch_existing_colliders():
 
 
 def test_authored_layout_is_session_only_and_cannot_overwrite_source_usd():
-    """Runtime reachability changes must never become accidental asset edits."""
+    """Only transient physics/material edits may enter the session layer."""
     simulation_path = (
         PACKAGE_ROOT / 'arx_r5_isaac_sim_bringup' / 'simulation.py'
     )
@@ -246,6 +251,9 @@ def test_authored_layout_is_session_only_and_cannot_overwrite_source_usd():
 
     assert 'stage.GetEditTarget().GetLayer() != stage.GetSessionLayer()' in source
     assert '--save-usd must not overwrite the selected authored USD' in source
+    config = load_usd_scene_config(CONFIG_PATH)
+    assert config.layouts['as-authored'].prim_translations == {}
+    assert config.layouts['as-authored'].camera_parent_to_optical_translations == {}
 
 
 def test_duplicate_camera_topics_are_rejected(tmp_path):

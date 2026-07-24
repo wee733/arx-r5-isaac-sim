@@ -376,8 +376,8 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         default='as-authored',
         help=(
             'Named non-persistent layout from arx_sim_usd_scene.yaml. '
-            'Camera demo wrappers use reachable; as-authored preserves every '
-            'source transform.'
+            'as-authored preserves every source transform; front-demo '
+            'translates only the /R5a root and never counter-translates ZED.'
         ),
     )
     parser.add_argument(
@@ -752,8 +752,9 @@ def _world_to_base_transform(stage, config: UsdSceneConfig) -> RosTransform:
     if rotation_error > 0.01:
         raise RuntimeError(
             f'authored world-to-base rotation differs by '
-            f'{rotation_error:.6f} degrees from the scene contract; keep the '
-            'robot root upright and apply camera pitch on the camera mount'
+            f'{rotation_error:.6f} degrees from the scene contract; preserve '
+            'the user-authored robot and camera transforms or update the '
+            'scene contract together with the USD'
         )
     return RosTransform(
         parent_frame=config.world_frame,

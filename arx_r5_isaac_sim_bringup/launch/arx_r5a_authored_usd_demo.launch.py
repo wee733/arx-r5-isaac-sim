@@ -52,6 +52,16 @@ RAW_DETECTION_TOPICS = {
 }
 RAW_PLANNING_SCENE_TOPIC = '/cumotion/static_planning_scene_raw'
 PLANNING_SCENE_TOPIC = '/planning_scene'
+LAYOUT_DEFAULTS = {
+    'as-authored': (
+        'authored_usd_apriltag_demo.yaml',
+        'authored_usd_table.scene',
+    ),
+    'front-demo': (
+        'front_demo_apriltag_demo.yaml',
+        'front_demo_table.scene',
+    ),
+}
 
 
 def _value(context, name: str) -> str:
@@ -84,6 +94,17 @@ def launch_setup(context, *args, **kwargs):
     scene_config = load_usd_scene_config(
         _value(context, 'usd_scene_config_file')
     )
+    layout_profile = _value(context, 'layout_profile').strip()
+    if layout_profile not in scene_config.layouts:
+        available = ', '.join(sorted(scene_config.layouts))
+        raise ValueError(
+            f'Unknown authored layout {layout_profile!r}; '
+            f'available: {available}'
+        )
+    if layout_profile not in LAYOUT_DEFAULTS:
+        raise ValueError(
+            f'Layout {layout_profile!r} has no manipulation configuration'
+        )
     if camera_profile not in scene_config.cameras:
         available = ', '.join(scene_config.cameras)
         raise ValueError(
@@ -91,7 +112,18 @@ def launch_setup(context, *args, **kwargs):
             f'available: {available}'
         )
     camera = scene_config.cameras[camera_profile]
-    demo_config = load_demo_config(_value(context, 'demo_config_file'))
+    package_share = get_package_share_directory(PACKAGE_NAME)
+    default_demo_filename, default_scene_filename = LAYOUT_DEFAULTS[
+        layout_profile
+    ]
+    demo_config_path = _value(context, 'demo_config_file').strip()
+    if not demo_config_path:
+        demo_config_path = os.path.join(
+            package_share,
+            'config',
+            default_demo_filename,
+        )
+    demo_config = load_demo_config(demo_config_path)
     if (
         demo_config.source_zone.enabled and
         demo_config.source_zone.frame != scene_config.base_frame
@@ -102,7 +134,7 @@ def launch_setup(context, *args, **kwargs):
             f'{scene_config.base_frame!r}'
         )
     initial_positions_file = os.path.join(
-        get_package_share_directory(PACKAGE_NAME),
+        package_share,
         'config',
         (
             'd455_observation_positions.yaml'
@@ -110,11 +142,13 @@ def launch_setup(context, *args, **kwargs):
             else 'initial_positions.yaml'
         ),
     )
-    collision_scene_file = os.path.join(
-        get_package_share_directory(PACKAGE_NAME),
-        'config',
-        'authored_usd_table.scene',
-    )
+    collision_scene_file = _value(context, 'collision_scene_file').strip()
+    if not collision_scene_file:
+        collision_scene_file = os.path.join(
+            package_share,
+            'config',
+            default_scene_filename,
+        )
     detections_override = _value(context, 'tag_detections_topic').strip()
     tag_detections_topic = (
         detections_override or DETECTION_TOPICS[camera_profile]
@@ -359,6 +393,15 @@ def generate_launch_description():
             choices=['zedx', 'd455'],
             description='Authored USD camera used by Isaac ROS AprilTag.',
         ),
+        DeclareLaunchArgument(
+            'layout_profile',
+            choices=sorted(LAYOUT_DEFAULTS),
+            default_value='as-authored',
+            description=(
+                'Named authored-USD session layout. as-authored preserves '
+                'the source USD; front-demo moves only /R5a.'
+            ),
+        ),
         DeclareLaunchArgument('headless', default_value='False'),
         DeclareLaunchArgument('start_rviz', default_value='True'),
         DeclareLaunchArgument('start_orchestrator', default_value='True'),
@@ -395,11 +438,19 @@ def generate_launch_description():
         ),
         DeclareLaunchArgument(
             'demo_config_file',
-            default_value=PathJoinSubstitution([
-                package_share,
-                'config',
-                'authored_usd_apriltag_demo.yaml',
-            ]),
+            default_value='',
+            description=(
+                'Optional override; empty selects the config paired with '
+                'layout_profile.'
+            ),
+        ),
+        DeclareLaunchArgument(
+            'collision_scene_file',
+            default_value='',
+            description=(
+                'Optional MoveIt scene override; empty selects the scene '
+                'paired with layout_profile.'
+            ),
         ),
         DeclareLaunchArgument(
             'tag_config_file',
