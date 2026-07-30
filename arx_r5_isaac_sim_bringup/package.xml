@@ -13,12 +13,15 @@
 
   <buildtool_depend>ament_python</buildtool_depend>
 
+  <exec_depend>action_msgs</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>control_msgs</exec_depend>
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>isaac_ros_apriltag</exec_depend>
   <exec_depend>isaac_ros_apriltag_interfaces</exec_depend>
   <exec_depend>isaac_ros_cumotion</exec_depend>
+  <exec_depend>isaac_ros_cumotion_interfaces</exec_depend>
   <exec_depend>isaac_ros_cumotion_object_attachment</exec_depend>
   <exec_depend>isaac_ros_cumotion_moveit</exec_depend>
   <exec_depend>isaac_ros_manipulation_arx_r5a_bringup</exec_depend>
@@ -46,9 +49,12 @@
   <exec_depend>ros2launch</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>tf2_ros_py</exec_depend>
   <exec_depend>topic_based_ros2_control</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
   <exec_depend>xacro</exec_depend>
 
   <test_depend>ament_copyright</test_depend>

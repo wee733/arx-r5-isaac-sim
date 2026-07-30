@@ -1,0 +1,18 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+
+# Startup joint seed shared by Isaac Sim and topic_based_ros2_control for VLA
+# data collection. Non-singular, gripper fully open so the episode driver can
+# close it on the first grasp without a preparatory motion.
+#
+# This is a starting seed, not a validated observation pose. Revalidate against
+# the 0.15 m platform layout once the first episodes have been recorded.
+initial_positions:
+  joint1: 0.0
+  joint2: 1.0
+  joint3: 1.5
+  joint4: 0.0
+  joint5: 0.0
+  joint6: 0.0
+  joint7: 0.044
+  joint8: 0.044

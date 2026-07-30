@@ -1,0 +1,208 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+
+# Task, workcell geometry and episode randomization for VLA data collection.
+#
+# This file is the single source of truth for the scene. Both
+# scripts/author_vla_scene.py (which writes assets/scenes/arx_vla_scene.usd)
+# and the generated cuMotion collision scene config/vla_ground.scene are
+# derived from the values below, so the USD, the collision world and the
+# episode driver cannot drift apart.
+#
+# All `world` coordinates are metres in the Isaac Sim stage frame (Z up).
+# The robot base is at world (-0.2, 0, 0.35) with a Ry(+15 deg) forward pitch;
+# see config/vla_scene.yaml for that contract.
+
+schema_version: 1
+
+instruction: 'pick up the block and place it on the target'
+
+# ---------------------------------------------------------------- workcell --
+workcell:
+  ground_z: 0.0
+
+  # Column the R5A is bolted to. The USD prim spans the full 0.35 m up to
+  # base_link, but the cuMotion box stops 0.10 m short: a collision box that
+  # reaches base_link makes every start state report an immediate self
+  # collision, and the arm never leaves the column's own footprint anyway.
+  mount:
+    prim_path: /World/Workspace/Mount
+    size: [0.10, 0.10, 0.35]
+    center: [-0.2, 0.0, 0.175]
+    collision_size: [0.10, 0.10, 0.25]
+    collision_center: [-0.2, 0.0, 0.125]
+
+  # Low platform replacing the removed table. Its top face at z = 0.15 puts
+  # the block centre on the ZED X optical axis (0.2 deg vertical off-axis at
+  # the nominal pose) while keeping the top-grasp link6 goal inside the
+  # measured R5A envelope.
+  platform:
+    prim_path: /World/Workspace/Platform
+    size: [0.50, 0.50, 0.15]
+    center: [0.25, 0.0, 0.075]
+
+  # Floor. cuMotion runs with add_ground_plane=False, so the floor only exists
+  # in the collision world if it is declared here.
+  ground:
+    size: [3.0, 3.0, 0.02]
+    center: [0.0, 0.0, -0.01]
+
+# ------------------------------------------------------------------- block --
+block:
+  prim_path: /World/Workspace/Block
+  body_prim_path: /World/Workspace/Block/Body
+  # 0.04 x 0.04 x 0.15 is 3.75:1 slender: its tipping angle is only 14.9 deg,
+  # about the same as the AprilTag workcell's block, which had to be kinematic
+  # for that reason. It stands on its own here, but expect it to topple when a
+  # finger catches it off-centre. Lower the Z extent (0.10 gives 21.8 deg) if
+  # tipping turns out to dominate the failures.
+  size: [0.04, 0.04, 0.15]
+  # Resting on the platform top: 0.15 + 0.15/2.
+  nominal_center: [0.25, -0.03, 0.225]
+  # 240 cm3 at roughly 210 kg/m3. Light enough to be plausible, heavy enough
+  # that closing fingers do not shove it across the platform.
+  mass_kg: 0.05
+
+# ------------------------------------------------------- placement marker --
+# A visual-only decal on the platform showing where the block must end up.
+# Moved to the seed's place pose on every episode reset, so the target is
+# visible in both camera streams instead of being an invisible convention.
+place_marker:
+  prim_path: /World/Workspace/PlaceMarker
+  size: [0.04, 0.04]
+  # Sits just above the platform surface to avoid z-fighting with it.
+  height_above_surface: 0.001
+  color: [0.05, 0.25, 0.9]
+
+# --------------------------------------------------------------- placement --
+# Where the block starts, and where it must end up.
+#
+# Both poses are drawn from ONE shared region rather than two disjoint bands.
+# Fixed bands (source at y<0, target at y>0) make the carry direction always
+# +y, which a policy can exploit as a shortcut instead of actually reading
+# where the target is. Sharing the region means the two poses swap freely, so
+# the carry direction covers every azimuth.
+#
+# The bounds come from a corner sweep against the reachability envelope and the
+# ZED X frustum. x is the binding axis and is squeezed from both ends: below
+# 0.22 the far y corners leave the camera's field of view, and above 0.26 the
+# link6 goal exceeds reach_envelope.max_x. y is far less constrained, so the
+# region is deliberately wide in y (300 mm) and narrow in x (40 mm).
+#
+# A consequence worth knowing: because the x span is smaller than
+# min_separation, a carry can never be purely along x. Carry directions cover
+# the +/-y hemispheres, not all four quadrants. Widening x needs either a
+# higher-mounted camera or a longer reach envelope.
+sampling_zone:
+  x: [0.22, 0.26]
+  y: [-0.09, 0.21]
+  yaw_deg: [-45.0, 45.0]
+
+# Rejection-sample the place pose until it is at least this far from the block.
+# A 45 deg yawed 0.04 m block has a 0.057 m diagonal, so 0.09 m keeps 33 mm of
+# clear space between the marker and the block's start footprint while still
+# admitting short carries.
+min_separation: 0.09
+
+# ------------------------------------------------------------------- grasp --
+grasp:
+  # top  -- link6 +X points straight down, fingers close across the block's
+  #         horizontal faces. Approach and retreat are vertical.
+  # side -- link6 +X points horizontally at the block, fingers close across
+  #         two opposite vertical faces. Approach and retreat are horizontal,
+  #         along the tool axis, so the gripper does not sweep the block over.
+  #
+  # Side grasps put the wrist much lower and further out than top grasps, so
+  # they are the harder reachability case; validate with dry_run after changing
+  # either the zones or this setting.
+  style: top
+
+  # Top grasp: how far below the block's top face grasp_frame sits.  With the
+  # measured link6 mesh extent this leaves 11 mm between the palm and the top
+  # face while the fingers still overlap 63 mm of the block side walls.
+  depth_below_top: 0.015
+  # Side grasp: height of grasp_frame above the platform surface. Below the
+  # block's mid-height so the grasp is under its centre of mass.
+  side_grasp_height: 0.055
+  # Side grasp: horizontal standoff for the approach and retreat waypoints,
+  # measured back along the tool axis from the grasp pose.
+  side_approach_distance: 0.10
+
+  # grasp_frame is fixed 0.11 m along link6 +X (see r5a_cumotion.urdf).
+  grasp_frame_offset: 0.11
+  # Standoff above the grasp pose for the top-grasp approach and retreat.
+  approach_height: 0.12
+  # Raising the grasp by 20 mm to clear the palm must not also raise the
+  # absolute carry pose.  0.13 m keeps LIFT/TRANSFER at the previously proven
+  # link6 world height of 0.525 m; 0.15 m produced an IK failure at 0.545 m.
+  lift_height: 0.13
+  # joint7 travel is 0..0.044 and the fingers open symmetrically, so the
+  # fingertip aperture is 2 * joint7 -> 0.088 m fully open. A 0.04 m block
+  # leaves 24 mm per side, so the fingers close well past first contact; the
+  # sim-side attachment controller keys off the commanded state rather than the
+  # measured aperture for exactly this reason.
+  gripper_open: 0.044
+  gripper_close: 0.0
+  # At a correct grasp the grasp_frame sits within this distance of the block
+  # centre. The sim only attaches the block when the two are at least this
+  # close, so a finger brushing the block during a transit motion cannot glue
+  # it to the wrist.
+  attach_max_distance: 0.08
+
+# -------------------------------------------------------------- validation --
+# Startup assertions. Every randomized block pose and every derived link6 goal
+# is checked against these before the driver accepts a single episode.
+reach_envelope:
+  frame: base_link
+  # A cuMotion goalset scan with link6 +X pointing down found the R5A top-grasp
+  # envelope ends between base_link x 0.45 and 0.50. Stay on the safe side.
+  max_x: 0.45
+  max_radius: 0.62
+  min_radius: 0.18
+
+camera_visibility:
+  # Assert every randomized object centre falls inside the eye-to-hand ZED
+  # frustum. Half angles are 90 % of the true 105 deg / 78.4 deg field so a
+  # pose that only just clips the border is rejected at startup.
+  camera: zedx
+  max_horizontal_deg: 47.0
+  max_vertical_deg: 35.0
+  min_depth: 0.10
+
+# ----------------------------------------------------------------- episode --
+episode:
+  # Joint-space pose the arm returns to between episodes.
+  home_positions_file: vla_initial_positions.yaml
+  # Consecutive physics steps of bilateral finger contact before the sim
+  # attaches the block to link6.
+  grasp_contact_steps: 3
+  # Seconds to wait for the sim to settle after a scene reset before planning.
+  reset_settle_sec: 1.0
+
+# ------------------------------------------------------- place verification --
+# A detached object can still be falling, sliding, tipped over or resting at
+# the wrong yaw.  The driver requires a continuous stable TF window after
+# retreat, then validates the complete block pose against the sampled target.
+placement:
+  # Release above the final support pose instead of planning the attached
+  # collision model into the platform. NVIDIA's cuboid sphere generator is
+  # allowed to overshoot the real surface by 0.01 m and r5a.xrdf adds a
+  # 0.002 m attached-object buffer; 0.02 m leaves useful numerical margin.
+  # PhysX then drops the block onto the unchanged sampled target before the
+  # ground-truth placement check below succeeds.
+  release_clearance: 0.02
+  xy_tolerance: 0.01
+  z_tolerance: 0.01
+  max_tilt_deg: 10.0
+  yaw_tolerance_deg: 10.0
+  # The block has a square horizontal cross-section, so yaw values separated
+  # by 90 degrees are physically equivalent placements.
+  yaw_symmetry_order: 4
+  stability_tolerance: 0.002
+  # A block whose centre has stopped can still be spinning or tipping. Both
+  # translation and quaternion orientation must remain inside these windows.
+  stability_orientation_tolerance_deg: 2.0
+  stable_duration_sec: 0.4
+  # Simulation-time budget for settling/verification. A separate launch
+  # parameter (placement_wall_timeout_sec) guards a paused or missing /clock.
+  timeout_sec: 2.0

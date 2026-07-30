@@ -25,6 +25,7 @@ from arx_r5_isaac_sim_bringup.usd_scene import load_usd_scene_config
 from launch import LaunchDescription
 from launch.actions import (
     DeclareLaunchArgument,
+    GroupAction,
     IncludeLaunchDescription,
     OpaqueFunction,
     TimerAction,
@@ -165,7 +166,13 @@ def launch_setup(context, *args, **kwargs):
         },
     )
 
-    perception_launch = _include(
+    # The nested launch below receives its own 'start_orchestrator': 'False'
+    # (the upstream file must not start a second tree). IncludeLaunchDescription
+    # writes launch_arguments into the GLOBAL configuration scope, which used to
+    # overwrite this file's start_orchestrator=True before the orchestrator
+    # TimerAction evaluated its IfCondition — silently skipping the behavior
+    # tree. The scoped GroupAction confines those assignments to the include.
+    perception_launch = GroupAction(actions=[_include(
         MANIPULATION_BRINGUP,
         'launch/arx_r5a_apriltag_pick_and_place.launch.py',
         {
@@ -197,7 +204,7 @@ def launch_setup(context, *args, **kwargs):
             'min_stable_frames': '5',
             'pose_ttl_sec': '1.0',
         },
-    )
+    )], scoped=True, forwarding=True)
     pose_refiner = Node(
         package=PACKAGE_NAME,
         executable='apriltag_pose_refiner',

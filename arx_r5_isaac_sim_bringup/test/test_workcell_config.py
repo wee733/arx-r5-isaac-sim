@@ -15,8 +15,8 @@
 
 """Contract tests for the authored ARX manipulation workcell."""
 
-import struct
 from pathlib import Path
+import struct
 
 from arx_r5_isaac_sim_bringup.demo_config import load_demo_config
 from arx_r5_isaac_sim_bringup.pose_math import compose_pose

@@ -84,6 +84,10 @@ setup(
             'arx_r5_isaac_sim_bringup.planning_scene_frame_adapter:main',
             'apriltag_pose_refiner = '
             'arx_r5_isaac_sim_bringup.apriltag_pose_refiner:main',
+            'vla_episode_driver = '
+            'arx_r5_isaac_sim_bringup.vla.episode_driver:main',
+            'vla_recorder = '
+            'arx_r5_isaac_sim_bringup.vla.recorder_base:main',
         ],
     },
 )

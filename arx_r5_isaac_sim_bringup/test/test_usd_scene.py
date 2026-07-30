@@ -130,7 +130,13 @@ def test_authored_source_object_has_runtime_physics_contract():
 
 
 def test_authored_source_object_stays_upright_until_physical_grasp():
-    """The slender source block must not tip before perception stabilizes."""
+    """
+    The slender source block must not tip before perception stabilizes.
+
+    The staging behaviour is now parameterized (the VLA workcell's stockier
+    block stays dynamic so episode resets can teleport it), but the AprilTag
+    workcell must keep the kinematic default it relies on.
+    """
     simulation_path = (
         PACKAGE_ROOT / 'arx_r5_isaac_sim_bringup' / 'simulation.py'
     )
@@ -142,8 +148,11 @@ def test_authored_source_object_stays_upright_until_physical_grasp():
     remove_joint_start = source.index('    def _remove_joint(self) -> None:')
     create_joint_source = source[create_joint_start:remove_joint_start]
 
-    assert 'CreateKinematicEnabledAttr(True)' in configure_source
-    assert 'CreateEnableCCDAttr(False)' in configure_source
+    # Kinematic staging is the default, so an AprilTag run is unaffected.
+    assert 'kinematic: bool = True' in configure_source
+    assert 'CreateKinematicEnabledAttr(kinematic)' in configure_source
+    assert 'CreateEnableCCDAttr(not kinematic)' in configure_source
+    assert 'kinematic_object: bool = True' in source
     dynamics_index = create_joint_source.index(
         'CreateKinematicEnabledAttr(False)'
     )

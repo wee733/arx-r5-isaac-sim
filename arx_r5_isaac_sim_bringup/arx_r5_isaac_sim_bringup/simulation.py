@@ -43,10 +43,24 @@ from arx_r5_isaac_sim_bringup.demo_config import (
     DemoConfig,
     load_demo_config,
 )
+from arx_r5_isaac_sim_bringup.pose_math import quaternion_from_yaw
 from arx_r5_isaac_sim_bringup.usd_scene import (
     CameraPublisherConfig,
     load_usd_scene_config,
     UsdSceneConfig,
+)
+from arx_r5_isaac_sim_bringup.vla.episode_events import (
+    ATTACHMENT_STATE_TOPIC,
+    GRIPPER_INTENT_TOPIC,
+    scene_request_from_command,
+    SCENE_RESET_ACK_TOPIC,
+)
+from arx_r5_isaac_sim_bringup.vla.task_config import (
+    assert_valid_against_scene,
+    find_task_config,
+    load_task_config,
+    sample_scene_layout,
+    TaskConfig,
 )
 
 
@@ -56,6 +70,25 @@ USD_SCENE_CONFIG = 'arx_sim_usd_scene.yaml'
 USD_SCENE_ASSET = 'arx_sim.usd'
 AUTHORED_WORKSPACE_PRIM_PATH = '/World/Workspace'
 AUTHORED_GRIPPER_MIMIC_JOINT_PATH = '/R5a/joints/joint8'
+
+ROS_GRAPH_PATH = '/World/ROS2Graph'
+SUBSCRIBE_JOINT_STATE_NODE = 'SubscribeJointState'
+SCENE_COMMAND_NODE = 'SubscribeSceneCommand'
+SCENE_COMMAND_TOPIC = '/vla/scene_command'
+SCENE_RESET_ACK_NODE = 'PublishSceneResetAck'
+SCENE_RESET_ACK_VALUE_NODE = 'SceneResetAckValue'
+OBJECT_TRANSFORM_NODE = 'PublishObjectTransform'
+ATTACHMENT_STATE_NODE = 'PublishAttachmentState'
+ATTACHMENT_STATE_VALUE_NODE = 'AttachmentStateValue'
+GRIPPER_INTENT_NODE = 'SubscribeGripperIntent'
+
+# joint7 travels 0..0.044 and both fingers move symmetrically, so the fingertip
+# aperture is twice the joint value. An 0.08 m block stalls the fingers near
+# 0.040, which is above every aperture threshold that worked for the 0.05 m
+# AprilTag cube. Keying attachment off the *commanded* position instead makes
+# the contract independent of how wide the grasped object happens to be.
+GRIPPER_CLOSE_COMMAND_THRESHOLD = 0.005
+GRIPPER_OPEN_COMMAND_THRESHOLD = 0.030
 AUTHORED_GRIPPER_COLLISION_PRIMS = (
     (
         '/colliders/link7/link7/node_STL_BINARY_',
@@ -435,6 +468,16 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         '--demo-config',
         help='Authored-workcell YAML; defaults to the package configuration.',
     )
+    parser.add_argument(
+        '--task-config',
+        nargs='?',
+        const='',
+        help=(
+            'Run the VLA data-collection workcell using this task YAML. With '
+            'no path, use the packaged config/vla_task.yaml. Selecting a task '
+            'config replaces the AprilTag demo config entirely.'
+        ),
+    )
     return parser
 
 
@@ -805,8 +848,10 @@ def _remove_sensor_body_apis(stage, prim_paths: Sequence[str]) -> None:
 def _configure_authored_source_object(
     stage,
     config: UsdSceneConfig,
+    kinematic: bool = True,
+    mass_kg: Optional[float] = None,
 ) -> None:
-    """Add non-persistent rigid-body physics to the authored red block."""
+    """Add non-persistent rigid-body physics to the authored source object."""
     from pxr import PhysxSchema, Sdf, UsdGeom, UsdPhysics, UsdShade
 
     object_prim = stage.GetPrimAtPath(config.source_object_prim_path)
@@ -823,19 +868,21 @@ def _configure_authored_source_object(
 
     rigid_body = UsdPhysics.RigidBodyAPI.Apply(object_prim)
     rigid_body.CreateRigidBodyEnabledAttr(True)
-    # The 50 x 50 x 150 mm block is intentionally slender and otherwise tips
-    # from tiny solver impulses before perception has stabilized. Keep the
-    # staged object collidable but kinematic until a verified gripper close;
-    # the attachment controller enables dynamics immediately before creating
-    # the physical grasp joint.
-    rigid_body.CreateKinematicEnabledAttr(True)
+    # The AprilTag workcell's 50 x 50 x 200 mm block is 4:1 slender and tips
+    # from tiny solver impulses before perception stabilizes, so it stays
+    # kinematic until a verified gripper close. The VLA block stays dynamic:
+    # a kinematic body follows its PhysX kinematic target, so a direct
+    # world-pose write is reverted on the next step and episode resets never
+    # become visible.
+    rigid_body.CreateKinematicEnabledAttr(kinematic)
+    # The VLA workcell owns its block geometry in vla_task.yaml, so its mass
+    # comes from there; the AprilTag workcell keeps the scene contract's value.
     UsdPhysics.MassAPI.Apply(object_prim).CreateMassAttr(
-        config.source_object_mass_kg
+        float(config.source_object_mass_kg if mass_kg is None else mass_kg)
     )
     physx_body = PhysxSchema.PhysxRigidBodyAPI.Apply(object_prim)
-    # PhysX rejects CCD on a kinematic body. Enable it only when the grasp
-    # controller switches the object to dynamic immediately before attaching.
-    physx_body.CreateEnableCCDAttr(False)
+    # PhysX rejects CCD on a kinematic body.
+    physx_body.CreateEnableCCDAttr(not kinematic)
     contact_report = PhysxSchema.PhysxContactReportAPI.Apply(object_prim)
     contact_report.CreateThresholdAttr(0.0)
 
@@ -1007,11 +1054,14 @@ def _configure_authored_workspace_contacts(stage) -> None:
 def _repair_authored_tag_textures(
     stage,
     config: UsdSceneConfig,
-    demo_config: DemoConfig,
+    demo_config: Optional[DemoConfig],
 ) -> None:
     """Point copied USD material inputs at package-owned AprilTag textures."""
     from pxr import Sdf
 
+    if demo_config is None or not config.has_tag_textures:
+        # The VLA collection workcell carries no tags.
+        return
     texture_contracts = (
         (config.source_tag_texture_prim, demo_config.source_object.tag_texture),
         (config.target_tag_texture_prim, demo_config.drop_target.tag_texture),
@@ -1031,7 +1081,9 @@ def _attach_prepared_authored_stage(
     context,
     usd_scene_path: Path,
     config: UsdSceneConfig,
-    demo_config: DemoConfig,
+    demo_config: Optional[DemoConfig],
+    kinematic_object: bool = True,
+    object_mass_kg: Optional[float] = None,
 ):
     """Prepare session overrides before Hydra and PhysX parse the stage."""
     from pxr import Sdf, Usd
@@ -1050,7 +1102,12 @@ def _attach_prepared_authored_stage(
     _configure_authored_workspace_contacts(stage)
     _repair_authored_tag_textures(stage, config, demo_config)
     _remove_sensor_body_apis(stage, config.sensor_rigid_body_paths)
-    _configure_authored_source_object(stage, config)
+    _configure_authored_source_object(
+        stage,
+        config,
+        kinematic=kinematic_object,
+        mass_kg=object_mass_kg,
+    )
 
     attached, error = simulation_app.run_coroutine(
         context.attach_stage_async(stage)
@@ -1067,6 +1124,102 @@ def _attach_prepared_authored_stage(
     return attached_stage
 
 
+class GripperCommandReader:
+    """
+    Read the gripper position last commanded over ROS.
+
+    The measured finger position is not a usable grasp signal: a block wider
+    than the closed aperture stalls the fingers wherever it happens to be, so
+    the same threshold cannot serve both a 0.05 m and an 0.08 m object. The
+    ROS2SubscribeJointState node in the action graph already holds the exact
+    command ros2_control published, so this reads that instead.
+    """
+
+    def __init__(
+        self,
+        graph_path: str = ROS_GRAPH_PATH,
+        node_name: str = SUBSCRIBE_JOINT_STATE_NODE,
+        joint_name: str = GRIPPER_COMMAND_JOINT,
+    ) -> None:
+        """Bind to the joint-command subscriber inside the ROS action graph."""
+        self._names_attribute = f'{graph_path}/{node_name}.outputs:jointNames'
+        self._positions_attribute = (
+            f'{graph_path}/{node_name}.outputs:positionCommand'
+        )
+        self._joint_name = str(joint_name)
+        self._warned = False
+
+    def _read(self, attribute_path: str):
+        import omni.graph.core as og
+
+        try:
+            return og.Controller.attribute(attribute_path).get()
+        except Exception:  # og raises several unrelated lookup errors
+            if not self._warned:
+                print(
+                    '[arx-r5-sim] gripper command attribute unavailable: '
+                    f'{attribute_path}; grasp attachment stays disabled',
+                    flush=True,
+                )
+                self._warned = True
+            return None
+
+    def commanded_position(self) -> Optional[float]:
+        """Return the commanded gripper joint position, if one has arrived."""
+        names = self._read(self._names_attribute)
+        positions = self._read(self._positions_attribute)
+        if names is None or positions is None:
+            return None
+        names = [str(name) for name in names]
+        if self._joint_name not in names or len(positions) != len(names):
+            return None
+        return float(positions[names.index(self._joint_name)])
+
+
+class GripperIntentReader:
+    """
+    Read the explicit VLA close/hold intent from the ROS graph.
+
+    A cancelled ``GripperCommand`` action is allowed to leave the controller
+    holding the measured finger position.  That position is not an intent:
+    a wide object can stop the fingers at an apparently-open value while the
+    operator still means "keep holding".  VLA collection therefore publishes
+    a separate ``std_msgs/Bool`` state.  This reader is deliberately tiny and
+    graph-backed, so Isaac Sim never imports ``rclpy``.
+    """
+
+    def __init__(
+        self,
+        graph_path: str = ROS_GRAPH_PATH,
+        node_name: str = GRIPPER_INTENT_NODE,
+    ) -> None:
+        """Bind to the Bool subscriber output in the action graph."""
+        self._data_attribute = f'{graph_path}/{node_name}.outputs:data'
+        self._warned = False
+
+    def close_requested(self) -> Optional[bool]:
+        """Return the latest explicit close/hold intent, if available."""
+        import omni.graph.core as og
+
+        try:
+            value = og.Controller.attribute(self._data_attribute).get()
+        except Exception:  # og raises several unrelated lookup errors
+            if not self._warned:
+                print(
+                    '[arx-r5-sim] gripper intent attribute unavailable: '
+                    f'{self._data_attribute}; physical VLA grasp is disabled',
+                    flush=True,
+                )
+                self._warned = True
+            return None
+        if value is None:
+            return None
+        try:
+            return bool(value)
+        except (TypeError, ValueError):
+            return None
+
+
 class AuthoredObjectAttachmentController:
     """Create a fixed joint only after a verified bilateral finger contact."""
 
@@ -1077,19 +1230,40 @@ class AuthoredObjectAttachmentController:
         stage,
         robot,
         scene_config: UsdSceneConfig,
-        demo_config: DemoConfig,
+        maximum_distance: float,
         required_contact_steps: int = 3,
+        close_command_threshold: float = GRIPPER_CLOSE_COMMAND_THRESHOLD,
+        open_command_threshold: float = GRIPPER_OPEN_COMMAND_THRESHOLD,
+        command_reader: Optional[GripperCommandReader] = None,
+        intent_reader: Optional[GripperIntentReader] = None,
     ) -> None:
-        """Subscribe to contact reports for the authored graspable object."""
+        """
+        Subscribe to contact reports for the authored graspable object.
+
+        ``intent_reader`` is supplied by the seed-driven VLA scene.  The
+        AprilTag workflow leaves it unset and keeps the historical joint
+        command threshold fallback, so the two demos do not share a hidden
+        semantic change.
+        """
         self._stage = stage
         self._robot = robot
         self._object_path = scene_config.source_object_prim_path
         self._body_path = scene_config.grasp_body_prim_path
         self._grasp_frame_path = scene_config.grasp_frame_prim_path
-        self._config = demo_config.attachment
         self._attached = False
         if required_contact_steps < 1:
             raise ValueError('required contact steps must be at least one')
+        if not math.isfinite(maximum_distance) or maximum_distance <= 0.0:
+            raise ValueError('maximum grasp distance must be finite and positive')
+        if close_command_threshold >= open_command_threshold:
+            raise ValueError(
+                'close command threshold must be below the open threshold'
+            )
+        self._maximum_distance = float(maximum_distance)
+        self._close_command_threshold = float(close_command_threshold)
+        self._open_command_threshold = float(open_command_threshold)
+        self._commands = command_reader or GripperCommandReader()
+        self._intent = intent_reader
         self._required_contact_steps = int(required_contact_steps)
         self._bilateral_contact_steps = 0
         self._contacts = BilateralFingerContactTracker(
@@ -1236,7 +1410,7 @@ class AuthoredObjectAttachmentController:
         joint.CreateExcludeFromArticulationAttr(True)
         self._attached = True
         print(
-            '[arx-r5-sim] red block physically attached to link6',
+            '[arx-r5-sim] grasped object physically attached to link6',
             flush=True,
         )
 
@@ -1245,58 +1419,315 @@ class AuthoredObjectAttachmentController:
         self._attached = False
         self._bilateral_contact_steps = 0
         self._contacts.clear()
-        print('[arx-r5-sim] red block physically released', flush=True)
+        print('[arx-r5-sim] grasped object physically released', flush=True)
+
+    def release(self) -> None:
+        """Drop the object without waiting for an open command."""
+        if self._attached:
+            self._remove_joint()
+        else:
+            self._bilateral_contact_steps = 0
+            self._contacts.clear()
 
     def update(self) -> None:
-        """Mirror close/open gripper transitions with a physical constraint."""
-        positions = self._robot.get_joint_positions()
-        if positions is None:
-            return
-        joint_names = tuple(self._robot.dof_names)
-        if not all(
-            joint_name in joint_names
-            for joint_name in (GRIPPER_COMMAND_JOINT, GRIPPER_MIMIC_JOINT)
-        ):
-            return
-        finger_positions = {
-            joint_name: float(positions[joint_names.index(joint_name)])
-            for joint_name in (GRIPPER_COMMAND_JOINT, GRIPPER_MIMIC_JOINT)
-        }
-        aperture = sum(finger_positions.values()) / len(finger_positions)
+        """Mirror explicit VLA intent or legacy close/open commands."""
+        if self._intent is not None:
+            close_requested = self._intent.close_requested()
+            # An unavailable or not-yet-published intent is fail-closed: a
+            # contact during startup/free-space motion must never attach.
+            if close_requested is not True:
+                if self._attached:
+                    self._remove_joint()
+                else:
+                    self._bilateral_contact_steps = 0
+                    self._contacts.clear()
+                return
+        else:
+            close_requested = None
+        commanded = (
+            self._commands.commanded_position()
+            if close_requested is None else None
+        )
         if self._attached:
-            if aperture >= self._config.open_threshold:
+            if (
+                close_requested is False or
+                (
+                    close_requested is None and
+                    commanded is not None and
+                    commanded >= self._open_command_threshold
+                )
+            ):
                 self._remove_joint()
             return
-        if aperture > self._config.close_threshold:
-            self._bilateral_contact_steps = 0
-            return
+        if close_requested is None:
+            if commanded is None:
+                # No joint command has been received yet. Attaching on
+                # contact alone would let a collision during a free-space
+                # motion glue the object to the wrist.
+                return
+            if commanded > self._close_command_threshold:
+                self._bilateral_contact_steps = 0
+                return
         grasp_distance = self._distance_to_grasp_frame()
         if (
             not self._contacts.has_bilateral_contact or
-            grasp_distance > self._config.maximum_distance
+            grasp_distance > self._maximum_distance
         ):
             self._bilateral_contact_steps = 0
             return
         self._bilateral_contact_steps += 1
         if self._bilateral_contact_steps < self._required_contact_steps:
             return
+        positions = self._robot.get_joint_positions()
+        joint_names = tuple(self._robot.dof_names)
+        measured = {
+            joint_name: (
+                float(positions[joint_names.index(joint_name)])
+                if positions is not None and joint_name in joint_names
+                else float('nan')
+            )
+            for joint_name in (GRIPPER_COMMAND_JOINT, GRIPPER_MIMIC_JOINT)
+        }
+        commanded_text = (
+            f'{commanded:.6f} m'
+            if commanded is not None
+            else 'n/a (explicit close intent)'
+        )
         print(
             '[arx-r5-sim] bilateral PhysX contact confirmed: '
             f'steps={self._bilateral_contact_steps}, '
-            f'joint7={finger_positions[GRIPPER_COMMAND_JOINT]:.6f} m, '
-            f'joint8={finger_positions[GRIPPER_MIMIC_JOINT]:.6f} m, '
-            f'mean aperture={aperture:.6f} m, '
+            f'commanded={commanded_text}, '
+            f'joint7={measured[GRIPPER_COMMAND_JOINT]:.6f} m, '
+            f'joint8={measured[GRIPPER_MIMIC_JOINT]:.6f} m, '
             f'grasp-frame distance={grasp_distance:.6f} m',
             flush=True,
         )
         self._create_joint()
 
 
+class VlaSceneController:
+    """
+    Reset the manipulated object when the ROS episode driver asks for it.
+
+    The Isaac Sim process cannot import rclpy (Isaac Sim runs on its own Python
+    and this repository forbids sourcing ROS into it), so the episode boundary
+    arrives as a plain Int32 through a ROS2Subscriber graph node. It packs a
+    seed plus request token: both sides feed the seed to the same deterministic
+    sampler in :mod:`vla.task_config`, while the token makes every request
+    distinct and is echoed on the explicit reset-ACK topic.
+    """
+
+    def __init__(
+        self,
+        stage,
+        task: TaskConfig,
+        attachment: Optional['AuthoredObjectAttachmentController'] = None,
+        graph_path: str = ROS_GRAPH_PATH,
+        node_name: str = SCENE_COMMAND_NODE,
+    ) -> None:
+        """Bind to the scene-command subscriber and the block's rigid body."""
+        self._stage = stage
+        self._task = task
+        self._attachment = attachment
+        self._command_attribute = f'{graph_path}/{node_name}.outputs:data'
+        self._block_path = task.block.prim_path
+        self._marker_path = task.place_marker.prim_path
+        self._last_command: Optional[int] = None
+        self._block_prim = None
+        self._warned = False
+        if not stage.GetPrimAtPath(self._block_path).IsValid():
+            raise RuntimeError(
+                f'VLA block prim does not exist: {self._block_path}'
+            )
+        if not stage.GetPrimAtPath(self._marker_path).IsValid():
+            raise RuntimeError(
+                f'VLA place marker prim does not exist: {self._marker_path}'
+            )
+
+    def attach_controller(
+        self,
+        attachment: 'AuthoredObjectAttachmentController',
+    ) -> None:
+        """Wire the grasp controller so a reset can drop a held block."""
+        self._attachment = attachment
+
+    def _rigid_prim(self):
+        """
+        Return the block wrapper, creating it against live physics.
+
+        Deliberately NOT registered with world.scene. Scene registration puts
+        the prim under RigidPrim._on_post_reset, which unconditionally writes
+        velocities -- rejected on this kinematic block -- and resets the pose
+        to the default state, undoing every scene reset. Constructing the
+        wrapper while physics is already running gives it a tensor handle via
+        RigidPrim._on_physics_ready without that lifecycle.
+        """
+        if self._block_prim is None:
+            from isaacsim.core.prims import SingleRigidPrim
+
+            self._block_prim = SingleRigidPrim(
+                prim_path=self._block_path,
+                name='vla_block',
+            )
+        return self._block_prim
+
+    def _require_physics_handle(self) -> bool:
+        prim = self._rigid_prim()
+        if prim.is_valid() and \
+                prim._rigid_prim_view.is_physics_handle_valid():
+            return True
+        if not self._warned:
+            print(
+                '[arx-r5-sim] block has no PhysX tensor handle; scene resets '
+                'would be overwritten by the simulation and are disabled',
+                flush=True,
+            )
+            self._warned = True
+        return False
+
+    def _read_command(self) -> Optional[tuple[int, int]]:
+        import omni.graph.core as og
+
+        try:
+            value = og.Controller.attribute(self._command_attribute).get()
+        except Exception:  # og raises several unrelated lookup errors
+            if not self._warned:
+                print(
+                    '[arx-r5-sim] scene command attribute unavailable: '
+                    f'{self._command_attribute}; episode resets are disabled',
+                    flush=True,
+                )
+                self._warned = True
+            return None
+        if value is None:
+            return None
+        try:
+            request = scene_request_from_command(value)
+            if request is None:
+                return None
+            return request[0], int(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _move_place_marker(self, place_center, place_yaw: float) -> None:
+        """
+        Put the visual placement target under the seed's place pose.
+
+        The marker is visual-only, so a plain USD transform write is enough --
+        no physics reads it back, and nothing overwrites it.
+        """
+        from pxr import Gf, UsdGeom
+
+        marker = self._task.place_marker
+        prim = self._stage.GetPrimAtPath(self._marker_path)
+        operations = {
+            operation.GetOpName(): operation
+            for operation in UsdGeom.Xformable(prim).GetOrderedXformOps()
+        }
+        translate = operations.get('xformOp:translate')
+        orient = operations.get('xformOp:orient')
+        if translate is None or orient is None:
+            raise RuntimeError(
+                f'place marker {self._marker_path} lost its transform ops'
+            )
+        surface_z = (
+            self._task.workcell.platform.top_z + marker.height_above_surface
+        )
+        translate.Set(Gf.Vec3d(
+            float(place_center[0]),
+            float(place_center[1]),
+            float(surface_z),
+        ))
+        rotation = quaternion_from_yaw(place_yaw)
+        orient.Set(Gf.Quatd(
+            float(rotation[3]),
+            Gf.Vec3d(
+                float(rotation[0]),
+                float(rotation[1]),
+                float(rotation[2]),
+            ),
+        ))
+
+    def apply_seed(self, seed: int, command: int) -> None:
+        """Place the block at the layout this seed deterministically defines."""
+        import numpy as np
+
+        if not self._require_physics_handle():
+            return
+
+        (block_center, block_yaw), (place_center, place_yaw) = (
+            sample_scene_layout(self._task, seed)
+        )
+        rotation = quaternion_from_yaw(block_yaw)
+
+        if self._attachment is not None:
+            self._attachment.release()
+
+        self._move_place_marker(place_center, place_yaw)
+
+        prim = self._rigid_prim()
+        # The block stays dynamic in the VLA workcell, so the teleport is a
+        # plain pose write plus a velocity reset. Zero the velocities first:
+        # carrying momentum across a teleport would launch the block.
+        prim.set_linear_velocity(np.zeros(3, dtype=np.float32))
+        prim.set_angular_velocity(np.zeros(3, dtype=np.float32))
+        # Isaac Sim core APIs take scalar-first quaternions; the repository's
+        # pose math is xyzw throughout.
+        prim.set_world_pose(
+            position=np.asarray(block_center, dtype=np.float32),
+            orientation=np.asarray(
+                (rotation[3], rotation[0], rotation[1], rotation[2]),
+                dtype=np.float32,
+            ),
+        )
+        self._last_command = int(command)
+        _set_scene_reset_ack(command)
+
+        # Read the pose back through the same tensor API. A silent fallback to
+        # a USD write would be overwritten by the next physics step, so report
+        # where the block actually is rather than where it was asked to go.
+        actual_position, _ = prim.get_world_pose()
+        error = float(np.linalg.norm(
+            np.asarray(actual_position, dtype=np.float64) -
+            np.asarray(block_center, dtype=np.float64)
+        ))
+        print(
+            f'[arx-r5-sim] scene reset seed={seed}: block at '
+            f'({actual_position[0]:.4f}, {actual_position[1]:.4f}, '
+            f'{actual_position[2]:.4f}) yaw={math.degrees(block_yaw):.2f} deg, '
+            f'target at ({place_center[0]:.4f}, {place_center[1]:.4f}) '
+            f'yaw={math.degrees(place_yaw):.2f} deg',
+            flush=True,
+        )
+        if error > 1e-3:
+            print(
+                f'[arx-r5-sim] WARNING: block settled {error:.4f} m from the '
+                f'requested ({block_center[0]:.4f}, {block_center[1]:.4f}, '
+                f'{block_center[2]:.4f})',
+                flush=True,
+            )
+
+    def update(self) -> None:
+        """Apply each distinct reset request, including repeated seeds."""
+        request = self._read_command()
+        if request is None:
+            return
+        seed, command = request
+        if command == self._last_command:
+            return
+        self.apply_seed(seed, command)
+
+
 def _create_ros_action_graph(
     robot_path: str,
     cameras: Sequence[tuple[str, str, object]] = (),
     static_transforms: Sequence[RosTransform] = (),
-) -> None:
+    scene_command_topic: Optional[str] = None,
+    gripper_intent_topic: Optional[str] = None,
+    tracked_prim_paths: Sequence[str] = (),
+    attachment_state_topic: Optional[str] = None,
+    scene_reset_ack_topic: Optional[str] = None,
+) -> Optional[str]:
     import omni.graph.core as og
     import usdrt.Sdf
 
@@ -1439,6 +1870,143 @@ def _create_ros_action_graph(
                 (f'{publisher}.inputs:useSystemTime', False),
             ])
 
+    if scene_command_topic:
+        # ROS -> Sim reset request. Its packed seed is recomputed here from the
+        # same task config the ROS driver uses, so the two agree without
+        # exchanging poses; its token distinguishes same-seed retries.
+        create_nodes.append(
+            (SCENE_COMMAND_NODE, 'isaacsim.ros2.bridge.ROS2Subscriber')
+        )
+        connections.extend([
+            ('OnPhysicsStep.outputs:step', f'{SCENE_COMMAND_NODE}.inputs:execIn'),
+            ('Context.outputs:context', f'{SCENE_COMMAND_NODE}.inputs:context'),
+        ])
+        values.extend([
+            (f'{SCENE_COMMAND_NODE}.inputs:messagePackage', 'std_msgs'),
+            (f'{SCENE_COMMAND_NODE}.inputs:messageSubfolder', 'msg'),
+            (f'{SCENE_COMMAND_NODE}.inputs:messageName', 'Int32'),
+            (f'{SCENE_COMMAND_NODE}.inputs:topicName', scene_command_topic),
+            (f'{SCENE_COMMAND_NODE}.inputs:queueSize', 1),
+        ])
+
+    if gripper_intent_topic:
+        # ROS -> Sim grasp intent. This stays separate from the joint command:
+        # canceling a stalled GripperCommand may replace its zero target with
+        # a measured hold position that looks open for a wide object.
+        create_nodes.append(
+            (GRIPPER_INTENT_NODE, 'isaacsim.ros2.bridge.ROS2Subscriber')
+        )
+        connections.extend([
+            (
+                'OnPhysicsStep.outputs:step',
+                f'{GRIPPER_INTENT_NODE}.inputs:execIn',
+            ),
+            (
+                'Context.outputs:context',
+                f'{GRIPPER_INTENT_NODE}.inputs:context',
+            ),
+        ])
+        values.extend([
+            (f'{GRIPPER_INTENT_NODE}.inputs:messagePackage', 'std_msgs'),
+            (f'{GRIPPER_INTENT_NODE}.inputs:messageSubfolder', 'msg'),
+            (f'{GRIPPER_INTENT_NODE}.inputs:messageName', 'Bool'),
+            (f'{GRIPPER_INTENT_NODE}.inputs:topicName', gripper_intent_topic),
+            (f'{GRIPPER_INTENT_NODE}.inputs:queueSize', 1),
+        ])
+
+    if tracked_prim_paths:
+        # Sim -> ROS ground-truth object pose on /tf. The frame name is the
+        # prim name, so /World/Workspace/Block publishes world -> Block.
+        create_nodes.append((
+            OBJECT_TRANSFORM_NODE,
+            'isaacsim.ros2.bridge.ROS2PublishTransformTree',
+        ))
+        connections.extend([
+            (
+                'OnPhysicsStep.outputs:step',
+                f'{OBJECT_TRANSFORM_NODE}.inputs:execIn',
+            ),
+            ('Context.outputs:context', f'{OBJECT_TRANSFORM_NODE}.inputs:context'),
+            (
+                'ReadSimTime.outputs:simulationTime',
+                f'{OBJECT_TRANSFORM_NODE}.inputs:timeStamp',
+            ),
+        ])
+        values.extend([
+            (f'{OBJECT_TRANSFORM_NODE}.inputs:topicName', 'tf'),
+            (f'{OBJECT_TRANSFORM_NODE}.inputs:staticPublisher', False),
+            (f'{OBJECT_TRANSFORM_NODE}.inputs:queueSize', 1),
+            (
+                f'{OBJECT_TRANSFORM_NODE}.inputs:targetPrims',
+                [usdrt.Sdf.Path(prim_path) for prim_path in tracked_prim_paths],
+            ),
+        ])
+
+    if attachment_state_topic:
+        # Generic ROS2Publisher creates its typed ``inputs:data`` port only
+        # after the graph has evaluated once. The ConstantBool node is kept in
+        # the graph so the Isaac Sim loop can update one scalar state without
+        # importing rclpy into the Python 3.11 simulator process; the data
+        # connection is completed lazily by _connect_attachment_state_graph.
+        create_nodes.extend([
+            (
+                ATTACHMENT_STATE_NODE,
+                'isaacsim.ros2.bridge.ROS2Publisher',
+            ),
+            (
+                ATTACHMENT_STATE_VALUE_NODE,
+                'omni.graph.nodes.ConstantBool',
+            ),
+        ])
+        connections.extend([
+            (
+                'OnPhysicsStep.outputs:step',
+                f'{ATTACHMENT_STATE_NODE}.inputs:execIn',
+            ),
+            (
+                'Context.outputs:context',
+                f'{ATTACHMENT_STATE_NODE}.inputs:context',
+            ),
+        ])
+        values.extend([
+            (
+                f'{ATTACHMENT_STATE_NODE}.inputs:messagePackage',
+                'std_msgs',
+            ),
+            (
+                f'{ATTACHMENT_STATE_NODE}.inputs:messageSubfolder',
+                'msg',
+            ),
+            (
+                f'{ATTACHMENT_STATE_NODE}.inputs:messageName',
+                'Bool',
+            ),
+            (
+                f'{ATTACHMENT_STATE_NODE}.inputs:topicName',
+                attachment_state_topic,
+            ),
+            (f'{ATTACHMENT_STATE_NODE}.inputs:queueSize', 1),
+            (f'{ATTACHMENT_STATE_VALUE_NODE}.inputs:value', False),
+        ])
+
+    if scene_reset_ack_topic:
+        create_nodes.extend([
+            (SCENE_RESET_ACK_NODE, 'isaacsim.ros2.bridge.ROS2Publisher'),
+            (SCENE_RESET_ACK_VALUE_NODE, 'omni.graph.nodes.ConstantInt'),
+        ])
+        connections.extend([
+            ('OnPhysicsStep.outputs:step', f'{SCENE_RESET_ACK_NODE}.inputs:execIn'),
+            ('Context.outputs:context', f'{SCENE_RESET_ACK_NODE}.inputs:context'),
+        ])
+        values.extend([
+            (f'{SCENE_RESET_ACK_NODE}.inputs:messagePackage', 'std_msgs'),
+            (f'{SCENE_RESET_ACK_NODE}.inputs:messageSubfolder', 'msg'),
+            (f'{SCENE_RESET_ACK_NODE}.inputs:messageName', 'Int32'),
+            (f'{SCENE_RESET_ACK_NODE}.inputs:topicName', scene_reset_ack_topic),
+            (f'{SCENE_RESET_ACK_NODE}.inputs:queueSize', 1),
+            (f'{SCENE_RESET_ACK_VALUE_NODE}.inputs:value', 0),
+        ])
+
     for transform_index, transform in enumerate(static_transforms):
         publisher = f'PublishStaticTransform_{transform_index}'
         create_nodes.append((
@@ -1461,7 +2029,7 @@ def _create_ros_action_graph(
 
     og.Controller.edit(
         {
-            'graph_path': '/World/ROS2Graph',
+            'graph_path': ROS_GRAPH_PATH,
             'evaluator_name': 'execution',
             'pipeline_stage': (
                 og.GraphPipelineStage.GRAPH_PIPELINE_STAGE_ONDEMAND
@@ -1473,6 +2041,73 @@ def _create_ros_action_graph(
             og.Controller.Keys.SET_VALUES: values,
         },
     )
+    if (
+        gripper_intent_topic or
+        attachment_state_topic or
+        scene_reset_ack_topic
+    ):
+        return ROS_GRAPH_PATH
+    return None
+
+
+def _connect_attachment_state_graph() -> bool:
+    """Connect the dynamically typed Bool input on the generic ROS publisher."""
+    import omni.graph.core as og
+
+    source = og.Controller.attribute(
+        f'{ROS_GRAPH_PATH}/{ATTACHMENT_STATE_VALUE_NODE}.inputs:value'
+    )
+    target = og.Controller.attribute(
+        f'{ROS_GRAPH_PATH}/{ATTACHMENT_STATE_NODE}.inputs:data'
+    )
+    if not source.is_valid() or not target.is_valid():
+        return False
+    try:
+        og.Controller.connect(source, target)
+    except Exception:
+        return False
+    return True
+
+
+def _connect_scene_reset_ack_graph() -> bool:
+    """Connect the dynamically typed Int32 input on the ACK publisher."""
+    import omni.graph.core as og
+
+    source = og.Controller.attribute(
+        f'{ROS_GRAPH_PATH}/{SCENE_RESET_ACK_VALUE_NODE}.inputs:value'
+    )
+    target = og.Controller.attribute(
+        f'{ROS_GRAPH_PATH}/{SCENE_RESET_ACK_NODE}.inputs:data'
+    )
+    if not source.is_valid() or not target.is_valid():
+        return False
+    try:
+        og.Controller.connect(source, target)
+    except Exception:
+        return False
+    return True
+
+
+def _set_attachment_state(value: bool) -> None:
+    """Set the Bool value consumed by Isaac Sim's generic ROS publisher."""
+    import omni.graph.core as og
+
+    attribute = og.Controller.attribute(
+        f'{ROS_GRAPH_PATH}/{ATTACHMENT_STATE_VALUE_NODE}.inputs:value'
+    )
+    if attribute.is_valid():
+        og.Controller.set(attribute, bool(value))
+
+
+def _set_scene_reset_ack(command: int) -> None:
+    """Publish a reset ACK only after VlaSceneController applied the command."""
+    import omni.graph.core as og
+
+    attribute = og.Controller.attribute(
+        f'{ROS_GRAPH_PATH}/{SCENE_RESET_ACK_VALUE_NODE}.inputs:value'
+    )
+    if attribute.is_valid():
+        og.Controller.set(attribute, int(command))
 
 
 def _set_initial_positions(robot, requested_positions: dict[str, float]) -> None:
@@ -1538,17 +2173,28 @@ def _run_simulation(args: argparse.Namespace) -> None:
         raise ValueError('grasp contact steps must be at least one')
 
     authored_usd = args.usd is not None
+    task_config: Optional[TaskConfig] = None
     demo_config: Optional[DemoConfig] = None
+    vla_mode = args.task_config is not None
+    if vla_mode and not authored_usd:
+        raise ValueError('--task-config requires an authored --usd scene')
     if authored_usd:
-        demo_config = load_demo_config(
-            find_demo_config(args.demo_config)
-        )
+        if vla_mode:
+            task_config = load_task_config(
+                find_task_config(args.task_config or None)
+            )
+        else:
+            demo_config = load_demo_config(
+                find_demo_config(args.demo_config)
+            )
     usd_scene_config = None
     usd_scene_path = None
     if authored_usd:
         usd_scene_config = load_usd_scene_config(
             find_usd_scene_config(args.usd_scene_config)
         )
+        if task_config is not None:
+            assert_valid_against_scene(task_config, usd_scene_config)
         usd_scene_path = find_usd_scene(args.usd)
         if (
             args.save_usd and
@@ -1598,13 +2244,21 @@ def _run_simulation(args: argparse.Namespace) -> None:
             assert usd_scene_path is not None
             print(f'[arx-r5-sim] opening authored USD: {usd_scene_path}', flush=True)
             context = omni.usd.get_context()
-            assert demo_config is not None
             stage = _attach_prepared_authored_stage(
                 simulation_app,
                 context,
                 usd_scene_path,
                 usd_scene_config,
                 demo_config,
+                # A kinematic body tracks its PhysX kinematic target, so the
+                # episode driver's world-pose writes would be reverted on the
+                # next step. The VLA block is stable enough to stay dynamic.
+                kinematic_object=task_config is None,
+                object_mass_kg=(
+                    task_config.block.mass_kg
+                    if task_config is not None
+                    else None
+                ),
             )
             world = World(
                 stage_units_in_meters=1.0,
@@ -1731,6 +2385,7 @@ def _run_simulation(args: argparse.Namespace) -> None:
         )
 
         authored_attachment = None
+        vla_scene = None
 
         set_camera_view(
             eye=[1.1, 1.1, 0.8],
@@ -1742,21 +2397,67 @@ def _run_simulation(args: argparse.Namespace) -> None:
             _set_initial_positions(robot, requested_positions)
         if authored_usd:
             assert usd_scene_config is not None
-            assert demo_config is not None
+            if task_config is not None:
+                attachment_distance = task_config.grasp.attach_max_distance
+                contact_steps = task_config.episode.grasp_contact_steps
+            else:
+                assert demo_config is not None
+                attachment_distance = demo_config.attachment.maximum_distance
+                contact_steps = args.grasp_contact_steps
+            vla_intent_reader = (
+                GripperIntentReader() if task_config is not None else None
+            )
             authored_attachment = AuthoredObjectAttachmentController(
                 stage,
                 robot,
                 usd_scene_config,
-                demo_config,
-                required_contact_steps=args.grasp_contact_steps,
+                maximum_distance=attachment_distance,
+                required_contact_steps=contact_steps,
+                intent_reader=vla_intent_reader,
             )
+            if task_config is not None:
+                # Constructed after world.reset() and before world.play(); the
+                # wrapper picks up its PhysX tensor handle lazily on first use,
+                # once the simulation is stepping.
+                vla_scene = VlaSceneController(
+                    stage,
+                    task_config,
+                    attachment=authored_attachment,
+                )
+        attachment_state_graph = None
         if not args.no_ros:
-            _create_ros_action_graph(
+            attachment_state_graph = _create_ros_action_graph(
                 articulation_path,
                 cameras=camera_streams,
                 static_transforms=static_transforms,
+                scene_command_topic=(
+                    SCENE_COMMAND_TOPIC if task_config is not None else None
+                ),
+                gripper_intent_topic=(
+                    GRIPPER_INTENT_TOPIC if task_config is not None else None
+                ),
+                tracked_prim_paths=(
+                    (task_config.block.prim_path,)
+                    if task_config is not None
+                    else ()
+                ),
+                attachment_state_topic=(
+                    ATTACHMENT_STATE_TOPIC
+                    if task_config is not None
+                    else None
+                ),
+                scene_reset_ack_topic=(
+                    SCENE_RESET_ACK_TOPIC if task_config is not None else None
+                ),
             )
         simulation_app.update()
+        attachment_state_connected = False
+        scene_reset_ack_connected = False
+        if attachment_state_graph is not None:
+            _set_attachment_state(False)
+            attachment_state_connected = _connect_attachment_state_graph()
+            _set_scene_reset_ack(0)
+            scene_reset_ack_connected = _connect_scene_reset_ack_graph()
 
         print(f'[arx-r5-sim] robot prim: {robot_path}', flush=True)
         print(f'[arx-r5-sim] articulation root: {articulation_path}', flush=True)
@@ -1775,6 +2476,18 @@ def _run_simulation(args: argparse.Namespace) -> None:
                     f'[{camera_config.optical_frame}]',
                     flush=True,
                 )
+            if attachment_state_graph is not None:
+                print(
+                    '[arx-r5-sim] physical grasp state: '
+                    f'{ATTACHMENT_STATE_TOPIC}',
+                    flush=True,
+                )
+                if task_config is not None:
+                    print(
+                        '[arx-r5-sim] VLA gripper intent: '
+                        f'{GRIPPER_INTENT_TOPIC} (Bool)',
+                        flush=True,
+                    )
 
         if args.save_usd:
             _export_stage(stage, args.save_usd)
@@ -1788,8 +2501,22 @@ def _run_simulation(args: argparse.Namespace) -> None:
         )
         while simulation_app.is_running():
             world.step(render=True)
+            if vla_scene is not None:
+                vla_scene.update()
             if authored_attachment is not None:
                 authored_attachment.update()
+            if attachment_state_graph is not None:
+                if not attachment_state_connected:
+                    attachment_state_connected = (
+                        _connect_attachment_state_graph()
+                    )
+                _set_attachment_state(
+                    authored_attachment.attached
+                    if authored_attachment is not None
+                    else False
+                )
+                if not scene_reset_ack_connected:
+                    scene_reset_ack_connected = _connect_scene_reset_ack_graph()
             step_count += 1
             if max_steps is not None and step_count >= max_steps:
                 break

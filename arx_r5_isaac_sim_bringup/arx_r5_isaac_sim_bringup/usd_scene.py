@@ -18,7 +18,7 @@
 from dataclasses import dataclass
 from math import isfinite, sqrt
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import yaml
 
@@ -60,8 +60,18 @@ class UsdSceneConfig:
     grasp_frame_prim_path: str
     source_object_mass_kg: float
     cameras: Dict[str, CameraPublisherConfig]
-    source_tag_texture_prim: str
-    target_tag_texture_prim: str
+    # The VLA workcell carries no AprilTags. Both stay None when the optional
+    # `tags` section is absent, and the runtime skips texture repair.
+    source_tag_texture_prim: Optional[str]
+    target_tag_texture_prim: Optional[str]
+
+    @property
+    def has_tag_textures(self) -> bool:
+        """Return whether this scene declares AprilTag texture shaders."""
+        return (
+            self.source_tag_texture_prim is not None and
+            self.target_tag_texture_prim is not None
+        )
 
 
 def _absolute_prim_path(value, field_name: str) -> str:
@@ -222,7 +232,20 @@ def load_usd_scene_config(path: str | Path) -> UsdSceneConfig:
     if source_object_mass_kg <= 0.0:
         raise ValueError('source_object.mass_kg must be greater than zero')
 
-    tags = raw.get('tags', {})
+    tags = raw.get('tags')
+    if tags is None:
+        source_tag_texture_prim = None
+        target_tag_texture_prim = None
+    elif isinstance(tags, dict):
+        source_tag_texture_prim = _absolute_prim_path(
+            tags.get('source_texture_prim'), 'tags.source_texture_prim'
+        )
+        target_tag_texture_prim = _absolute_prim_path(
+            tags.get('target_texture_prim'), 'tags.target_texture_prim'
+        )
+    else:
+        raise ValueError('tags must be a mapping when present')
+
     return UsdSceneConfig(
         robot_prim_path=_absolute_prim_path(
             robot.get('robot_prim_path'), 'robot.robot_prim_path'
@@ -260,10 +283,6 @@ def load_usd_scene_config(path: str | Path) -> UsdSceneConfig:
         ),
         source_object_mass_kg=source_object_mass_kg,
         cameras=cameras,
-        source_tag_texture_prim=_absolute_prim_path(
-            tags.get('source_texture_prim'), 'tags.source_texture_prim'
-        ),
-        target_tag_texture_prim=_absolute_prim_path(
-            tags.get('target_texture_prim'), 'tags.target_texture_prim'
-        ),
+        source_tag_texture_prim=source_tag_texture_prim,
+        target_tag_texture_prim=target_tag_texture_prim,
     )
