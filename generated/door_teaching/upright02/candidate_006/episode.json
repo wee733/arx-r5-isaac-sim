@@ -1,0 +1,330 @@
+{
+  "schema": "arx-door-teaching-attempt-v1",
+  "success": true,
+  "review_required": false,
+  "fps": 30,
+  "frames": 1955,
+  "door_joint_names": [
+    "hinge_joint",
+    "handle_joint",
+    "latch_joint"
+  ],
+  "camera": "link6 +X downward 30 degrees, provisional D455 intrinsics",
+  "finger_collision": "mesh convex decomposition, 32 hulls, 1mm contact offset",
+  "gripper_drive": {
+    "type": "force",
+    "stiffness": 3000.0,
+    "damping": 50,
+    "max_force_N": 60.0,
+    "mimic_frequency": 0.0,
+    "real_hardware_calibrated": false
+  },
+  "scene_placement": {
+    "schema_version": 1,
+    "seed": 0,
+    "episode_index": 0,
+    "world_frame": "world",
+    "base_frame": "base_link",
+    "handle_reference_prim": "/World/Door/door_handle/grasp_target",
+    "handle_world_xyz": [
+      0.313,
+      -0.3752,
+      0.928
+    ],
+    "placement": {
+      "position": [
+        0.313,
+        -0.9652,
+        0.63
+      ],
+      "quaternion_xyzw": [
+        0.0,
+        0.0,
+        0.7071067811865475,
+        0.7071067811865476
+      ],
+      "angle_deg": 0.0
+    },
+    "config": {
+      "radius_m": 0.59,
+      "base_height_m": 0.63,
+      "half_angle_deg": 30.0,
+      "yaw_mode": "face_handle",
+      "front_normal_xy": [
+        0.0,
+        -1.0
+      ]
+    },
+    "assumptions": [
+      "handle height 0.928 m from existing asset; measurement pending",
+      "base_link origin is the installation plane",
+      "base stationary during each episode; randomized between episodes"
+    ]
+  },
+  "notes": "Upright edge-grasp trial with cuMotion approach/transfer, virtual viewpoint clearance and non-finger contact monitoring. Single wrist, absolute 7D commands, uncalibrated camera and force model. Human review pending; no claim of sim-to-real validity.",
+  "viewpoint_guard": {
+    "minimum_clearance_m": 0.01,
+    "physical_camera_housing_modeled": false
+  },
+  "arm_contact_limit_N": 2.0,
+  "safety_events": [],
+  "commands": [
+    {
+      "op": "observe"
+    },
+    {
+      "op": "begin",
+      "name": "candidate_006"
+    },
+    {
+      "op": "snapshot"
+    },
+    {
+      "op": "trajectory",
+      "path": "/home/workspace/arx-r5-isaac-sim/generated/door_teaching/upright02/candidate_006_commands/cumotion_approach_knob_plan.json",
+      "phase": "cumotion_approach_knob",
+      "gripper": 0.028,
+      "time_scale": 1
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.3129999935626983,
+        -0.5202000017166137,
+        0.9279999732971191
+      ],
+      "quaternion_xyzw": [
+        0.0,
+        0.0,
+        0.7071067811865475,
+        0.7071067811865477
+      ],
+      "duration": 4,
+      "gripper": 0.028,
+      "phase": "approach_knob"
+    },
+    {
+      "op": "hold",
+      "gripper": 0,
+      "duration": 2,
+      "phase": "grasp_knob"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.3129999935626983,
+        -0.5202000017166137,
+        0.9279999732971191
+      ],
+      "quaternion_xyzw": [
+        -0.27059805007309856,
+        -0.2705980500730985,
+        0.6532814824381882,
+        0.6532814824381884
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "unlock_round_knob"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.3129999935626983,
+        -0.5202000017166137,
+        0.9279999732971191
+      ],
+      "quaternion_xyzw": [
+        -0.2819581706288636,
+        -0.2819581706288636,
+        0.6484593973531608,
+        0.6484593973531609
+      ],
+      "duration": 0.8,
+      "gripper": 0,
+      "phase": "unlock_round_knob"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.30597607021448725,
+        -0.5442002978766303,
+        0.9279999732971191
+      ],
+      "quaternion_xyzw": [
+        -0.2868360756259097,
+        -0.27699437844165387,
+        0.637043456885377,
+        0.6596778108067438
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_knob_for_gap"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.2799436783042515,
+        -0.6145273309479253,
+        0.927999973297119
+      ],
+      "quaternion_xyzw": [
+        -0.30093974242279375,
+        -0.2616029269699659,
+        0.6016455419270668,
+        0.6921140237782611
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_knob_for_gap"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.2404861763323931,
+        -0.6925971242167137,
+        0.9279999732971191
+      ],
+      "quaternion_xyzw": [
+        -0.316348905769864,
+        -0.24274305301482962,
+        0.5582708013695316,
+        0.7275526732611668
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_knob_for_gap"
+    },
+    {
+      "op": "hold",
+      "gripper": 0.044,
+      "duration": 1,
+      "phase": "release_knob"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.22079854844565067,
+        -0.7686060735841549,
+        0.9274457842412148
+      ],
+      "quaternion_xyzw": [
+        -0.3167356846208201,
+        -0.23776122908835115,
+        0.5589327807768097,
+        0.7285205903770187
+      ],
+      "duration": 2,
+      "gripper": 0.044,
+      "phase": "retreat_from_knob"
+    },
+    {
+      "op": "snapshot"
+    },
+    {
+      "op": "trajectory",
+      "path": "/home/workspace/arx-r5-isaac-sim/generated/door_teaching/upright02/candidate_006_commands/cumotion_transfer_to_upright_edge_plan.json",
+      "phase": "cumotion_transfer_to_upright_edge",
+      "gripper": 0.044,
+      "time_scale": 1
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.4569118922171553,
+        -0.5523044710143226,
+        1.0099992813076255
+      ],
+      "quaternion_xyzw": [
+        2.031602784851683e-09,
+        -1.5431555208461028e-08,
+        0.9659153565442965,
+        0.2588581155612173
+      ],
+      "duration": 3,
+      "gripper": 0.044,
+      "phase": "approach_door_edge"
+    },
+    {
+      "op": "hold",
+      "gripper": 0,
+      "duration": 2,
+      "phase": "grasp_door_edge"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.435293985333716,
+        -0.6245790854294744,
+        1.0074932575225832
+      ],
+      "quaternion_xyzw": [
+        0.0006749316235926022,
+        0.004328747716006579,
+        0.9562105195582411,
+        0.29264696939601664
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_door_by_edge"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.4065182079484214,
+        -0.6936789377708676,
+        1.0071420669555666
+      ],
+      "quaternion_xyzw": [
+        0.0003613528117363449,
+        0.0029746643095758,
+        0.9470382752994909,
+        0.32110672044377475
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_door_by_edge"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.3740597686669157,
+        -0.7561118205504282,
+        1.0069066286087036
+      ],
+      "quaternion_xyzw": [
+        1.1023420871064326e-05,
+        0.0018136037429928077,
+        0.938003519747648,
+        0.34662098560383114
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_door_by_edge"
+    },
+    {
+      "op": "hold",
+      "gripper": 0,
+      "duration": 1,
+      "phase": "hold_door_open"
+    }
+  ],
+  "quality_status": "user_approved_seed",
+  "human_review": {
+    "reviewer": "user",
+    "reviewed_at": "2026-09-11T03:55:14.060595+00:00",
+    "decision": "approved_as_augmentation_seed",
+    "comment": "非常好，这组数据明显没有问题，接下来试着用gen类型的算法来增广吧，先理清路线",
+    "scope": "upright02/candidate_006 only; simulated seed; no claim of real robot validation"
+  }
+}

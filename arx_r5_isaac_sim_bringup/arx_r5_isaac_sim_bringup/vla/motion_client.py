@@ -730,6 +730,8 @@ class CumotionMotionClient:
         square parallel-jaw grasp has several physically equivalent wrist
         orientations; passing them together lets cuMotion avoid a joint limit
         instead of making the driver guess which wrist branch is reachable.
+
+        Planning always starts from the live measured robot state.
         """
         rotations = tuple(tuple(float(value) for value in rotation)
                           for rotation in rotations)

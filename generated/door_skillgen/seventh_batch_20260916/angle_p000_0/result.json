@@ -1,0 +1,51 @@
+{
+  "schema": "arx-door-skillgen-result-v1",
+  "environment": "Isaac-ARX-R5-Door-SkillGen-v0",
+  "angle_deg": 0.0,
+  "physics_executed": true,
+  "success": true,
+  "failure_stage": null,
+  "failure_reason": null,
+  "frames": 2058,
+  "hdf5_frames": 2058,
+  "hdf5_episodes": 1,
+  "final_door_angle_deg": 32.37300109863281,
+  "physical_audit": {
+    "physics_steps": 2058,
+    "final_door_angle_deg": 32.37300109863281,
+    "max_handle_angle_deg": 44.537452697753906,
+    "max_latch_m": 0.015840331092476845,
+    "min_camera_clearance_m": 0.06369033455848694,
+    "max_arm_contact_n": 0.0,
+    "knob_grasp_observed": true,
+    "unlock_observed": true,
+    "gap_with_knob_grasp_observed": true
+  },
+  "source_seed": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/seed/candidate_006.hdf5",
+  "video_alignment": "pre_action_observation_at_30_hz",
+  "generation_config": {
+    "refresh_panel_once_after_transition": true,
+    "panel_transition_standoff_m": 0.04,
+    "physics_dt_s": 0.008333333333333333,
+    "control_dt_s": 0.03333333333333333,
+    "audit_sampling_hz": 30,
+    "transform_actual_skill_entrance": true
+  },
+  "planner": {
+    "name": "DoorCuMotionPlanner",
+    "env_id": 0,
+    "debug": false,
+    "backend": "nvidia_cumotion_native",
+    "sample_dt": 0.03333333333333333,
+    "time_dilation_factor": 0.5
+  },
+  "artifacts": {
+    "scene": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/scene.usd",
+    "scene_manifest": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/scene.json",
+    "cuboids": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/cuboids.json",
+    "hdf5": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/generated.hdf5",
+    "wrist_video": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/wrist.mp4",
+    "overview_video": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/overview.mp4",
+    "cumotion": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/cumotion"
+  }
+}

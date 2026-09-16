@@ -11,10 +11,11 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+workspace_root="${ARX_WORKSPACE_ROOT:-$(dirname "${repo_root}")}"
 ros_setup="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
-default_isaac_ros_ws="${HOME}/workspace/isaac_ros_source"
+default_isaac_ros_ws="${workspace_root}/isaac_ros_ws"
 isaac_ros_ws="${ISAAC_ROS_WS:-${default_isaac_ros_ws}}"
-sim_ws="${ARX_SIM_WS:-${HOME}/workspace/arx_r5_sim_ws}"
+sim_ws="${ARX_SIM_WS:-${workspace_root}/arx_r5_sim_ws}"
 isaac_ros_python_site="${ISAAC_ROS_PYTHON_SITE:-/var/lib/isaac-ros-cli/isaac-ros/lib/python3.12/site-packages}"
 wait_seconds="${ARX_VLA_WAIT_SECONDS:-30}"
 graph_check_seconds="${ARX_VLA_GRAPH_CHECK_SECONDS:-2}"
@@ -33,13 +34,16 @@ Then run this script inside an \`isaac-ros activate\` shell:
 Examples:
   ${0}
   ${0} auto_start:=True episode_count:=20
-  ${0} start_rviz:=False record_depth:=True
+  ${0} start_rviz:=False recorder_output_dir:=/data/arx_raw
+
+Successful episodes are written as ARX raw-v1 under ~/arx_raw by default.
+The raw-v1 contract stores RGB only, so record_depth must remain False.
 
 Trigger a run manually when auto_start is False:
   ros2 service call /vla_episode_driver/collect std_srvs/srv/Trigger
 
 Environment overrides:
-  ROS_SETUP, ISAAC_ROS_WS, ARX_SIM_WS, ISAAC_ROS_PYTHON_SITE,
+  ARX_WORKSPACE_ROOT, ROS_SETUP, ISAAC_ROS_WS, ARX_SIM_WS, ISAAC_ROS_PYTHON_SITE,
   ARX_VLA_WAIT_SECONDS, ROS_DOMAIN_ID, RMW_IMPLEMENTATION,
   ROS_AUTOMATIC_DISCOVERY_RANGE, ARX_VLA_GRAPH_CHECK_SECONDS
 EOF

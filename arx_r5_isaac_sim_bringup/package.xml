@@ -17,6 +17,7 @@
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>control_msgs</exec_depend>
   <exec_depend>controller_manager</exec_depend>
+  <exec_depend>ffmpeg</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>isaac_ros_apriltag</exec_depend>
   <exec_depend>isaac_ros_apriltag_interfaces</exec_depend>

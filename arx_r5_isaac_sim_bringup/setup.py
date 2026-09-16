@@ -35,7 +35,10 @@ setup(
     version='0.1.0',
     packages=find_packages(exclude=['test']),
     data_files=[
-        ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
+        (
+            'share/ament_index/resource_index/packages',
+            ['resource/' + package_name],
+        ),
         (
             'share/' + package_name,
             ['package.xml', '../LICENSE', '../NOTICE.md'],
@@ -59,6 +62,14 @@ setup(
         (
             os.path.join('share', package_name, 'assets', 'meshes'),
             glob('assets/meshes/*.obj'),
+        ),
+        (
+            os.path.join('share', package_name, 'assets', 'door'),
+            glob('assets/door/*.usd*') + glob('assets/door/*.md'),
+        ),
+        (
+            os.path.join('share', package_name, 'assets', 'door', 'textures'),
+            glob('assets/door/textures/*.png'),
         ),
         (
             os.path.join('share', package_name, 'launch'),
@@ -87,6 +98,8 @@ setup(
             'vla_episode_driver = '
             'arx_r5_isaac_sim_bringup.vla.episode_driver:main',
             'vla_recorder = '
+            'arx_r5_isaac_sim_bringup.vla.raw_v1_recorder:main',
+            'vla_null_recorder = '
             'arx_r5_isaac_sim_bringup.vla.recorder_base:main',
         ],
     },

@@ -5,20 +5,21 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+workspace_root="${ARX_WORKSPACE_ROOT:-$(dirname "${repo_root}")}"
 ros_setup="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
-default_isaac_ros_ws="${HOME}/workspace/isaac_ros_source"
+default_isaac_ros_ws="${workspace_root}/isaac_ros_ws"
 isaac_ros_ws="${ISAAC_ROS_WS:-${default_isaac_ros_ws}}"
 # ISAAC_ROS_WS is commonly exported by unrelated Isaac ROS projects (for
 # example a ZED workspace).  Do not let such a value silently suppress the
 # common source tree needed by this demo.  A caller can still select another
 # source tree explicitly, provided it has the expected Isaac ROS layout.
 if [[ ! -f "${isaac_ros_ws}/install/setup.bash" ||
-      ! -d "${isaac_ros_ws}/isaac_ros_common/isaac_ros_test" ]]; then
+      ! -d "${isaac_ros_ws}/src/isaac_ros_common/isaac_ros_test" ]]; then
   if [[ "${isaac_ros_ws}" != "${default_isaac_ros_ws}" &&
         -f "${default_isaac_ros_ws}/install/setup.bash" &&
-        -d "${default_isaac_ros_ws}/isaac_ros_common/isaac_ros_test" ]]; then
+        -d "${default_isaac_ros_ws}/src/isaac_ros_common/isaac_ros_test" ]]; then
     echo "Ignoring ISAAC_ROS_WS=${isaac_ros_ws}; it is not the ARX Isaac ROS source workspace." >&2
-    echo "Using ${default_isaac_ros_ws}. Set ISAAC_ROS_WS explicitly to a workspace with isaac_ros_common/isaac_ros_test to override." >&2
+    echo "Using ${default_isaac_ros_ws}. Set ISAAC_ROS_WS explicitly to a workspace with src/isaac_ros_common/isaac_ros_test to override." >&2
     isaac_ros_ws="${default_isaac_ros_ws}"
   fi
 fi
@@ -28,11 +29,11 @@ if [[ ! -f "${isaac_ros_ws}/install/setup.bash" ]]; then
   exit 2
 fi
 export ISAAC_ROS_WS="${isaac_ros_ws}"
-manipulation_ws="${ARX_R5A_MANIPULATION_WS:-${isaac_ros_ws}/isaac_ros_manipulation_arx_r5a}"
-sim_ws="${ARX_SIM_WS:-${HOME}/workspace/arx_r5_sim_ws}"
+manipulation_ws="${ARX_R5A_MANIPULATION_WS:-${workspace_root}/isaac_ros_manipulation_arx_r5a}"
+sim_ws="${ARX_SIM_WS:-${workspace_root}/arx_r5_sim_ws}"
 isaac_ros_python_site="${ISAAC_ROS_PYTHON_SITE:-/var/lib/isaac-ros-cli/isaac-ros/lib/python3.12/site-packages}"
-isaac_ros_test_python_site="${ISAAC_ROS_TEST_PYTHON_SITE:-${isaac_ros_ws}/isaac_ros_common/isaac_ros_test}"
-canonical_isaac_ros_test_python_site="${default_isaac_ros_ws}/isaac_ros_common/isaac_ros_test"
+isaac_ros_test_python_site="${ISAAC_ROS_TEST_PYTHON_SITE:-${isaac_ros_ws}/src/isaac_ros_common/isaac_ros_test}"
+canonical_isaac_ros_test_python_site="${default_isaac_ros_ws}/src/isaac_ros_common/isaac_ros_test"
 # A common mistake is exporting the parent ``isaac_ros_common`` directory (or
 # an unrelated workspace) instead of the Python package root.  That creates a
 # namespace package named ``isaac_ros_test`` which imports but does not expose
@@ -70,7 +71,7 @@ Selected camera: ${demo_camera_label}
 ROS launch file: ${demo_launch_file}
 
 Environment overrides:
-  ROS_SETUP, ISAAC_ROS_WS, ARX_R5A_MANIPULATION_WS,
+  ARX_WORKSPACE_ROOT, ROS_SETUP, ISAAC_ROS_WS, ARX_R5A_MANIPULATION_WS,
   ARX_R5A_MANIPULATION_SETUP, ARX_SIM_WS, ISAAC_ROS_PYTHON_SITE,
   ISAAC_ROS_TEST_PYTHON_SITE, ARX_DEMO_WAIT_SECONDS, ROS_DOMAIN_ID,
   RMW_IMPLEMENTATION, ROS_AUTOMATIC_DISCOVERY_RANGE

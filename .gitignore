@@ -14,7 +14,7 @@ __pycache__/
 *.egg-info/
 
 # Generated Isaac Sim content
-generated/
+/generated/**
 outputs/
 *.tmp.usd
 
@@ -23,3 +23,54 @@ outputs/
 .idea/
 .env
 .DS_Store
+
+# Local tests and test reports
+test/
+tests/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Local Python environments
+.venv/
+venv/
+
+# Local documentation
+/docs/
+
+# Temporary files and editor backups
+*.tmp
+*.swp
+*.swo
+*~
+docs/
+# Selected successful recordings and videos (raw image frames remain ignored)
+!/generated/door_skillgen/
+!/generated/door_teaching/
+!/generated/door_skillgen/seed/
+!/generated/door_skillgen/seventh_batch_20260916/
+!/generated/door_teaching/run07/
+!/generated/door_teaching/upright02/
+!/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/
+!/generated/door_teaching/run07/attempt_008/
+!/generated/door_teaching/upright02/candidate_006/
+!/generated/door_teaching/upright02/candidate_006/episode.json
+!/generated/door_teaching/upright02/candidate_006/trajectory.npz
+!/generated/door_teaching/upright02/candidate_006/review_metrics.json
+!/generated/door_teaching/upright02/candidate_006/review_phases.srt
+!/generated/door_teaching/upright02/candidate_006/wrist.mp4
+!/generated/door_teaching/upright02/candidate_006/overview.mp4
+!/generated/door_teaching/upright02/candidate_006/review.mp4
+!/generated/door_teaching/run07/attempt_008/episode.json
+!/generated/door_teaching/run07/attempt_008/trajectory.npz
+!/generated/door_teaching/run07/attempt_008/wrist.mp4
+!/generated/door_teaching/run07/attempt_008/overview.mp4
+!/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/result.json
+!/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/generated.hdf5
+!/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/scene.json
+!/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/cuboids.json
+!/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/wrist.mp4
+!/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/overview.mp4
+!/generated/door_skillgen/seed/candidate_006.hdf5

@@ -37,6 +37,7 @@ from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
     OpaqueFunction,
+    Shutdown,
     TimerAction,
 )
 from launch.conditions import IfCondition
@@ -176,8 +177,18 @@ def launch_setup(context, *args, **kwargs):
                 LaunchConfiguration('max_episode_frames'),
                 value_type=int,
             ),
+            'output_dir': LaunchConfiguration('recorder_output_dir'),
+            'fps': ParameterValue(
+                LaunchConfiguration('recorder_fps'),
+                value_type=int,
+            ),
+            'encoder': LaunchConfiguration('recorder_encoder'),
+            'ffmpeg': LaunchConfiguration('recorder_ffmpeg'),
+            'front_camera': LaunchConfiguration('recorder_front_camera'),
+            'wrist_camera': LaunchConfiguration('recorder_wrist_camera'),
         }],
         condition=IfCondition(LaunchConfiguration('start_recorder')),
+        on_exit=Shutdown(reason='VLA recorder exited'),
     )
 
     # The driver blocks on cuMotion and MoveIt action servers, so it starts
@@ -296,7 +307,40 @@ def generate_launch_description():
         DeclareLaunchArgument(
             'record_depth',
             default_value='False',
-            description='Also subscribe to both aligned depth streams.',
+            description=(
+                'Also subscribe to aligned depth streams. The raw-v1 writer '
+                'requires this to remain False.'
+            ),
+        ),
+        DeclareLaunchArgument(
+            'recorder_output_dir',
+            default_value='~/arx_raw',
+            description='Destination root for atomic ARX raw-v1 episodes.',
+        ),
+        DeclareLaunchArgument(
+            'recorder_fps',
+            default_value='30',
+            description='Constant frame rate written into both MP4 files.',
+        ),
+        DeclareLaunchArgument(
+            'recorder_encoder',
+            default_value='auto',
+            description='H.264 encoder: auto, libx264, or libopenh264.',
+        ),
+        DeclareLaunchArgument(
+            'recorder_ffmpeg',
+            default_value='ffmpeg',
+            description='FFmpeg executable used by the raw-v1 writer.',
+        ),
+        DeclareLaunchArgument(
+            'recorder_front_camera',
+            default_value='zedx',
+            description='Scene camera key stored as front.mp4.',
+        ),
+        DeclareLaunchArgument(
+            'recorder_wrist_camera',
+            default_value='d455',
+            description='Scene camera key stored as wrist.mp4.',
         ),
         DeclareLaunchArgument(
             'recorder_terminal_drain_sec',

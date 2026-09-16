@@ -33,8 +33,10 @@ if [[ ! "${request_token}" =~ ^[0-9]+$ ]] || (( request_token < 1 || request_tok
 fi
 command_value=$(( (request_token << 16) | (seed + 1) ))
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+workspace_root="${ARX_WORKSPACE_ROOT:-$(dirname "${repo_root}")}"
 ros_setup="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
-sim_ws="${ARX_SIM_WS:-${HOME}/workspace/arx_r5_sim_ws}"
+sim_ws="${ARX_SIM_WS:-${workspace_root}/arx_r5_sim_ws}"
 
 if [[ ! -f "${ros_setup}" ]]; then
   echo "ROS setup file not found: ${ros_setup}" >&2

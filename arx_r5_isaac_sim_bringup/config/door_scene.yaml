@@ -1,0 +1,13 @@
+# Measured distances in metres; angles in degrees.
+schema_version: 1
+radius_m: 0.59
+base_height_m: 0.63
+half_angle_deg: 30.0
+# face_handle: robot +X points toward the handle; fixed: +X faces the door normal.
+yaw_mode: face_handle
+# Existing door asset, closed pose. -Y points out from the front of the door.
+front_normal_xy: [0.0, -1.0]
+# Use the centre of the front handle's grasp region, not the spindle inside the door.
+handle_reference_prim: /World/Door/door_handle/grasp_target
+# Height comes from the existing asset (0.928 m); real measurement pending.
+# base_height_m is interpreted as the base_link installation plane height.

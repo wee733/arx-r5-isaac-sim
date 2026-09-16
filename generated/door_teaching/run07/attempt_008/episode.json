@@ -1,0 +1,345 @@
+{
+  "schema": "arx-door-teaching-attempt-v1",
+  "success": true,
+  "review_required": true,
+  "fps": 30,
+  "frames": 1485,
+  "door_joint_names": [
+    "hinge_joint",
+    "handle_joint",
+    "latch_joint"
+  ],
+  "camera": "link6 +X downward 30 degrees, provisional D455 intrinsics",
+  "finger_collision": "mesh convex decomposition, 32 hulls, 1mm contact offset",
+  "gripper_drive": {
+    "type": "force",
+    "stiffness": 3000.0,
+    "damping": 50,
+    "max_force_N": 60.0,
+    "mimic_frequency": 0.0,
+    "real_hardware_calibrated": false
+  },
+  "scene_placement": {
+    "schema_version": 1,
+    "seed": 0,
+    "episode_index": 0,
+    "world_frame": "world",
+    "base_frame": "base_link",
+    "handle_reference_prim": "/World/Door/door_handle/grasp_target",
+    "handle_world_xyz": [
+      0.313,
+      -0.3752,
+      0.928
+    ],
+    "placement": {
+      "position": [
+        0.313,
+        -0.9652,
+        0.63
+      ],
+      "quaternion_xyzw": [
+        0.0,
+        0.0,
+        0.7071067811865475,
+        0.7071067811865476
+      ],
+      "angle_deg": 0.0
+    },
+    "config": {
+      "radius_m": 0.59,
+      "base_height_m": 0.63,
+      "half_angle_deg": 30.0,
+      "yaw_mode": "face_handle",
+      "front_normal_xy": [
+        0.0,
+        -1.0
+      ]
+    },
+    "assumptions": [
+      "handle height 0.928 m from existing asset; measurement pending",
+      "base_link origin is the installation plane",
+      "base stationary during each episode; randomized between episodes"
+    ]
+  },
+  "notes": "Physical task completed: knob~44.8deg, latch~15.95mm, pull by knob15deg, release, cuMotion transfer, failed first edge grasp then geometry-corrected recovery, two-sided edge contact, final door30deg. Starts near knob by reset; omits approach. Diagnostic recovery episode, not a clean expert seed. Force60N/stiffness3000/rigid mimic and camera are uncalibrated simulation assumptions. Human review required.",
+  "commands": [
+    {
+      "op": "begin",
+      "name": "attempt_008"
+    },
+    {
+      "op": "hold",
+      "gripper": 0,
+      "duration": 2,
+      "phase": "grasp_knob"
+    },
+    {
+      "op": "pose",
+      "frame": "base_link",
+      "position": [
+        0.445,
+        0,
+        0.298
+      ],
+      "quaternion_xyzw": [
+        -0.3826834324,
+        0,
+        0,
+        0.9238795325
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "turn_knob_ccw_45deg"
+    },
+    {
+      "op": "pose",
+      "frame": "base_link",
+      "position": [
+        0.445,
+        0,
+        0.298
+      ],
+      "quaternion_xyzw": [
+        -0.3987490689,
+        0,
+        0,
+        0.9170600744
+      ],
+      "duration": 0.8,
+      "gripper": 0,
+      "phase": "finish_knob_unlock"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.305976076694082,
+        -0.544200296693441,
+        0.928
+      ],
+      "quaternion_xyzw": [
+        -0.2868360756259097,
+        -0.2769943784416539,
+        0.6370434568853771,
+        0.6596778108067437
+      ],
+      "duration": 2,
+      "gripper": 0,
+      "phase": "pull_knob_hinge_2deg"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.27994368479878073,
+        -0.6145273313693103,
+        0.9279999999999999
+      ],
+      "quaternion_xyzw": [
+        -0.30093974242279375,
+        -0.2616029269699659,
+        0.6016455419270669,
+        0.692114023778261
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_knob_hinge_8deg"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.24048618263234922,
+        -0.6925971264997335,
+        0.928
+      ],
+      "quaternion_xyzw": [
+        -0.316348905769864,
+        -0.24274305301482968,
+        0.5582708013695317,
+        0.7275526732611668
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_knob_hinge_15deg_for_regrasp_clearance"
+    },
+    {
+      "op": "hold",
+      "gripper": 0.035,
+      "duration": 1,
+      "phase": "release_knob_for_edge_regrasp"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.22078058054400407,
+        -0.7685978482277818,
+        0.9273928932868308
+      ],
+      "quaternion_xyzw": [
+        -0.31696981298318944,
+        -0.23760545333725486,
+        0.5588217396471146,
+        0.7285547676733521
+      ],
+      "duration": 2,
+      "gripper": 0.035,
+      "phase": "retreat_from_knob"
+    },
+    {
+      "op": "snapshot"
+    },
+    {
+      "op": "trajectory",
+      "path": "/home/workspace/arx-r5-isaac-sim/generated/door_teaching/run07/edge_low_plan.json",
+      "phase": "cumotion_transfer_to_lower_door_edge",
+      "gripper": 0.035,
+      "time_scale": 1
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.44154316980268493,
+        -0.5279270629634081,
+        0.6995857748613581
+      ],
+      "quaternion_xyzw": [
+        -0.4189730655758546,
+        0.05538739847819711,
+        0.8984906386345254,
+        0.11877869631339973
+      ],
+      "duration": 3,
+      "gripper": 0.035,
+      "phase": "approach_door_edge"
+    },
+    {
+      "op": "hold",
+      "gripper": 0,
+      "duration": 2,
+      "phase": "grasp_door_edge"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.4434922750624215,
+        -0.4732917130055336,
+        0.7158843924954431
+      ],
+      "quaternion_xyzw": [
+        -0.49716174602508545,
+        0.053199596996119654,
+        0.8611094036951024,
+        0.0921444303070142
+      ],
+      "duration": 3,
+      "gripper": 0.044,
+      "phase": "edge_retry_retreat"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.4166149188146262,
+        -0.4674729736059752,
+        0.6682529953615239
+      ],
+      "quaternion_xyzw": [
+        -0.49716174602508545,
+        0.053199596996119654,
+        0.8611094036951024,
+        0.0921444303070142
+      ],
+      "duration": 3,
+      "gripper": 0.044,
+      "phase": "edge_retry_corrected_rail_grasp"
+    },
+    {
+      "op": "hold",
+      "gripper": 0,
+      "duration": 2,
+      "phase": "grasp_door_edge_corrected"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.4016144667418985,
+        -0.5377934488102639,
+        0.6655004024505616
+      ],
+      "quaternion_xyzw": [
+        -0.4942417767436577,
+        0.07997698548072334,
+        0.8565575085891609,
+        0.125051918794628
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_door_by_edge_5deg"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.3807944848771755,
+        -0.6042694333107776,
+        0.6653099656105043
+      ],
+      "quaternion_xyzw": [
+        -0.48995804258940795,
+        0.10305581529416102,
+        0.8507490380847823,
+        0.15983331828448408
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_door_by_edge_toward_22.5deg"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.3543335649873032,
+        -0.6687224907241113,
+        0.6651573777198793
+      ],
+      "quaternion_xyzw": [
+        -0.4845021588314735,
+        0.1259990498631643,
+        0.8435851728992675,
+        0.1942831788543064
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_door_by_edge_toward_27.6deg"
+    },
+    {
+      "op": "pose",
+      "frame": "world",
+      "position": [
+        0.3397611289297898,
+        -0.6986368494676926,
+        0.6649773120880126
+      ],
+      "quaternion_xyzw": [
+        -0.48088105495429206,
+        0.13808538053683317,
+        0.84024662913382,
+        0.20897713008197316
+      ],
+      "duration": 3,
+      "gripper": 0,
+      "phase": "pull_door_by_edge_toward_30.0deg"
+    },
+    {
+      "op": "hold",
+      "gripper": 0,
+      "duration": 1,
+      "phase": "hold_door_open_at_30deg"
+    }
+  ]
+}

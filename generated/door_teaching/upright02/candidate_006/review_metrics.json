@@ -1,0 +1,17 @@
+{
+  "candidate": "upright02/candidate_006",
+  "success_checks": true,
+  "review_required": false,
+  "frames": 1955,
+  "duration_s": 65.16666666666667,
+  "final_door_deg": 30.592707575526838,
+  "camera_recorded_min_clearance_mm": 18.856109204383742,
+  "arm_max_net_contact_N": 0.0,
+  "safety_events": [],
+  "edge_height_m": 1.01,
+  "tool_pitch_deg": 0,
+  "edge_yaw_deg": 165,
+  "pregrasp_distance_m": 0.18,
+  "visual_review": "Door-edge occlusion remains significant in the wrist view. No qualification for training yet.",
+  "user_review": "Approved as augmentation seed; see episode.json human_review. Prior visual observations remain recorded."
+}

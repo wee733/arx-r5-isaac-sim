@@ -1220,6 +1220,167 @@ class EpisodeDriver(Node):
             wall_started_at,
         )
 
+    def _select_acquisition_rotation(self, waypoints):
+        """
+        Select a wrist symmetry whose LIFT solves from a real APPROACH state.
+
+        Planning a virtual APPROACH -> GRASP -> LIFT chain from trajectory
+        endpoints produced false negatives: the controller's measured
+        endpoint can enter a different IK branch than the ideal final point
+        in the planned trajectory.  Instead, execute APPROACH while the tool
+        is still clear of the block, wait for fresh measured joint states,
+        and probe LIFT from that live state.
+
+        A failed LIFT probe rejects only the selected symmetry.  Return home
+        before trying another candidate, so candidate screening never rotates
+        the wrist near the block.  The caller resets the untouched block once
+        more before opening the recorded episode.
+        """
+        acquisition_waypoints = {
+            phase: (translation, rotation)
+            for phase, translation, rotation in waypoints
+            if phase in (
+                EpisodePhase.APPROACH,
+                EpisodePhase.GRASP,
+                EpisodePhase.LIFT,
+            )
+        }
+        required_phases = (
+            EpisodePhase.APPROACH,
+            EpisodePhase.GRASP,
+            EpisodePhase.LIFT,
+        )
+        missing = tuple(
+            phase for phase in required_phases
+            if phase not in acquisition_waypoints
+        )
+        if missing:
+            raise MotionError(
+                'acquisition probe is missing waypoints: '
+                f'{", ".join(missing)}'
+            )
+
+        approach_rotation = acquisition_waypoints[
+            EpisodePhase.APPROACH
+        ][1]
+        candidates = tuple(
+            self._task.equivalent_grasp_rotations(approach_rotation)
+        )
+        if not candidates:
+            raise MotionError('acquisition has no grasp rotations to plan')
+
+        remaining = list(enumerate(candidates))
+        failures = []
+        while remaining:
+            self._current_episode_phase = EpisodePhase.APPROACH
+            approach_translation = acquisition_waypoints[
+                EpisodePhase.APPROACH
+            ][0]
+            world_rotations = tuple(rotation for _, rotation in remaining)
+            base_translation, base_rotations = self._to_base_goalset(
+                approach_translation,
+                world_rotations,
+            )
+            try:
+                approach_trajectory, remaining_index = (
+                    self._plan_after_cumotion_reload(
+                        lambda: self._motion.plan_to_pose_goalset(
+                            base_translation,
+                            base_rotations,
+                        ),
+                        'acquisition APPROACH probe',
+                    )
+                )
+            except MotionError as error:
+                raise MotionError(
+                    'no remaining grasp symmetry could reach APPROACH during '
+                    f'acquisition probe: {error}'
+                ) from error
+
+            original_index, selected_rotation = remaining[remaining_index]
+            try:
+                self._motion.execute(approach_trajectory)
+                baseline_generation = self._motion.joint_state_generation
+                self._motion.wait_for_joint_state_updates(
+                    baseline_generation,
+                    minimum_updates=ROBOT_MANAGER_REFRESH_UPDATES,
+                    timeout_sec=ROBOT_MANAGER_REFRESH_TIMEOUT_SEC,
+                )
+            except MotionError as error:
+                self._current_episode_phase = EpisodePhase.HOME
+                try:
+                    self._go_home()
+                except MotionError as home_error:
+                    raise MotionError(
+                        'acquisition APPROACH probe failed and the arm could '
+                        f'not return home safely: {home_error}'
+                    ) from error
+                raise MotionError(
+                    f'acquisition APPROACH probe execution failed: {error}'
+                ) from error
+
+            self._current_episode_phase = EpisodePhase.LIFT
+            lift_translation = acquisition_waypoints[EpisodePhase.LIFT][0]
+            base_lift_translation, base_lift_rotations = (
+                self._to_base_goalset(
+                    lift_translation,
+                    (selected_rotation,),
+                )
+            )
+            lift_error = None
+            try:
+                self._plan_after_cumotion_reload(
+                    lambda: self._motion.plan_to_pose_goalset(
+                        base_lift_translation,
+                        base_lift_rotations,
+                    ),
+                    'acquisition LIFT probe',
+                )
+            except MotionError as error:
+                lift_error = error
+
+            self._current_episode_phase = EpisodePhase.HOME
+            try:
+                self._go_home()
+            except MotionError as error:
+                raise MotionError(
+                    'could not return home after probing acquisition '
+                    f'symmetry {original_index + 1}/{len(candidates)}: '
+                    f'{error}'
+                ) from error
+
+            if lift_error is not None:
+                if self._stop_event.is_set():
+                    raise lift_error
+                failures.append(
+                    f'{original_index + 1}/{len(candidates)} at '
+                    f'{EpisodePhase.LIFT}: {lift_error}'
+                )
+                self.get_logger().warning(
+                    'rejecting acquisition symmetry '
+                    f'{original_index + 1}/{len(candidates)}: LIFT did not '
+                    f'plan from its executed APPROACH state: {lift_error}'
+                )
+                del remaining[remaining_index]
+                continue
+
+            label = (
+                'square-grasp symmetry' if len(candidates) > 1
+                else 'grasp orientation'
+            )
+            self.get_logger().info(
+                f'acquisition probe selected {label} '
+                f'{original_index + 1}/{len(candidates)}; '
+                'LIFT planned from the measured APPROACH state'
+            )
+            return selected_rotation, original_index, len(candidates)
+
+        detail = '; '.join(failures) if failures else 'no candidates'
+        raise MotionError(
+            'no grasp symmetry has a reachable LIFT from its executed '
+            f'APPROACH state ({detail})'
+        )
+
     def _dry_run_episode(self, episode_id: int, seed: int) -> None:
         """
         Plan every waypoint without executing, to prove the layout solves.
@@ -1230,12 +1391,10 @@ class EpisodeDriver(Node):
         """
         self._reset_scene(seed)
         failures = []
+        waypoints = build_episode_waypoints(self._task, seed)
         source_rotation = None
         place_rotation = None
-        for phase, translation, rotation in build_episode_waypoints(
-            self._task,
-            seed,
-        ):
+        for phase, translation, rotation in waypoints:
             world_rotations = phase_rotation_candidates(
                 self._task,
                 phase,
@@ -1313,6 +1472,18 @@ class EpisodeDriver(Node):
         self._current_episode_phase = EpisodePhase.RESET
         self._reset_scene(seed)
 
+        # Reachability screening is setup, not demonstration data. It moves
+        # only to collision-clear APPROACH poses, probes LIFT from measured
+        # joint states, and returns home without touching the block. Keep it
+        # outside the STARTED/terminal recording window, then reset the block
+        # again before opening the real demonstration.
+        waypoints = build_episode_waypoints(self._task, seed)
+        source_rotation, source_symmetry_index, source_symmetry_count = (
+            self._select_acquisition_rotation(waypoints)
+        )
+        self._current_episode_phase = EpisodePhase.RESET
+        self._reset_scene(seed)
+
         self._publish_event_or_stop(
             episode_id,
             seed,
@@ -1329,12 +1500,8 @@ class EpisodeDriver(Node):
         _, (place_center, place_yaw) = sample_scene_layout(self._task, seed)
         self._placement_target_yaw = place_yaw
 
-        source_rotation = None
         place_rotation = None
-        for phase, translation, rotation in build_episode_waypoints(
-            self._task,
-            seed,
-        ):
+        for phase, translation, rotation in waypoints:
             # Planning can fail before the phase event below is published.
             # Mark the attempted phase first so the terminal event is honest.
             self._current_episode_phase = phase
@@ -1395,17 +1562,27 @@ class EpisodeDriver(Node):
                 EpisodePhase.RETREAT,
             ):
                 place_rotation = selected_rotation
+            event_extra = {
+                'world_translation': list(translation),
+                'world_rotation': list(selected_rotation),
+                'goalset_index': goal_index,
+                'goalset_size': len(world_rotations),
+            }
+            if phase in (
+                EpisodePhase.APPROACH,
+                EpisodePhase.GRASP,
+                EpisodePhase.LIFT,
+            ):
+                event_extra.update({
+                    'source_symmetry_index': source_symmetry_index,
+                    'source_symmetry_count': source_symmetry_count,
+                })
             self._publish_event_or_stop(
                 episode_id,
                 seed,
                 phase,
                 EpisodeStatus.RUNNING,
-                extra={
-                    'world_translation': list(translation),
-                    'world_rotation': list(selected_rotation),
-                    'goalset_index': goal_index,
-                    'goalset_size': len(world_rotations),
-                },
+                extra=event_extra,
             )
             if len(world_rotations) > 1:
                 self.get_logger().info(

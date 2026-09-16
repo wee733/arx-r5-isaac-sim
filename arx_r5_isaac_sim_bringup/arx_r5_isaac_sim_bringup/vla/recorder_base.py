@@ -14,13 +14,13 @@
 # limitations under the License.
 
 """
-Recorder skeleton for VLA episodes.
+Common episode-boundary and synchronization machinery for VLA recorders.
 
-This defines *what* is captured and *when*, not the on-disk format. Subclasses
-implement :meth:`RecorderBase.on_episode_start`, :meth:`RecorderBase.on_frame`
-and :meth:`RecorderBase.on_episode_end` to write whatever a given training
-stack expects; :class:`NullRecorder` only counts frames so the plumbing can be
-validated before a format is chosen.
+Subclasses implement :meth:`RecorderBase.on_episode_start`,
+:meth:`RecorderBase.on_frame` and :meth:`RecorderBase.on_episode_end` for a
+specific on-disk format.  The production ``vla_recorder`` entry point uses the
+ARX raw-v1 implementation; :class:`NullRecorder` remains available only for
+plumbing diagnostics.
 
 Camera synchronization lives in :mod:`frame_sync`.
 """
@@ -30,7 +30,7 @@ from dataclasses import replace
 import signal
 import threading
 import time
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from arx_r5_isaac_sim_bringup.contracts import JOINT_COMMANDS_TOPIC
 from arx_r5_isaac_sim_bringup.usd_scene import (
@@ -716,8 +716,8 @@ class NullRecorder(RecorderBase):
     """
     Count frames without writing anything.
 
-    Exists so the collection pipeline can be validated end to end before the
-    dataset format is decided.
+    This explicit diagnostic recorder is not the production collection
+    executable; use ``vla_null_recorder`` when only ROS plumbing is needed.
     """
 
     def on_episode_start(self, event: EpisodeEvent) -> None:
@@ -788,8 +788,11 @@ class NullRecorder(RecorderBase):
         )
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
-    """Spin the no-op recorder."""
+def run_recorder(
+    node_factory: Callable[[], RecorderBase],
+    argv: Optional[Sequence[str]] = None,
+) -> int:
+    """Spin one recorder implementation with ordered signal cleanup."""
     rclpy.init(
         args=argv,
         signal_handler_options=SignalHandlerOptions.NO,
@@ -811,7 +814,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             request_shutdown,
         )
     try:
-        node = NullRecorder()
+        node = node_factory()
         executor = SingleThreadedExecutor()
         executor.add_node(node)
         while rclpy.ok() and not shutdown_requested.is_set():
@@ -832,6 +835,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         for signum, handler in previous_signal_handlers.items():
             signal.signal(signum, handler)
     return 0
+
+
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    """Spin the explicit no-op recorder used for plumbing diagnostics."""
+    return run_recorder(NullRecorder, argv)
 
 
 if __name__ == '__main__':
