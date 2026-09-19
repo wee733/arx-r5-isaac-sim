@@ -27,6 +27,12 @@ outputs/
 # Local tests and test reports
 test/
 tests/
+# Ship the focused tests for the GR00T data handoff.
+!/arx_r5_isaac_sim_bringup/test/
+/arx_r5_isaac_sim_bringup/test/*
+!/arx_r5_isaac_sim_bringup/test/test_door_skillgen_lerobot.py
+!/arx_r5_isaac_sim_bringup/test/test_door_n17_validation.py
+!/arx_r5_isaac_sim_bringup/test/test_door_skillgen_scene.py
 .coverage
 .coverage.*
 htmlcov/
@@ -46,6 +52,9 @@ venv/
 *.swo
 *~
 docs/
+!/docs/
+/docs/*
+!/docs/door_skillgen_usage.md
 # Selected successful recordings and videos (raw image frames remain ignored)
 !/generated/door_skillgen/
 !/generated/door_teaching/

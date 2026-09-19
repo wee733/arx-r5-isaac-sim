@@ -1,0 +1,11 @@
+# Data-only validation dependencies for Python 3.12.
+# Install torch==2.9.0 and torchvision==0.24.0 from the PyTorch CPU index first.
+# Model training needs the full official locked environment, not this subset.
+numpy==1.26.4
+pandas==2.2.3
+scipy==1.15.3
+torchcodec==0.8.0
+pyarrow==25.0.1
+tqdm==4.67.1
+tyro==0.9.17
+h5py==3.16.0

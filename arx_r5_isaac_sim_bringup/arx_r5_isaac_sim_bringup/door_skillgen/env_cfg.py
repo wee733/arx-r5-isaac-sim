@@ -87,12 +87,14 @@ class DoorSceneCfg(InteractiveSceneCfg):
         actuators={},
     )
     wrist_camera = CameraCfg(
-        prim_path='/R5a/link6/TeachingWristCamera',
+        prim_path='/World/SkillGenWristCamera',
         spawn=None,
         width=640,
         height=480,
         data_types=['rgb'],
-        update_period=1.0 / 30.0,
+        # Recording explicitly renders and refreshes without advancing physics.
+        # A positive period would retain the pre-synchronization RGB/pose cache.
+        update_period=0.0,
         update_latest_camera_pose=True,
     )
     overview_camera = CameraCfg(
@@ -250,6 +252,9 @@ class DoorSkillGenEnvCfg(ManagerBasedRLEnvCfg, MimicEnvCfg):
         self.episode_length_s = 90.0
         self.sim.dt = 1.0 / 120.0
         self.sim.render_interval = 4
+        # GPU articulation visuals require Fabric. The recording camera is an
+        # independent static-parent prim tracked from live link6, not stale USD.
+        self.sim.use_fabric = True
         self.sim.physx.bounce_threshold_velocity = 0.01
         self.sim.physx.friction_correlation_distance = 0.00625
         self.scene.num_envs = 1

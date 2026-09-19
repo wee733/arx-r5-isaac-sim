@@ -175,6 +175,10 @@ def _configure_environment() -> tuple[object, object]:
     cfg.datagen_config.generation_guarantee = False
     cfg.datagen_config.generation_keep_failed = True
     cfg.recorders.export_in_record_pre_reset = False
+    # SkillGen retains observation dictionaries for the entire generated
+    # episode. Stream RGB to ffmpeg instead of retaining a second GPU copy
+    # of both videos; native numeric recording remains unchanged.
+    cfg.observations.rgb_camera = None
     return cfg, success_term
 
 
@@ -185,6 +189,66 @@ def _camera_frame(env, sensor_name: str) -> torch.Tensor:
 def _capture(env, writers: dict[str, RawVideoWriter]) -> None:
     for sensor_name, writer in writers.items():
         writer.append(_camera_frame(env, sensor_name))
+
+
+def _wrist_mount(env):
+    """Cache the authored mount before renderer synchronization writes."""
+    if not hasattr(env, '_approved_wrist_mount'):
+        from pxr import UsdGeom
+        prim = omni.usd.get_context().get_stage().GetPrimAtPath(
+            '/R5a/link6/TeachingWristCamera')
+        env._approved_wrist_mount = np.asarray(
+            UsdGeom.Xformable(prim).GetLocalTransformation()).T.copy()
+    return env._approved_wrist_mount
+
+
+def _sync_wrist_camera(env, *, render=True):
+    """Render the fixed wrist mount from live articulation rather than stale USD."""
+    from scipy.spatial.transform import Rotation
+
+    pose = env.get_robot_eef_pose('link6')[0].cpu().numpy() @ _wrist_mount(env)
+    quat = Rotation.from_matrix(pose[:3, :3]).as_quat()[[3, 0, 1, 2]]
+    sensor = env.scene.sensors['wrist_camera']
+    sensor.set_world_poses(
+        torch.as_tensor(pose[:3, 3][None], device=env.device, dtype=torch.float32),
+        torch.as_tensor(quat[None], device=env.device, dtype=torch.float32),
+        convention='opengl',
+    )
+    # Pinned XformPrimView writes worldMatrix directly; the next hierarchy
+    # update reconstructs it from the unchanged localMatrix. Use the public
+    # hierarchy setter as well, which updates localMatrix consistently.
+    import usdrt
+    if not hasattr(env, '_wrist_fabric_hierarchy'):
+        stage = usdrt.Usd.Stage.Attach(omni.usd.get_context().get_stage_id())
+        env._wrist_fabric_hierarchy = usdrt.hierarchy.IFabricHierarchy().get_fabric_hierarchy(
+            stage.GetFabricId(), stage.GetStageIdAsStageId())
+    env._wrist_fabric_hierarchy.set_world_xform(
+        usdrt.Sdf.Path(sensor.cfg.prim_path), usdrt.Gf.Matrix4d(*pose.T.flatten().tolist()))
+    env._wrist_fabric_hierarchy.update_world_xforms()
+    if render:
+        env.sim.render()
+    sensor.update(0., force_recompute=True)
+
+
+def _camera_mount_diagnostics(env) -> dict:
+    """Compare the rendered sensor pose with link6 times its authored mount."""
+    from scipy.spatial.transform import Rotation
+
+    sensor = env.scene.sensors['wrist_camera']
+    mount = _wrist_mount(env)
+    tool = env.get_robot_eef_pose('link6')[0].cpu().numpy()
+    expected = tool @ mount
+    actual = np.eye(4)
+    actual[:3, 3] = sensor.data.pos_w[0].cpu().numpy()
+    quat = sensor.data.quat_w_opengl[0].cpu().numpy()
+    actual[:3, :3] = Rotation.from_quat(quat[[1, 2, 3, 0]]).as_matrix()
+    return {
+        'use_fabric': env.cfg.sim.use_fabric,
+        'expected_camera_world': expected.tolist(), 'sensor_camera_world': actual.tolist(),
+        'position_error_m': float(np.linalg.norm(actual[:3, 3] - expected[:3, 3])),
+        'rotation_error_rad': float(Rotation.from_matrix(
+            actual[:3, :3].T @ expected[:3, :3]).magnitude()),
+    }
 
 
 def _hdf5_episode_count(path: Path) -> int:
@@ -255,6 +319,19 @@ def _run_attempt(env, success_term, planner, writers, audit) -> dict:
             )
             actions[env_id] = action.to(env.device)
             # Record the same pre-action observation as the native recorder.
+            _sync_wrist_camera(env)
+            camera_check = _camera_mount_diagnostics(env)
+            position_error = camera_check['position_error_m']
+            rotation_error = camera_check['rotation_error_rad']
+            if not np.isfinite([position_error, rotation_error]).all() or (
+                position_error > 1e-4 or rotation_error > 1e-3
+            ):
+                raise RuntimeError(f'wrist camera mount mismatch: {camera_check}')
+            audit['camera_frames_verified'] += 1
+            audit['max_camera_position_error_m'] = max(
+                audit['max_camera_position_error_m'], position_error)
+            audit['max_camera_rotation_error_rad'] = max(
+                audit['max_camera_rotation_error_rad'], rotation_error)
             _capture(env, writers)
             env.recorder_manager.add_to_episodes('obs/diagnostics', {
                 'door_joint_pos': mdp.door_joint_state(env),
@@ -263,6 +340,10 @@ def _run_attempt(env, success_term, planner, writers, audit) -> dict:
                 'arm_contacts': mdp.arm_contact_forces(env),
                 'timestamp': torch.full((1, 1), audit['physics_steps'] / 30., device=env.device),
                 'transition_index': torch.full((1, 1), planner.runner._sequence, device=env.device),
+                'wrist_camera_pose': torch.tensor(
+                    [camera_check['sensor_camera_world']], device=env.device),
+                'wrist_camera_expected_pose': torch.tensor(
+                    [camera_check['expected_camera_world']], device=env.device),
             })
             env.recorder_manager.add_to_episodes('obs/datagen_info', {
                 'eef_pose': {'link6': env.get_robot_eef_pose('link6')},
@@ -271,6 +352,7 @@ def _run_attempt(env, success_term, planner, writers, audit) -> dict:
             })
             env.step(actions)
             audit['physics_steps'] += 1
+            _sync_wrist_camera(env, render=False)
             _audit_step(env, audit)
             if audit['physics_steps'] % 150 == 0:
                 print(json.dumps({'progress': audit}), flush=True)
@@ -314,6 +396,7 @@ def main() -> int:
     cfg, success_term = _configure_environment()
     env = gym.make(ENV_ID, cfg=cfg).unwrapped
     env.reset()
+    _wrist_mount(env)
     if args_cli.smoke_only:
         robot = env.scene['robot']
         door = env.scene['door']
@@ -365,6 +448,15 @@ def main() -> int:
             'hold_tracking_error_m': tracking_error,
         }
         print(json.dumps(payload, indent=2))
+        _sync_wrist_camera(env)
+        camera_check = _camera_mount_diagnostics(env)
+        print(json.dumps({'camera_mount_check': camera_check}), flush=True)
+        if camera_check['position_error_m'] > 1e-4 or camera_check['rotation_error_rad'] > 1e-3:
+            raise RuntimeError('wrist camera does not follow its authored link6 mount')
+        from PIL import Image
+        args_cli.artifact_dir.mkdir(parents=True, exist_ok=True)
+        Image.fromarray(_camera_frame(env, 'wrist_camera')[0, ..., :3].cpu().numpy()).save(
+            args_cli.artifact_dir / 'wrist_smoke.png')
         env.close()
         return 0
 
@@ -400,6 +492,9 @@ def main() -> int:
         'knob_grasp_observed': False,
         'unlock_observed': False,
         'gap_with_knob_grasp_observed': False,
+        'camera_frames_verified': 0,
+        'max_camera_position_error_m': 0.0,
+        'max_camera_rotation_error_rad': 0.0,
     }
     success = False
     acceptance_reasons = []
@@ -477,6 +572,16 @@ def main() -> int:
         'physical_audit': audit,
         'source_seed': str(args_cli.input_file.resolve()),
         'video_alignment': 'pre_action_observation_at_30_hz',
+        'camera_verification': {
+            'schema': 'arx-wrist-camera-live-mount-v2',
+            'mount_link': 'link6',
+            'mount_transform': _wrist_mount(env).tolist(),
+            'use_fabric': True,
+            'camera_prim_path': '/World/SkillGenWristCamera',
+            'frames_verified': audit['camera_frames_verified'],
+            'max_position_error_m': audit['max_camera_position_error_m'],
+            'max_rotation_error_rad': audit['max_camera_rotation_error_rad'],
+        },
         'generation_config': {
             'refresh_panel_once_after_transition': True,
             'panel_transition_standoff_m': 0.04,
@@ -484,6 +589,7 @@ def main() -> int:
             'control_dt_s': 1.0 / 30.0,
             'audit_sampling_hz': 30,
             'transform_actual_skill_entrance': True,
+            'rgb_storage': 'streamed_mp4_not_retained_in_generator_observations',
         },
         'planner': planner.get_planner_info(),
         'artifacts': {

@@ -47,11 +47,13 @@ def _canonicalize_xform(prim: Usd.Prim) -> None:
     # Isaac Lab's Fabric view reads scale into a Vec3dArray. Authored float3
     # scales in simulator snapshots cannot be assigned to that USD array.
     prim.RemoveProperty('xformOp:scale')
+    # The pinned camera view writes Quatd when synchronizing world poses to USD.
+    prim.RemoveProperty('xformOp:orient')
     xform.AddTranslateOp().Set(translation)
-    xform.AddOrientOp().Set(
-        Gf.Quatf(
+    xform.AddOrientOp(precision=UsdGeom.XformOp.PrecisionDouble).Set(
+        Gf.Quatd(
             float(quaternion.GetReal()),
-            Gf.Vec3f(*map(float, quaternion.GetImaginary())),
+            Gf.Vec3d(*map(float, quaternion.GetImaginary())),
         )
     )
     xform.AddScaleOp(precision=UsdGeom.XformOp.PrecisionDouble).Set(
@@ -185,6 +187,12 @@ def prepare_scene(
         if not camera:
             raise ValueError(f'approved scene has no camera {camera_path}')
         _canonicalize_xform(camera)
+
+    # A camera parented to a GPU articulation inherits stale USD parent poses
+    # in the pinned renderer bridge. Keep its original mount as a reference,
+    # and render an independent camera under static World, tracked from PhysX.
+    Sdf.CopySpec(stage.GetRootLayer(), '/R5a/link6/TeachingWristCamera',
+                 stage.GetRootLayer(), '/World/SkillGenWristCamera')
 
     manifest = {
         'schema_version': 1,
