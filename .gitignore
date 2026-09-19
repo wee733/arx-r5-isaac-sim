@@ -24,15 +24,7 @@ outputs/
 .env
 .DS_Store
 
-# Local tests and test reports
-test/
-tests/
-# Ship the focused tests for the GR00T data handoff.
-!/arx_r5_isaac_sim_bringup/test/
-/arx_r5_isaac_sim_bringup/test/*
-!/arx_r5_isaac_sim_bringup/test/test_door_skillgen_lerobot.py
-!/arx_r5_isaac_sim_bringup/test/test_door_n17_validation.py
-!/arx_r5_isaac_sim_bringup/test/test_door_skillgen_scene.py
+# Test reports (source tests are versioned)
 .coverage
 .coverage.*
 htmlcov/
@@ -43,18 +35,11 @@ htmlcov/
 .venv/
 venv/
 
-# Local documentation
-/docs/
-
 # Temporary files and editor backups
 *.tmp
 *.swp
 *.swo
 *~
-docs/
-!/docs/
-/docs/*
-!/docs/door_skillgen_usage.md
 # Selected successful recordings and videos (raw image frames remain ignored)
 !/generated/door_skillgen/
 !/generated/door_teaching/
@@ -83,3 +68,79 @@ docs/
 !/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/wrist.mp4
 !/generated/door_skillgen/seventh_batch_20260916/angle_p000_0/overview.mp4
 !/generated/door_skillgen/seed/candidate_006.hdf5
+
+# Local agent sessions
+.superpowers/
+
+# Required approved seed scene and conversion provenance
+!/generated/door_teaching/upright02/live_scene.usd
+!/generated/door_skillgen/seed/candidate_006.conversion.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p001_5/
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p001_5/result.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p001_5/generated.hdf5
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p001_5/scene.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p001_5/cuboids.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p001_5/wrist.mp4
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p001_5/overview.mp4
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p002_5/
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p002_5/result.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p002_5/generated.hdf5
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p002_5/scene.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p002_5/cuboids.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p002_5/wrist.mp4
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p002_5/overview.mp4
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/result.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/generated.hdf5
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/scene.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/cuboids.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/wrist.mp4
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/overview.mp4
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p005_0/
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p005_0/result.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p005_0/generated.hdf5
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p005_0/scene.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p005_0/cuboids.json
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p005_0/wrist.mp4
+!/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p005_0/overview.mp4
+!/generated/door_skillgen/camera_v2_completion_20260916/
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p000_5/
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p000_5/result.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p000_5/generated.hdf5
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p000_5/scene.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p000_5/cuboids.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p000_5/wrist.mp4
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p000_5/overview.mp4
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p001_0/
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p001_0/result.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p001_0/generated.hdf5
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p001_0/scene.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p001_0/cuboids.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p001_0/wrist.mp4
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p001_0/overview.mp4
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p002_0/
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p002_0/result.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p002_0/generated.hdf5
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p002_0/scene.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p002_0/cuboids.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p002_0/wrist.mp4
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p002_0/overview.mp4
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p003_0/
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p003_0/result.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p003_0/generated.hdf5
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p003_0/scene.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p003_0/cuboids.json
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p003_0/wrist.mp4
+!/generated/door_skillgen/camera_v2_completion_20260916/angle_p003_0/overview.mp4
+!/generated/door_skillgen/camera_v2_original_20260916/
+!/generated/door_skillgen/camera_v2_original_20260916/angle_p000_0/
+!/generated/door_skillgen/camera_v2_original_20260916/angle_p000_0/result.json
+!/generated/door_skillgen/camera_v2_original_20260916/angle_p000_0/generated.hdf5
+!/generated/door_skillgen/camera_v2_original_20260916/angle_p000_0/scene.json
+!/generated/door_skillgen/camera_v2_original_20260916/angle_p000_0/cuboids.json
+!/generated/door_skillgen/camera_v2_original_20260916/angle_p000_0/wrist.mp4
+!/generated/door_skillgen/camera_v2_original_20260916/angle_p000_0/overview.mp4
+!/generated/door_datasets/
+!/generated/door_datasets/n17_wrist_camera_v2_smoke_20260916/
+!/generated/door_datasets/n17_wrist_camera_v2_smoke_20260916/**

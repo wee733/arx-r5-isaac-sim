@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 pytest.importorskip('pxr')
-from pxr import Gf, Usd, UsdGeom  # noqa: E402
+from pxr import Gf, Sdf, Usd, UsdGeom  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -40,6 +40,16 @@ def test_prepared_scene_closes_door_and_moves_mount(tmp_path):
         5.0,
     )
     stage = Usd.Stage.Open(str(output))
+    # 输出目录变化后，纹理仍须解析到仓库中的实体。
+    texture_paths = []
+    for prim in stage.Traverse():
+        for attribute in prim.GetAttributes():
+            if attribute.GetTypeName() == Sdf.ValueTypeNames.Asset:
+                value = attribute.Get()
+                if value and value.path.endswith('.png'):
+                    texture_paths.append(value.resolvedPath)
+    assert len(texture_paths) == 6
+    assert all(path and Path(path).is_file() for path in texture_paths)
     source_camera = stage.GetPrimAtPath('/R5a/link6/TeachingWristCamera')
     tracking_camera = stage.GetPrimAtPath('/World/SkillGenWristCamera')
     assert tracking_camera and tracking_camera.GetTypeName() == 'Camera'

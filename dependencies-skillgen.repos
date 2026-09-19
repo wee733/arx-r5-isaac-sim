@@ -1,0 +1,9 @@
+repositories:
+  IsaacLab:
+    type: git
+    url: https://github.com/isaac-sim/IsaacLab.git
+    version: f4aa17f87e2e5db5484f0b5974918573e8918ce2
+  Isaac-GR00T:
+    type: git
+    url: https://github.com/NVIDIA/Isaac-GR00T.git
+    version: 9c7e746b2cd37a810070a98ef41d290a07e806c2

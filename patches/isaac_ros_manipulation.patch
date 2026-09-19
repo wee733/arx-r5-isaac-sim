@@ -1,0 +1,278 @@
+diff --git a/isaac_ros_manipulation_bringup/config/nvblox/workspace_bounds/arx_r5a_test_bench.yaml b/isaac_ros_manipulation_bringup/config/nvblox/workspace_bounds/arx_r5a_test_bench.yaml
+new file mode 100644
+index 0000000..0729ae8
+--- /dev/null
++++ b/isaac_ros_manipulation_bringup/config/nvblox/workspace_bounds/arx_r5a_test_bench.yaml
+@@ -0,0 +1,13 @@
++/**:
++  ros__parameters:
++
++    static_mapper:
++      # Conservative default bounds around the R5A base. Tune these values to
++      # the measured workcell before enabling unattended execution.
++      workspace_bounds_type: "bounding_box"
++      workspace_bounds_min_corner_x_m: -0.8
++      workspace_bounds_min_corner_y_m: -0.8
++      workspace_bounds_min_height_m: -0.2
++      workspace_bounds_max_corner_x_m: 0.8
++      workspace_bounds_max_corner_y_m: 0.8
++      workspace_bounds_max_height_m: 1.0
+diff --git a/isaac_ros_manipulation_bringup/launch/workflows/core.launch.py b/isaac_ros_manipulation_bringup/launch/workflows/core.launch.py
+index ac04d96..75c1809 100644
+--- a/isaac_ros_manipulation_bringup/launch/workflows/core.launch.py
++++ b/isaac_ros_manipulation_bringup/launch/workflows/core.launch.py
+@@ -66,7 +66,7 @@ def generate_launch_description():
+             'gripper_type',
+             default_value='robotiq_2f_140',
+             description='Type of gripper attached to the robot arm',
+-            choices=['robotiq_2f_85', 'robotiq_2f_140', 'grav'],
++            choices=['robotiq_2f_85', 'robotiq_2f_140', 'grav', 'arx_r5a'],
+         ),
+         DeclareLaunchArgument(
+             'camera_type',
+diff --git a/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/config.py b/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/config.py
+index d2e9cc0..61f918c 100644
+--- a/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/config.py
++++ b/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/config.py
+@@ -207,6 +207,11 @@ _GRIPPER_COLLISION_LINKS: Dict[GripperType, List[str]] = {
+         'right_finger_mount',
+         'right_finger_tip',
+     ],
++    GripperType.ARX_R5A: [
++        'link6',
++        'link7',
++        'link8',
++    ],
+ }
+ 
+ 
+@@ -269,9 +274,16 @@ class DriverConfig(Config):
+ 
+         self.frame_prefix = compute_frame_prefix(context)
+         self.base_frame = f'{self.frame_prefix}base_link'
+-        self.gripper_frame = f'{self.frame_prefix}gripper_frame'
+-        self.grasp_frame = f'{self.frame_prefix}grasp_frame'
+-        self.insertion_frame = f'{self.frame_prefix}insertion_frame'
++        if self.robot_type is RobotType.ARX_R5A:
++            # R5A plans for link6. A fixed ``grasp_frame`` at the finger centre
++            # is supplied by the R5A robot description for object attachment.
++            self.gripper_frame = f'{self.frame_prefix}link6'
++            self.grasp_frame = f'{self.frame_prefix}grasp_frame'
++            self.insertion_frame = self.grasp_frame
++        else:
++            self.gripper_frame = f'{self.frame_prefix}gripper_frame'
++            self.grasp_frame = f'{self.frame_prefix}grasp_frame'
++            self.insertion_frame = f'{self.frame_prefix}insertion_frame'
+         self.joint_names = compute_joint_names(context)
+ 
+         # ``robot_sn`` is a Flexiv-specific launch arg. Keep the resolution here
+@@ -327,6 +339,11 @@ def build_driver_config(context: LaunchContext) -> DriverConfig:
+             FlexivRizonDriverConfig,
+         )
+         return FlexivRizonDriverConfig(context)
++    if robot_type is RobotType.ARX_R5A:
++        # The workflow core only needs the shared robot metadata. The actual
++        # out-of-tree ARX launch constructs its richer ArxR5aDriverConfig via
++        # ``robot_launch_file_path``, keeping this common package dependency-free.
++        return DriverConfig(context)
+     raise NotImplementedError(f'Robot type {robot_type} not supported')
+ 
+ 
+diff --git a/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/core.py b/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/core.py
+index f27322e..e9ade26 100644
+--- a/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/core.py
++++ b/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/core.py
+@@ -288,7 +288,7 @@ def get_cumotion_node(
+         get_package_share_directory('isaac_ros_manipulation_bringup'), 'launch', 'include'
+     )
+     use_sim_time_str = 'true' if use_sim_time else 'false'
+-    tool_frame = getattr(core_config.workflow_config, 'gripper_frame', 'gripper_frame')
++    tool_frame = core_config.workflow_config.driver_config.gripper_frame
+     enable_object_attachment = 'true' if \
+         workflow_type in (WorkflowType.PICK_AND_PLACE, WorkflowType.GEAR_ASSEMBLY) else 'false'
+     enable_dnn_depth_in_realsense = 'true' if \
+diff --git a/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/launch_utils.py b/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/launch_utils.py
+index 87ad63f..b4e0ae0 100644
+--- a/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/launch_utils.py
++++ b/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/launch_utils.py
+@@ -173,7 +173,7 @@ def get_robot_type(context: LaunchContext) -> RobotType:
+     Resolve the ``robot_type`` launch arg to a ``RobotType`` enum.
+ 
+     The launch arg value must match one of the ``RobotType`` members
+-    (case-sensitive, e.g. ``UR`` or ``FLEXIV``).
++    (case-sensitive, e.g. ``UR``, ``FLEXIV``, or ``ARX_R5A``).
+ 
+     Args
+     ----
+@@ -194,6 +194,8 @@ def get_robot_type(context: LaunchContext) -> RobotType:
+         return RobotType.UR
+     elif robot_type_str == str(RobotType.FLEXIV):
+         return RobotType.FLEXIV
++    elif robot_type_str == str(RobotType.ARX_R5A):
++        return RobotType.ARX_R5A
+     else:
+         raise NotImplementedError(f'Robot type {robot_type_str} not supported !')
+ 
+@@ -458,8 +460,9 @@ def compute_frame_prefix(context: LaunchContext) -> str:
+     Derive the TF frame prefix for the running robot.
+ 
+     The prefix is resolved using the canonical launch arg for the given robot
+-    family (``robot_sn`` for Flexiv, ``tf_prefix`` for UR). The robot family
+-    is resolved from the ``robot_type`` launch arg via :func:`get_robot_type`.
++    family (``robot_sn`` for Flexiv, ``tf_prefix`` for UR and ARX R5A). The
++    robot family is resolved from the ``robot_type`` launch arg via
++    :func:`get_robot_type`.
+ 
+     Args
+     ----
+@@ -480,6 +483,8 @@ def compute_frame_prefix(context: LaunchContext) -> str:
+         return _flexiv_frame_prefix(context)
+     if robot_type is RobotType.UR:
+         return _ur_frame_prefix(context)
++    if robot_type is RobotType.ARX_R5A:
++        return _ur_frame_prefix(context)
+     raise ValueError(f'Robot type {robot_type} not supported')
+ 
+ 
+@@ -493,10 +498,11 @@ def compute_joint_names(context: LaunchContext) -> List[str]:
+     """
+     Return arm joint names for the running robot.
+ 
+-    Flexiv Rizon exposes ``joint1``..``joint7`` and UR exposes the 6 standard
+-    shoulder/elbow/wrist joints. The final names are prefixed with
+-    :func:`compute_frame_prefix`. The robot family is resolved from the
+-    ``robot_type`` launch arg via :func:`get_robot_type`.
++    Flexiv Rizon exposes ``joint1``..``joint7``, ARX R5A exposes
++    ``joint1``..``joint6``, and UR exposes the 6 standard shoulder/elbow/wrist
++    joints. The final names are prefixed with :func:`compute_frame_prefix`.
++    The robot family is resolved from the ``robot_type`` launch arg via
++    :func:`get_robot_type`.
+ 
+     Args
+     ----
+@@ -518,6 +524,8 @@ def compute_joint_names(context: LaunchContext) -> List[str]:
+         return [f'{prefix}joint{i}' for i in range(1, 8)]
+     if robot_type is RobotType.UR:
+         return [f'{prefix}{j}' for j in _UR_ARM_JOINTS]
++    if robot_type is RobotType.ARX_R5A:
++        return [f'{prefix}joint{i}' for i in range(1, 7)]
+     raise ValueError(f'Robot type {robot_type} not supported')
+ 
+ 
+@@ -525,6 +533,8 @@ def compute_gripper_action_name(gripper_type: str) -> str:
+     """Return gripper GripperCommand action name based on gripper type."""
+     if gripper_type == 'grav':
+         return '/flexiv_gripper_node/gripper_action'
++    if gripper_type == 'arx_r5a':
++        return '/gripper_controller/gripper_cmd'
+     return '/robotiq_gripper_controller/gripper_cmd'
+ 
+ 
+@@ -534,9 +544,12 @@ def compute_gripper_positions(gripper_type: str) -> tuple:
+ 
+     Grav gripper: 0.0 = fully closed, 0.1 = fully open.
+     Robotiq gripper: 0.0 = fully open, 0.65 = fully closed.
++    ARX R5A gripper: 0.0 = fully closed, 0.044 = fully open.
+     """
+     if gripper_type == 'grav':
+         return (0.09, 0.0)
++    if gripper_type == 'arx_r5a':
++        return (0.044, 0.0)
+     return (0.0, 0.65)
+ 
+ 
+diff --git a/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/manipulator_types.py b/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/manipulator_types.py
+index e1d2500..aa3d66b 100644
+--- a/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/manipulator_types.py
++++ b/isaac_ros_manipulation_ros_python_utils/isaac_ros_manipulation_ros_python_utils/manipulator_types.py
+@@ -24,6 +24,7 @@ class GripperType(enum.Enum):
+     ROBOTIQ_2F_140 = 'robotiq_2f_140'
+     ROBOTIQ_2F_85 = 'robotiq_2f_85'
+     GRAV = 'grav'
++    ARX_R5A = 'arx_r5a'
+ 
+     @classmethod
+     def get_gripper_type(self, gripper_type: str):
+@@ -45,6 +46,8 @@ class GripperType(enum.Enum):
+             return GripperType.ROBOTIQ_2F_85
+         elif gripper_type == GripperType.GRAV.value:
+             return GripperType.GRAV
++        elif gripper_type == GripperType.ARX_R5A.value:
++            return GripperType.ARX_R5A
+         else:
+             raise NotImplementedError(f'Gripper type {gripper_type} not supported')
+ 
+@@ -209,11 +212,12 @@ class RobotType(ManipulatorEnum):
+     Used to drive type-safe dispatch in shared launch utilities (e.g. TF frame
+     prefix and arm joint name derivation) instead of sniffing for
+     robot-family-specific launch args (``robot_sn`` for Flexiv, ``tf_prefix``
+-    for UR).
++    for UR and ARX R5A).
+     """
+ 
+     UR = 'UR'
+     FLEXIV = 'FLEXIV'
++    ARX_R5A = 'ARX_R5A'
+ 
+ 
+ class ObjectStatus(enum.Enum):
+diff --git a/isaac_ros_manipulation_ros_python_utils/test/test_arx_r5a_robot_config.py b/isaac_ros_manipulation_ros_python_utils/test/test_arx_r5a_robot_config.py
+new file mode 100644
+index 0000000..ff68543
+--- /dev/null
++++ b/isaac_ros_manipulation_ros_python_utils/test/test_arx_r5a_robot_config.py
+@@ -0,0 +1,54 @@
++# SPDX-FileCopyrightText: NVIDIA CORPORATION & AFFILIATES
++# Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
++#
++# Licensed under the Apache License, Version 2.0 (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++# http://www.apache.org/licenses/LICENSE-2.0
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++#
++# SPDX-License-Identifier: Apache-2.0
++
++"""Tests for the ARX R5A manipulation metadata."""
++
++from isaac_ros_manipulation_ros_python_utils import launch_utils
++from isaac_ros_manipulation_ros_python_utils.manipulator_types import (
++    GripperType, RobotType,
++)
++
++
++def _patch_launch_values(monkeypatch, values):
++    monkeypatch.setattr(
++        launch_utils,
++        'get_str_variable',
++        lambda _context, name: values[name],
++    )
++
++
++def test_arx_r5a_robot_type_and_joint_names(monkeypatch):
++    """Resolve R5A identity, prefix, and six arm joints."""
++    _patch_launch_values(monkeypatch, {
++        'robot_type': 'ARX_R5A',
++        'tf_prefix': '',
++    })
++
++    assert launch_utils.get_robot_type(None) is RobotType.ARX_R5A
++    assert launch_utils.compute_frame_prefix(None) == ''
++    assert launch_utils.compute_joint_names(None) == [
++        'joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6'
++    ]
++
++
++def test_arx_r5a_gripper_metadata():
++    """Resolve the R5A GripperCommand interface and positions."""
++    assert GripperType.get_gripper_type('arx_r5a') is GripperType.ARX_R5A
++    assert launch_utils.compute_gripper_action_name('arx_r5a') == (
++        '/gripper_controller/gripper_cmd'
++    )
++    assert launch_utils.compute_gripper_positions('arx_r5a') == (0.044, 0.0)

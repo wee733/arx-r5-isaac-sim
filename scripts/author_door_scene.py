@@ -59,6 +59,8 @@ def author(args):
         raise RuntimeError('cannot copy source robot scene')
     # Strip the old workcell before opening; avoids its remote ground reference.
     layer = Sdf.Layer.FindOrOpen(str(output))
+    from arx_r5_isaac_sim_bringup.usd_assets import rebase_local_assets
+    rebase_local_assets(layer, source, output)
     edits = Sdf.BatchNamespaceEdit()
     for path in ('/World/defaultGroundPlane', '/World/Workspace', '/World/Sensors', '/Render'):
         if layer.GetPrimAtPath(path):

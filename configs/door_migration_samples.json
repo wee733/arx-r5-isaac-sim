@@ -1,0 +1,15 @@
+{
+  "schema": "arx-door-migration-samples-v1",
+  "generated_attempts": [
+    "generated/door_skillgen/camera_v2_batch_a_20260916/angle_p001_5",
+    "generated/door_skillgen/camera_v2_batch_a_20260916/angle_p002_5",
+    "generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5",
+    "generated/door_skillgen/camera_v2_batch_a_20260916/angle_p005_0",
+    "generated/door_skillgen/camera_v2_completion_20260916/angle_p000_5",
+    "generated/door_skillgen/camera_v2_completion_20260916/angle_p001_0",
+    "generated/door_skillgen/camera_v2_completion_20260916/angle_p002_0",
+    "generated/door_skillgen/camera_v2_completion_20260916/angle_p003_0",
+    "generated/door_skillgen/camera_v2_original_20260916/angle_p000_0"
+  ],
+  "validated_dataset": "generated/door_datasets/n17_wrist_camera_v2_smoke_20260916"
+}

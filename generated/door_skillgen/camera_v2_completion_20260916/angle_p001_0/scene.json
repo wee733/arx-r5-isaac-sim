@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "purpose": "isaac_lab_skillgen_physics_replay",
+  "source_scene": "/home/workspace/arx-r5-isaac-sim/generated/door_teaching/upright02/live_scene.usd",
+  "source_seed": "/home/workspace/arx-r5-isaac-sim/generated/door_teaching/upright02/candidate_006",
+  "source_seed_quality": "user_approved_seed",
+  "placement": {
+    "position": [
+      0.3232969197979973,
+      -0.9651101401422708,
+      0.63
+    ],
+    "quaternion_xyzw": [
+      0.0,
+      0.0,
+      0.7132504491541816,
+      0.7009092642998509
+    ],
+    "angle_deg": 1.0
+  },
+  "handle_world_xyz": [
+    0.313,
+    -0.3752,
+    0.928
+  ],
+  "config": {
+    "radius_m": 0.59,
+    "base_height_m": 0.63,
+    "half_angle_deg": 30.0,
+    "yaw_mode": "face_handle",
+    "front_normal_xy": [
+      0.0,
+      -1.0
+    ]
+  },
+  "initial_state": [
+    -7.822022212167212e-07,
+    1.0002118349075317,
+    1.49851655960083,
+    -0.0019079649355262518,
+    -4.5365965206656256e-07,
+    -1.1146544238727074e-06,
+    0.027999961748719215
+  ],
+  "camera_contract": "link6 +X downward 30 degrees, provisional D455 intrinsics"
+}

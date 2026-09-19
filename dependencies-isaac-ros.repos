@@ -1,0 +1,25 @@
+repositories:
+  isaac_ros_benchmark:
+    type: git
+    url: https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_benchmark.git
+    version: 4f9e014ce0cb77ce9cb796faf4463079d2ec8974
+  isaac_ros_common:
+    type: git
+    url: https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common.git
+    version: 12b9d03a67b3f193ad27a4a58eab2c987a458ce8
+  isaac_ros_dnn_inference:
+    type: git
+    url: https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_dnn_inference.git
+    version: 06251476d6be1ce928857cd3666022b9f56975a0
+  isaac_ros_image_pipeline:
+    type: git
+    url: https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline.git
+    version: 203e41be2a4a96382fe69abac08c0cec76720a7a
+  isaac_ros_manipulation:
+    type: git
+    url: https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_manipulation.git
+    version: dda5b33eebd5c09091e78c4e9ca8dc602a4174e2
+  isaac_ros_nitros:
+    type: git
+    url: https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_nitros.git
+    version: 82310fce298d3d9db26945a3a988d5c471d14973

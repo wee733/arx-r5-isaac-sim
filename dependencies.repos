@@ -6,7 +6,7 @@ repositories:
   arx-r5-moveit:
     type: git
     url: https://github.com/wee733/Isaac_Ros_CuMotion_ArxR5a.git
-    version: v0.3.0
+    version: 8b8667d82437fd776c330c6377d26238a44f296b
   topic_based_ros2_control:
     type: git
     url: https://github.com/PickNikRobotics/topic_based_ros2_control.git

@@ -1,0 +1,30 @@
+{
+  "captured_at": "2026-09-19",
+  "purpose": "原机版本参考，不是跨平台 apt 安装清单",
+  "system_packages": {
+    "ffmpeg": "7:6.1.1-3ubuntu5",
+    "isaac-ros-cli": "2.4.0-1.20260707043405",
+    "libavcodec60": "7:6.1.1-3ubuntu5",
+    "libavformat60": "7:6.1.1-3ubuntu5",
+    "nvidia-driver-580-open": "580.95.05-0ubuntu0.24.04.2"
+  },
+  "simulation": {
+    "python": "3.11",
+    "isaacsim": "5.1.0.0",
+    "isaaclab_commit": "f4aa17f87e2e5db5484f0b5974918573e8918ce2",
+    "torch": "2.7.0+cu128",
+    "numpy": "1.26.0",
+    "h5py": "3.16.0"
+  },
+  "native_planning": {
+    "python": "3.12",
+    "cumotion": "1.1.0",
+    "wheel_tag": "cp312-cp312-linux_x86_64"
+  },
+  "data_loader": {
+    "python": "3.12",
+    "requirements": "requirements-groot-data.txt",
+    "torch": "2.9.0+cpu",
+    "torchvision": "0.24.0+cpu"
+  }
+}

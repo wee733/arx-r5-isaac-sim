@@ -18,6 +18,7 @@ from pxr import Gf, Sdf, Usd, UsdGeom, UsdPhysics
 
 from arx_r5_isaac_sim_bringup.door_skillgen.contract import first_batch_placements
 from arx_r5_isaac_sim_bringup.door_skillgen.seed import load_seed
+from arx_r5_isaac_sim_bringup.usd_assets import rebase_local_assets
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -128,6 +129,9 @@ def prepare_scene(
     layer = Sdf.Layer.FindOrOpen(str(source))
     if layer is None or not layer.Export(str(temporary)):
         raise RuntimeError(f'cannot copy source stage {source}')
+    copied_layer = Sdf.Layer.FindOrOpen(str(temporary))
+    rebase_local_assets(copied_layer, source, output)
+    copied_layer.Save()
     stage = Usd.Stage.Open(str(temporary), Usd.Stage.LoadNone)
     if stage is None:
         raise RuntimeError(f'cannot open copied stage {temporary}')

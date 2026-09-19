@@ -1,0 +1,100 @@
+diff --git a/isaac_ros_gxf_extensions/gxf_isaac_utils/gxf/extensions/utils/image_loader.cpp b/isaac_ros_gxf_extensions/gxf_isaac_utils/gxf/extensions/utils/image_loader.cpp
+index dbaafb8..680fa55 100644
+--- a/isaac_ros_gxf_extensions/gxf_isaac_utils/gxf/extensions/utils/image_loader.cpp
++++ b/isaac_ros_gxf_extensions/gxf_isaac_utils/gxf/extensions/utils/image_loader.cpp
+@@ -25,7 +25,14 @@ namespace nvidia {
+ namespace isaac {
+ 
+ gxf_result_t ImageLoader::registerInterface(gxf::Registrar* registrar) {
++  // 这里是在“注册参数接口”：告诉框架这个组件支持哪些配置项。
++  // gxf::Expected<void> 可以理解成“这个操作可能成功，也可能失败”的结果容器。
+   gxf::Expected<void> result;
++  // registrar->parameter(...) 里的 -> 叫“成员访问运算符”。
++  // 它表示：registrar 是一个指针，先找到它指向的对象，再调用这个对象的 parameter() 函数。
++  // result &= ... 里的 &= 叫“按位与并赋值”，这里不是拿来做数字运算，而是用来把多个注册结果合并起来。
++  // 可以把它理解成：前面已经有一个结果了，这次再加一个结果，最后只要有一步失败，整体就会失败。
++  // 下面这几行分别注册：文件名、分配器、输出张量、是否按彩色图像加载。
+   result &= registrar->parameter(
+       filename_, "filename", "Filename", "Path to PNG or JPG/JPEG image file to load",
+       gxf::Registrar::NoDefaultParameter(), GXF_PARAMETER_FLAGS_OPTIONAL);
+@@ -42,20 +49,31 @@ gxf_result_t ImageLoader::registerInterface(gxf::Registrar* registrar) {
+ }
+ 
+ gxf_result_t ImageLoader::initialize() {
++  // initialize() 会在组件启动时自动调用。
++  // 这个函数的目标是：读取图片文件，把图片内容放进 tensor_ 里。
++  // if 前面的 ! 表示“取反”或“不是”。
++  // 所以 if (!filename_.try_get()) 的意思是：如果没有成功拿到 filename，就进入这个分支。
+   if (!filename_.try_get()) {
++    // 如果没有传 filename，就说明不需要加载图片，直接把 tensor 置空并返回成功。
+     GXF_LOG_WARNING("Not passing filename, so not using image loader");
+     *(tensor_.get()) = gxf::Tensor();
+     return GXF_SUCCESS;
+   }
+ 
++  // try_get().value() 表示“前面已经确认有值了，现在取出这个值”。
+   const auto& filename = filename_.try_get().value();
+ 
+-  // Get image dimensions
++  // 先读取图片尺寸，不读取像素内容，只拿宽高信息。
++  // :: 叫“作用域解析运算符”。
++  // 写成 ::nvidia::isaac::Vector3i 表示：从最外层开始，找到 nvidia 命名空间，再找到 isaac 命名空间，最后找到 Vector3i。
++  // 这样写可以避免当前代码里可能存在同名变量或同名类型造成混淆。
+   ::nvidia::isaac::Vector3i dimensions;
+   if (!::nvidia::isaac::LoadImageShape(filename, dimensions)) {
+     GXF_LOG_ERROR("Failed to load image shape.");
+     return GXF_FAILURE;
+   }
++  // gxf::Shape 用来描述 tensor 的维度。
++  // 如果 color_=true，就用三通道 [宽, 高, 3]；否则就是灰度图 [宽, 高]。
+   gxf::Shape shape;
+   if (color_.get()) {
+     shape = {dimensions[0], dimensions[1], 3};
+@@ -63,7 +81,8 @@ gxf_result_t ImageLoader::initialize() {
+     shape = {dimensions[0], dimensions[1]};
+   }
+ 
+-  // Reshape tensor
++  // reshape<uint8_t> 的意思是：把 tensor 调整成指定形状，并且元素类型是 uint8_t。
++  // uint8_t 可以理解成 0~255 的一个字节，图片像素常常就是这种类型。
+   auto tensor_reshape_result = tensor_->reshape<uint8_t>(
+        shape, gxf::MemoryStorageType::kHost, allocator_);
+   if (!tensor_reshape_result) {
+@@ -71,14 +90,16 @@ gxf_result_t ImageLoader::initialize() {
+     return gxf::ToResultCode(tensor_reshape_result);
+   }
+ 
+-  // Convert to Isaac TensorView
++  // ToIsaacImageView<T, N>(...) 会把 tensor 转成“图像视图”。
++  // 你可以把“视图”理解成：不复制数据，只是用一个更适合图像处理的方式去看这块内存。
++  // tensor_ 也是一个“指针/句柄”风格的对象，所以 tensor_->reshape 里的 -> 还是“先取到对象，再调用成员”。
+   if (color_.get()) {
+     auto maybe_view = ToIsaacImageView<uint8_t, 3>(*tensor_.get());
+     if (!maybe_view) {
+       GXF_LOG_ERROR("Could not create view");
+       return gxf::ToResultCode(maybe_view);
+     }
+-    // Load image from file
++    // 真正把文件里的像素内容读进 tensor。
+     if (!::nvidia::isaac::LoadImage(filename, maybe_view.value())) {
+       GXF_LOG_ERROR("Failed to load image with color.");
+       return GXF_FAILURE;
+@@ -89,7 +110,7 @@ gxf_result_t ImageLoader::initialize() {
+       GXF_LOG_ERROR("Could not create view");
+       return gxf::ToResultCode(maybe_view);
+     }
+-    // Load image from file
++    // 灰度图情况下，同样把像素读进 tensor。
+     if (!::nvidia::isaac::LoadImage(filename, maybe_view.value())) {
+       GXF_LOG_ERROR("Failed to load image without color.");
+       return GXF_FAILURE;
+@@ -99,7 +120,8 @@ gxf_result_t ImageLoader::initialize() {
+ }
+ 
+ gxf_result_t ImageLoader::deinitialize() {
+-  // Clears loaded Tensor to avoid racing destruction with Allocator instance
++  // 组件关闭时清空 tensor，避免 tensor 销毁顺序和 allocator 发生冲突。
++  // *(tensor_.get()) 里的 * 叫“解引用运算符”，意思是：拿到指针指向的那个真正对象。
+   *(tensor_.get()) = gxf::Tensor();
+   return GXF_SUCCESS;
+ }

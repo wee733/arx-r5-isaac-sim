@@ -1,5 +1,9 @@
 # ARX R5A cuMotion 仿真（Isaac Sim）
 
+**新电脑迁移先看 [迁移与恢复手册](docs/migration.md)。** 最新开门示教、SkillGen
+和 GR00T 数据功能在 `groot_date_generate` 分支；克隆后必须执行 `git lfs pull`。
+下文原有目录示例属于早期 ROS 布局，当前迁移目录、依赖补丁和安装顺序以迁移手册为准。
+
 [English](README.en.md) · [AprilTag 抓放 Demo](docs/apriltag-pick-place-demo.md) ·
 [架构说明](docs/architecture.md) · [模型验收](docs/model-validation.md)
 

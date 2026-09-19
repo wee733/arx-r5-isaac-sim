@@ -1,0 +1,37 @@
+{
+  "schema": "arx-door-skillgen-conversion-v1",
+  "source": "/home/workspace/arx-r5-isaac-sim/generated/door_teaching/upright02/candidate_006",
+  "source_sha256": "63abb85f16c267314723d319632630dca6262f19ed9c5c9f693bfc88a6aad54d",
+  "output": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/seed/candidate_006.hdf5",
+  "environment": "Isaac-ARX-R5-Door-SkillGen-v0",
+  "frames": 1955,
+  "action_shape": [
+    1955,
+    7
+  ],
+  "action_semantics": "absolute_joint_target",
+  "macro_boundaries": {
+    "knob_interaction": [
+      355,
+      1009
+    ],
+    "edge_interaction": [
+      1505,
+      1955
+    ]
+  },
+  "fine_phases": [
+    "cumotion_approach_knob",
+    "approach_knob",
+    "grasp_knob",
+    "unlock_round_knob",
+    "pull_knob_for_gap",
+    "release_knob",
+    "retreat_from_knob",
+    "cumotion_transfer_to_upright_edge",
+    "approach_door_edge",
+    "grasp_door_edge",
+    "pull_door_by_edge",
+    "hold_door_open"
+  ]
+}

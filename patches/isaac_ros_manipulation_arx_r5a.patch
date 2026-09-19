@@ -1,0 +1,745 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index c98dfea..41cfd02 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -3,8 +3,9 @@
+ ## 0.1.0 - 2026-07-21
+ 
+ - Add a patch-free ARX R5A overlay for Isaac ROS 4.5 Manipulation.
+-- Add RealSense, Isaac ROS AprilTag, cuMotion, Robot Segmenter, nvblox, object
+-  attachment, MoveIt execution, and official pick-and-place orchestration.
++- Add external ZED X/D455 RGB-D integration, Isaac ROS AprilTag, cuMotion,
++  Robot Segmenter, nvblox, object attachment, MoveIt execution, and official
++  pick-and-place orchestration.
+ - Add an AprilTag perception adapter implementing the official object action
+   and service contracts.
+ - Add a tagged 50 mm cube demo, calibration templates, grasp seeds, workspace
+diff --git a/README.md b/README.md
+index 4b14cbb..06f57f4 100644
+--- a/README.md
++++ b/README.md
+@@ -6,18 +6,21 @@ This repository is a patch-free ROS 2 overlay for running NVIDIA Isaac ROS 4.5
+ pick-and-place on an ARX R5A. It is intentionally separate from both NVIDIA's
+ `isaac_ros_manipulation` repository and the ARX cuMotion/MoveIt robot adapter.
+ 
+-The first maintained demo uses a fixed RealSense camera and an Isaac ROS
+-AprilTag attached to a 50 mm cube:
++The default eye-to-hand workflow uses the ZED X authored in the ARX Isaac Sim
++scene and an Isaac ROS AprilTag attached to a 50 mm cube. The wrist-mounted
++D455 remains available as the eye-in-hand profile; it is not represented as a
++second fixed workcell camera.
+ 
+ ```text
+-RealSense rectified RGB -> Isaac ROS AprilTag -> AprilTag object server
+-                                                | /get_objects
+-                                                | /get_object_pose
+-                                                v
++ZED X left RGB -> Isaac ROS Rectify/AprilTag -> AprilTag object server
++                                                   | /get_objects
++                                                   | /get_object_pose
++                                                   v
+ official Multi-Object Pick-and-Place py_trees -> cuMotion -> MoveIt execute
+ 
+-RealSense aligned depth + /joint_states -> Robot Segmenter -> nvblox ESDF
+-                                                              -> cuMotion
++ZED X aligned depth + /joint_states -> Robot Segmenter -> nvblox ESDF
++                                        | /cumotion/zed_x/world_depth
++                                        +--------------------------> cuMotion
+ ```
+ 
+ The NVIDIA repository remains unmodified. This overlay launches its public
+@@ -30,9 +33,10 @@ families.
+ - `isaac_ros_manipulation_arx_r5a_apriltag`: converts
+   `AprilTagDetectionArray` into the perception actions/services expected by the
+   official behavior tree.
+-- `isaac_ros_manipulation_arx_r5a_bringup`: composes RealSense, Rectify,
+-  AprilTag, cuMotion, Robot Segmenter, nvblox, object attachment, the ARX driver,
+-  MoveIt, and the official orchestration launch.
++- `isaac_ros_manipulation_arx_r5a_bringup`: composes the external ZED X or
++  D455 RGB-D stream, Rectify, AprilTag, cuMotion, Robot Segmenter, nvblox,
++  object attachment, the ARX driver, MoveIt, and the official orchestration
++  launch.
+ - [`Isaac_Ros_CuMotion_ArxR5a`](https://github.com/wee733/Isaac_Ros_CuMotion_ArxR5a):
+   owns the robot description, XRDF, ros2_control hardware, and MoveIt adapter.
+ - [`isaac_ros_manipulation`](https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_manipulation):
+@@ -77,8 +81,10 @@ for this release, including the ARX R5 ROS 2 driver and message packages.
+ 
+ ## Configure before motion
+ 
+-1. Measure `base_link -> camera_1_link`, edit
++1. For a physical fixed ZED X, measure
++   `base_link -> zed_x_left_camera_optical_frame`, edit
+    `config/calibration/camera_extrinsics.yaml`, and set `publish: true`.
++   Leave it disabled in Isaac Sim because the authored USD publishes this TF.
+ 2. Print a `tag36h11` tag with ID `0` and set its measured edge size in
+    `config/apriltag/tagged_cube.yaml` (the demo default is `0.04 m`).
+ 3. Measure `T_tag_object`. The supplied cube profile assumes the tag is centered
+@@ -127,6 +133,17 @@ ros2 launch isaac_ros_manipulation_arx_r5a_bringup \
+   enable_nvblox:=False start_rviz:=False
+ ```
+ 
++The launch defaults to the authored ZED X contract and does not create a
++camera. Start Isaac Sim or an external ZED driver first. Rectify defaults to
++the authored ZED X `1920x1200` stream, and its default RGB-D topics are:
++
++```text
++/zed_x/left/image_raw
++/zed_x/left/camera_info
++/zed_x/aligned_depth_to_left/image_raw
++/zed_x/aligned_depth_to_left/camera_info
++```
++
+ Full stack (the workflow does not move until an action goal is sent):
+ 
+ ```bash
+@@ -134,6 +151,29 @@ ros2 launch isaac_ros_manipulation_arx_r5a_bringup \
+   arx_r5a_apriltag_pick_and_place.launch.py
+ ```
+ 
++For the wrist-mounted D455 eye-in-hand profile, keep the camera driver/Isaac
++Sim stream external and switch the complete RGB-D chain together:
++
++```bash
++ros2 launch isaac_ros_manipulation_arx_r5a_bringup \
++  arx_r5a_apriltag_pick_and_place.launch.py \
++  perception_namespace:=d455 \
++  color_image_topic:=/d455/color/image_raw \
++  color_camera_info_topic:=/d455/color/camera_info \
++  depth_image_topic:=/d455/aligned_depth_to_color/image_raw \
++  depth_camera_info_topic:=/d455/aligned_depth_to_color/camera_info \
++  robot_mask_topic:=/cumotion/d455/robot_mask \
++  world_depth_topic:=/cumotion/d455/world_depth \
++  tag_detections_topic:=/d455/tag_detections \
++  camera_optical_frame:=d455_color_optical_frame \
++  output_frame:=base_link \
++  behavior_tree_config_file:=/absolute/path/to/base_frame_behavior_tree.yaml
++```
++
++The D455 behavior-tree copy must set
++`pose_estimation.camera_frame_id: base_link`, because the wrist camera moves
++while `GetObjectPose` has no header.
++
+ Example single-bin request—replace the target with a validated safe pose:
+ 
+ ```bash
+diff --git a/README.zh-CN.md b/README.zh-CN.md
+index d86e737..bd14064 100644
+--- a/README.zh-CN.md
++++ b/README.zh-CN.md
+@@ -4,12 +4,13 @@
+ ROS 4.5 的完整抓放工作流。它不会修改、复制或要求上传一份改过的
+ `isaac_ros_manipulation` 官方仓库。
+ 
+-首个可维护 demo 选用固定 RealSense 相机和贴在 50 mm 方块顶面的 Isaac ROS
+-AprilTag。这里的“二维码”是 `tag36h11` AprilTag，不是手机扫码使用的普通 QR
+-Code。
++默认眼在手外流程使用 ARX Isaac Sim 场景中 authored 的 ZED X，以及贴在 50 mm
++方块顶面的 Isaac ROS AprilTag。腕部 D455 继续作为眼在手上模式保留，不再创建
++第二个固定工作站相机。这里的“二维码”是 `tag36h11` AprilTag，不是手机扫码
++使用的普通 QR Code。
+ 
+ ```text
+-RealSense RGB
++ZED X left RGB
+   -> Isaac ROS Rectify
+   -> Isaac ROS AprilTag
+   -> 本仓库 AprilTag Object Server
+@@ -23,9 +24,9 @@ RealSense RGB
+   -> ros2_control
+   -> ARX R5A
+ 
+-RealSense aligned depth + /joint_states
++ZED X aligned depth + /joint_states
+   -> cuMotion Robot Segmenter
+-  -> /cumotion/camera_1/world_depth
++  -> /cumotion/zed_x/world_depth
+   -> nvblox ESDF
+   -> cuMotion 动态避障
+ ```
+@@ -50,7 +51,7 @@ RealSense aligned depth + /joint_states
+   - 计算 `T_camera_object = T_camera_tag × T_tag_object`；
+   - 输出官方行为树需要的感知 action/service。
+ - `isaac_ros_manipulation_arx_r5a_bringup`
+-  - 启动 RealSense、Rectify、AprilTag；
++  - 接入外部 ZED X 或 D455 RGB-D 流，启动 Rectify、AprilTag；
+   - 启动 ARX driver/MoveIt；
+   - 启动 cuMotion、Robot Segmenter、nvblox 和 Object Attachment；
+   - 加载 ARX 行为树和 blackboard YAML；
+@@ -136,8 +137,10 @@ AprilTag 给出的是 tag 坐标系，不是物体 mesh 原点。以下三项必
+ 
+ ## 上机前必须完成的标定
+ 
+-1. 实测固定相机的 `base_link -> camera_1_link`，写入
+-   `config/calibration/camera_extrinsics.yaml`，最后才把 `publish` 改成 `true`。
++1. 实体固定 ZED X 需实测
++   `base_link -> zed_x_left_camera_optical_frame`，写入
++   `config/calibration/camera_extrinsics.yaml`，最后才把 `publish` 改成 `true`；
++   Isaac Sim 中由 authored USD 发布这条 TF，必须保持 `publish: false`。
+ 2. 用卡尺确认打印后的 tag 有效边长，并同步 `tag_size`。
+ 3. 实测 tag 到物体中心的刚性外参 `T_tag_object`。
+ 4. 确认 cuMotion 仓库中 `link6 -> grasp_frame = 0.11 m` 确实位于两指夹持中心。
+@@ -179,11 +182,22 @@ ros2 launch isaac_ros_manipulation_arx_r5a_bringup \
+   start_rviz:=False
+ ```
+ 
++该 launch 默认只消费 authored ZED X 契约，不会自行创建相机。请先启动 Isaac Sim
++或外部 ZED 驱动。Rectify 默认使用 authored ZED X 的 `1920x1200` 分辨率，默认
++RGB-D 话题为：
++
++```text
++/zed_x/left/image_raw
++/zed_x/left/camera_info
++/zed_x/aligned_depth_to_left/image_raw
++/zed_x/aligned_depth_to_left/camera_info
++```
++
+ 检查：
+ 
+ ```bash
+-ros2 topic hz /camera_1/apriltag/image_rect
+-ros2 topic echo /tag_detections --once
++ros2 topic hz /zed_x/apriltag/image_rect
++ros2 topic echo /zed_x/tag_detections --once
+ 
+ ros2 action send_goal /get_objects \
+   isaac_ros_manipulation_interfaces/action/GetObjects \
+@@ -201,14 +215,39 @@ ros2 launch isaac_ros_manipulation_arx_r5a_bringup \
+   arx_r5a_apriltag_pick_and_place.launch.py
+ ```
+ 
+-默认 `start_vendor_driver:=False`，适合厂商驱动已经在宿主机或另一终端运行的方式；
+-如需由本 launch 包含厂商驱动，可显式设置 `start_vendor_driver:=True`。
++相机图像流始终由 ZED/Isaac Sim 或 D455 外部进程提供，本 launch 不再创建相机。
++默认 `start_vendor_driver:=False`，适合机械臂厂商驱动已在其他终端运行的方式；
++如需由本 launch 包含机械臂厂商驱动，可显式设置
++`start_vendor_driver:=True`。
++
++腕部 D455 眼在手上模式需要把 RGB、深度、Robot Segmenter 输出和位姿坐标系作为
++一组一起切换：
++
++```bash
++ros2 launch isaac_ros_manipulation_arx_r5a_bringup \
++  arx_r5a_apriltag_pick_and_place.launch.py \
++  perception_namespace:=d455 \
++  color_image_topic:=/d455/color/image_raw \
++  color_camera_info_topic:=/d455/color/camera_info \
++  depth_image_topic:=/d455/aligned_depth_to_color/image_raw \
++  depth_camera_info_topic:=/d455/aligned_depth_to_color/camera_info \
++  robot_mask_topic:=/cumotion/d455/robot_mask \
++  world_depth_topic:=/cumotion/d455/world_depth \
++  tag_detections_topic:=/d455/tag_detections \
++  camera_optical_frame:=d455_color_optical_frame \
++  output_frame:=base_link \
++  behavior_tree_config_file:=/absolute/path/to/base_frame_behavior_tree.yaml
++```
++
++D455 对应的行为树副本必须设置
++`pose_estimation.camera_frame_id: base_link`，因为腕部相机会运动，而
++`GetObjectPose` 结果没有 Header。
+ 
+ 确认完整契约：
+ 
+ ```bash
+ ros2 topic hz /joint_states
+-ros2 topic hz /cumotion/camera_1/world_depth
++ros2 topic hz /cumotion/zed_x/world_depth
+ ros2 action list -t | grep -E \
+   'get_objects|get_object_pose|get_selected_object|multi_object_pick_and_place|motion_plan|execute_trajectory|gripper_cmd|attach_object'
+ ```
+diff --git a/docs/architecture.md b/docs/architecture.md
+index 00e6652..d0aa35a 100644
+--- a/docs/architecture.md
++++ b/docs/architecture.md
+@@ -4,7 +4,7 @@ The repository is an overlay, not an upstream fork.
+ 
+ ```text
+ NVIDIA repositories (unchanged)
+-  ├─ RealSense include + Rectify + AprilTag
++  ├─ Rectify + AprilTag
+   ├─ pick-and-place py_trees and interfaces
+   ├─ cuMotion / Robot Segmenter / Object Attachment
+   └─ nvblox
+@@ -35,6 +35,14 @@ Runtime invariants:
+ - exactly one object attachment server;
+ - one component container named `manipulator_container` for components whose
+   upstream launch files target that name;
+-- `base_link`, `link6`, `grasp_frame`, and `camera_1_color_optical_frame` must be
+-  connected in TF before a pick goal is accepted;
++- `base_link`, `link6`, `grasp_frame`, and the selected camera optical frame
++  (`zed_x_left_camera_optical_frame` by default or
++  `d455_color_optical_frame` in eye-in-hand mode) must be connected in TF
++  before a pick goal is accepted;
+ - the nvblox global frame and cuMotion world frame are both `base_link`.
++
++Camera ownership is explicit: the fixed eye-to-hand profile is the authored
++ZED X under `/zed_x`, while the only moving eye-in-hand profile is the D455
++under `/d455`. RGB, aligned depth, Robot Segmenter mask/world-depth topics, and
++the AprilTag namespace must be switched together; no generated auxiliary fixed
++camera profile is part of this overlay.
+diff --git a/docs/calibration.md b/docs/calibration.md
+index 4546217..1618b6b 100644
+--- a/docs/calibration.md
++++ b/docs/calibration.md
+@@ -2,7 +2,11 @@
+ 
+ ## Camera extrinsic
+ 
+-Measure the rigid transform from `base_link` to `camera_1_link`. Store it as
++The authored Isaac Sim scene already publishes the fixed
++`base_link -> zed_x_left_camera_optical_frame` transform; keep the calibration
++file at `publish: false` for simulation and do not duplicate that TF.
++
++For a physical fixed ZED X, measure that rigid transform and store it as
+ `[x, y, z]` metres and an xyzw quaternion in
+ `config/calibration/camera_extrinsics.yaml`. The launch deliberately refuses an
+ all-zero translation when `publish: true`.
+@@ -10,13 +14,18 @@ all-zero translation when `publish: true`.
+ Verify the complete chain:
+ 
+ ```bash
+-ros2 run tf2_ros tf2_echo base_link camera_1_color_optical_frame
++ros2 run tf2_ros tf2_echo base_link zed_x_left_camera_optical_frame
+ ```
+ 
+ Move a tagged object to several known points and compare `/get_object_pose`
+ after transformation into `base_link`. Calibration error directly becomes
+ grasp error.
+ 
++For the wrist D455, publish only the measured rigid
++`link6 -> d455_color_optical_frame` mount. The changing
++`base_link -> link6` edge must come from robot state at the image timestamp;
++never replace it with a static base-to-camera transform.
++
+ ## Tag-to-object transform
+ 
+ The AprilTag node estimates `T_camera_tag`. The bridge composes:
+diff --git a/isaac_ros_manipulation_arx_r5a_bringup/config/behavior_tree/arx_r5a_apriltag_behavior_tree.yaml b/isaac_ros_manipulation_arx_r5a_bringup/config/behavior_tree/arx_r5a_apriltag_behavior_tree.yaml
+index 1e45c25..5eb7734 100644
+--- a/isaac_ros_manipulation_arx_r5a_bringup/config/behavior_tree/arx_r5a_apriltag_behavior_tree.yaml
++++ b/isaac_ros_manipulation_arx_r5a_bringup/config/behavior_tree/arx_r5a_apriltag_behavior_tree.yaml
+@@ -88,7 +88,7 @@ behavior_tree_params:
+     pose_estimation:
+       action_server_name: /get_object_pose
+       base_frame_id: base_link
+-      camera_frame_id: camera_1_color_optical_frame
++      camera_frame_id: zed_x_left_camera_optical_frame
+       workspace_bounds:
+         diagonal:
+           - [-0.60, -0.60, -0.05]
+diff --git a/isaac_ros_manipulation_arx_r5a_bringup/config/calibration/camera_extrinsics.yaml b/isaac_ros_manipulation_arx_r5a_bringup/config/calibration/camera_extrinsics.yaml
+index d90590e..a139df6 100644
+--- a/isaac_ros_manipulation_arx_r5a_bringup/config/calibration/camera_extrinsics.yaml
++++ b/isaac_ros_manipulation_arx_r5a_bringup/config/calibration/camera_extrinsics.yaml
+@@ -3,11 +3,13 @@
+ 
+ schema_version: 1
+ 
+-# Set publish to true only after replacing the placeholder translation and
+-# quaternion with a measured base_link -> camera_1_link transform.
++# The authored Isaac Sim USD already publishes this transform, so leave
++# publish false in simulation. For a physical ZED X, set publish to true only
++# after replacing the placeholder with a measured base_link -> optical-frame
++# transform.
+ publish: false
+ base_to_camera:
+   parent_frame: base_link
+-  child_frame: camera_1_link
++  child_frame: zed_x_left_camera_optical_frame
+   translation: [0.0, 0.0, 0.0]
+   rotation: [0.0, 0.0, 0.0, 1.0]
+diff --git a/isaac_ros_manipulation_arx_r5a_bringup/isaac_ros_manipulation_arx_r5a_bringup/config.py b/isaac_ros_manipulation_arx_r5a_bringup/isaac_ros_manipulation_arx_r5a_bringup/config.py
+index 9287620..6525b50 100644
+--- a/isaac_ros_manipulation_arx_r5a_bringup/isaac_ros_manipulation_arx_r5a_bringup/config.py
++++ b/isaac_ros_manipulation_arx_r5a_bringup/isaac_ros_manipulation_arx_r5a_bringup/config.py
+@@ -28,7 +28,7 @@ import yaml
+ 
+ @dataclass(frozen=True)
+ class CameraCalibration:
+-    """Static transform from the robot base to the RealSense root frame."""
++    """Static transform from the robot base to a fixed camera frame."""
+ 
+     publish: bool
+     parent_frame: str
+diff --git a/isaac_ros_manipulation_arx_r5a_bringup/launch/arx_r5a_apriltag_pick_and_place.launch.py b/isaac_ros_manipulation_arx_r5a_bringup/launch/arx_r5a_apriltag_pick_and_place.launch.py
+index 2e060c9..baeb628 100644
+--- a/isaac_ros_manipulation_arx_r5a_bringup/launch/arx_r5a_apriltag_pick_and_place.launch.py
++++ b/isaac_ros_manipulation_arx_r5a_bringup/launch/arx_r5a_apriltag_pick_and_place.launch.py
+@@ -78,33 +78,42 @@ def _include(package_name: str, relative_path: str, arguments=None):
+ 
+ 
+ def _get_apriltag_nodes(tag_size: float, tag_family: str, context):
++    perception_namespace = (
++        _value(context, 'perception_namespace').strip().strip('/')
++    )
++    if not perception_namespace:
++        raise ValueError('Launch argument perception_namespace must be non-empty')
+     image_topic = _value(context, 'color_image_topic')
+     camera_info_topic = _value(context, 'color_camera_info_topic')
+     detection_topic = _value(context, 'tag_detections_topic')
+     width = int(_value(context, 'camera_width'))
+     height = int(_value(context, 'camera_height'))
++    rectified_image_topic = f'/{perception_namespace}/apriltag/image_rect'
++    rectified_camera_info_topic = (
++        f'/{perception_namespace}/apriltag/camera_info_rect'
++    )
+ 
+     rectify_node = ComposableNode(
+         package='isaac_ros_image_proc',
+         plugin='nvidia::isaac_ros::image_proc::RectifyNode',
+         name='apriltag_rectify',
+-        namespace='camera_1',
++        namespace=perception_namespace,
+         parameters=[{
+             'output_width': width,
+             'output_height': height,
+         }],
+         remappings=[
+-            ('image', image_topic),
++            ('image_raw', image_topic),
+             ('camera_info', camera_info_topic),
+-            ('image_rect', '/camera_1/apriltag/image_rect'),
+-            ('camera_info_rect', '/camera_1/apriltag/camera_info_rect'),
++            ('image_rect', rectified_image_topic),
++            ('camera_info_rect', rectified_camera_info_topic),
+         ],
+     )
+     apriltag_node = ComposableNode(
+         package='isaac_ros_apriltag',
+         plugin='nvidia::isaac_ros::apriltag::AprilTagNode',
+         name='apriltag',
+-        namespace='camera_1',
++        namespace=perception_namespace,
+         parameters=[{
+             'size': tag_size,
+             'max_tags': int(_value(context, 'max_tags')),
+@@ -113,8 +122,8 @@ def _get_apriltag_nodes(tag_size: float, tag_family: str, context):
+             'backends': _value(context, 'apriltag_backends'),
+         }],
+         remappings=[
+-            ('image', '/camera_1/apriltag/image_rect'),
+-            ('camera_info', '/camera_1/apriltag/camera_info_rect'),
++            ('image', rectified_image_topic),
++            ('camera_info', rectified_camera_info_topic),
+             ('tag_detections', detection_topic),
+         ],
+     )
+@@ -124,7 +133,14 @@ def _get_apriltag_nodes(tag_size: float, tag_family: str, context):
+     )
+ 
+ 
+-def _get_nvblox_node(workspace_path: str):
++def _single_topic_list(context, name: str) -> str:
++    topic = _value(context, name).strip()
++    if not topic:
++        raise ValueError(f'Launch argument {name} must be non-empty')
++    return f'[{topic}]'
++
++
++def _get_nvblox_node(workspace_path: str, context):
+     manipulation_share = get_package_share_directory('isaac_ros_manipulation_bringup')
+     nvblox_examples_share = get_package_share_directory('nvblox_examples_bringup')
+     parameters = [
+@@ -132,15 +148,12 @@ def _get_nvblox_node(workspace_path: str):
+         os.path.join(
+             manipulation_share, 'config', 'nvblox', 'nvblox_manipulator_base.yaml'
+         ),
+-        os.path.join(
+-            manipulation_share,
+-            'config',
+-            'nvblox',
+-            'specializations',
+-            'nvblox_manipulator_realsense.yaml',
+-        ),
+         workspace_path,
+-        {'num_cameras': 1, 'global_frame': 'base_link'},
++        {
++            'num_cameras': 1,
++            'global_frame': 'base_link',
++            'integrate_depth_rate_hz': 40.0,
++        },
+     ]
+     nvblox_node = ComposableNode(
+         name='nvblox_node',
+@@ -148,13 +161,16 @@ def _get_nvblox_node(workspace_path: str):
+         plugin='nvblox::NvbloxNode',
+         parameters=parameters,
+         remappings=[
+-            ('/camera_0/color/image', '/camera_1/color/image_raw'),
+-            ('/camera_0/color/camera_info', '/camera_1/color/camera_info'),
++            ('/camera_0/color/image', _value(context, 'color_image_topic')),
++            (
++                '/camera_0/color/camera_info',
++                _value(context, 'color_camera_info_topic'),
++            ),
+             (
+                 '/camera_0/depth/camera_info',
+-                '/camera_1/aligned_depth_to_color/camera_info',
++                _value(context, 'depth_camera_info_topic'),
+             ),
+-            ('/camera_0/depth/image', '/cumotion/camera_1/world_depth'),
++            ('/camera_0/depth/image', _value(context, 'world_depth_topic')),
+         ],
+     )
+     return LoadComposableNodes(
+@@ -201,20 +217,6 @@ def launch_setup(context, *args, **kwargs):
+         )
+     ]
+ 
+-    if _bool(context, 'start_camera'):
+-        actions.append(_include(
+-            'isaac_ros_manipulation_bringup',
+-            'launch/include/realsense.launch.py',
+-            {
+-                'num_cameras': '1',
+-                'camera_ids_config_name': _value(context, 'camera_ids_config_name'),
+-                'container_name': CONTAINER_NAME,
+-                'run_standalone': 'False',
+-                'enable_dnn_depth_in_realsense': 'False',
+-                'enable_depth': 'True',
+-            },
+-        ))
+-
+     if _bool(context, 'start_apriltag'):
+         actions.append(_get_apriltag_nodes(tag_map.tag_size, tag_map.tag_family, context))
+ 
+@@ -303,17 +305,17 @@ def launch_setup(context, *args, **kwargs):
+                 {
+                     'robot_segmenter.input_qos': 'SENSOR_DATA',
+                     'robot_segmenter.output_qos': 'SENSOR_DATA',
+-                    'robot_segmenter.depth_image_topics': (
+-                        '[/camera_1/aligned_depth_to_color/image_raw]'
++                    'robot_segmenter.depth_image_topics': _single_topic_list(
++                        context, 'depth_image_topic'
+                     ),
+-                    'robot_segmenter.depth_camera_infos': (
+-                        '[/camera_1/aligned_depth_to_color/camera_info]'
++                    'robot_segmenter.depth_camera_infos': _single_topic_list(
++                        context, 'depth_camera_info_topic'
+                     ),
+                     'robot_segmenter.robot_mask_publish_topics': (
+-                        '[/cumotion/camera_1/robot_mask]'
++                        _single_topic_list(context, 'robot_mask_topic')
+                     ),
+                     'robot_segmenter.world_depth_publish_topics': (
+-                        '[/cumotion/camera_1/world_depth]'
++                        _single_topic_list(context, 'world_depth_topic')
+                     ),
+                     'robot_segmenter.distance_threshold': _value(
+                         context, 'robot_mask_distance_threshold'
+@@ -330,7 +332,7 @@ def launch_setup(context, *args, **kwargs):
+                     'robot_segmenter.robot_base_frame': 'base_link',
+                 },
+             ))
+-            actions.append(_get_nvblox_node(workspace_config))
++            actions.append(_get_nvblox_node(workspace_config, context))
+ 
+         actions.append(_include(
+             'isaac_ros_cumotion_object_attachment',
+@@ -364,7 +366,8 @@ def launch_setup(context, *args, **kwargs):
+     else:
+         actions.append(LogInfo(msg=(
+             'Camera extrinsic publication is disabled. AprilTag detection can run, but '
+-            'pick-and-place requires a measured base_link -> camera_1_link transform.'
++            'pick-and-place requires a valid base_link -> camera optical-frame '
++            'transform from the authored USD or a measured calibration.'
+         )))
+ 
+     if start_orchestrator:
+@@ -396,8 +399,6 @@ def generate_launch_description():
+         DeclareLaunchArgument('use_sim_time', default_value='False'),
+         DeclareLaunchArgument('headless', default_value='False'),
+         DeclareLaunchArgument('log_level', default_value='info'),
+-        DeclareLaunchArgument('start_camera', default_value='True'),
+-        DeclareLaunchArgument('camera_ids_config_name', default_value=''),
+         DeclareLaunchArgument('start_apriltag', default_value='True'),
+         DeclareLaunchArgument(
+             'start_apriltag_object_server',
+@@ -412,17 +413,35 @@ def generate_launch_description():
+         DeclareLaunchArgument('enable_nvblox', default_value='True'),
+         DeclareLaunchArgument('print_ascii_tree', default_value='False'),
+         DeclareLaunchArgument('selection_policy', default_value='first'),
+-        DeclareLaunchArgument('camera_width', default_value='1280'),
+-        DeclareLaunchArgument('camera_height', default_value='720'),
++        DeclareLaunchArgument('camera_width', default_value='1920'),
++        DeclareLaunchArgument('camera_height', default_value='1200'),
++        DeclareLaunchArgument('perception_namespace', default_value='zed_x'),
++        DeclareLaunchArgument(
++            'color_image_topic', default_value='/zed_x/left/image_raw'
++        ),
++        DeclareLaunchArgument(
++            'color_camera_info_topic', default_value='/zed_x/left/camera_info'
++        ),
++        DeclareLaunchArgument(
++            'depth_image_topic',
++            default_value='/zed_x/aligned_depth_to_left/image_raw',
++        ),
++        DeclareLaunchArgument(
++            'depth_camera_info_topic',
++            default_value='/zed_x/aligned_depth_to_left/camera_info',
++        ),
++        DeclareLaunchArgument(
++            'robot_mask_topic', default_value='/cumotion/zed_x/robot_mask'
++        ),
+         DeclareLaunchArgument(
+-            'color_image_topic', default_value='/camera_1/color/image_raw'
++            'world_depth_topic', default_value='/cumotion/zed_x/world_depth'
+         ),
+         DeclareLaunchArgument(
+-            'color_camera_info_topic', default_value='/camera_1/color/camera_info'
++            'tag_detections_topic', default_value='/zed_x/tag_detections'
+         ),
+-        DeclareLaunchArgument('tag_detections_topic', default_value='/tag_detections'),
+         DeclareLaunchArgument(
+-            'camera_optical_frame', default_value='camera_1_color_optical_frame'
++            'camera_optical_frame',
++            default_value='zed_x_left_camera_optical_frame',
+         ),
+         DeclareLaunchArgument(
+             'output_frame',
+diff --git a/isaac_ros_manipulation_arx_r5a_bringup/package.xml b/isaac_ros_manipulation_arx_r5a_bringup/package.xml
+index 1a8c92e..5f03dfa 100644
+--- a/isaac_ros_manipulation_arx_r5a_bringup/package.xml
++++ b/isaac_ros_manipulation_arx_r5a_bringup/package.xml
+@@ -31,7 +31,6 @@
+   <exec_depend>nvblox_ros</exec_depend>
+   <exec_depend>python3-yaml</exec_depend>
+   <exec_depend>rclcpp_components</exec_depend>
+-  <exec_depend>realsense2_camera</exec_depend>
+   <exec_depend>tf2_ros</exec_depend>
+ 
+   <test_depend>ament_copyright</test_depend>
+diff --git a/isaac_ros_manipulation_arx_r5a_bringup/test/test_calibration_config.py b/isaac_ros_manipulation_arx_r5a_bringup/test/test_calibration_config.py
+index 205a913..03376ca 100644
+--- a/isaac_ros_manipulation_arx_r5a_bringup/test/test_calibration_config.py
++++ b/isaac_ros_manipulation_arx_r5a_bringup/test/test_calibration_config.py
+@@ -34,7 +34,7 @@ def test_template_calibration_does_not_publish():
+     calibration = load_camera_calibration(str(config_file))
+     assert not calibration.publish
+     assert calibration.parent_frame == 'base_link'
+-    assert calibration.child_frame == 'camera_1_link'
++    assert calibration.child_frame == 'zed_x_left_camera_optical_frame'
+ 
+ 
+ def test_behavior_tree_pose_frame_must_match_headerless_action_contract(tmp_path):
+@@ -46,14 +46,14 @@ def test_behavior_tree_pose_frame_must_match_headerless_action_contract(tmp_path
+     )
+     assert validate_behavior_tree_pose_frame(
+         str(config_file),
+-        'camera_1_color_optical_frame',
++        'zed_x_left_camera_optical_frame',
+         '',
+-    ) == 'camera_1_color_optical_frame'
++    ) == 'zed_x_left_camera_optical_frame'
+ 
+     with pytest.raises(ValueError, match='must be identical'):
+         validate_behavior_tree_pose_frame(
+             str(config_file),
+-            'camera_1_color_optical_frame',
++            'd455_color_optical_frame',
+             'base_link',
+         )
+ 
+@@ -68,6 +68,6 @@ def test_behavior_tree_pose_frame_must_match_headerless_action_contract(tmp_path
+     )
+     assert validate_behavior_tree_pose_frame(
+         str(base_frame_config_file),
+-        'camera_1_color_optical_frame',
++        'd455_color_optical_frame',
+         'base_link',
+     ) == 'base_link'
+diff --git a/isaac_ros_manipulation_arx_r5a_bringup/test/test_workflow_contract.py b/isaac_ros_manipulation_arx_r5a_bringup/test/test_workflow_contract.py
+index dae7c9a..8cce465 100644
+--- a/isaac_ros_manipulation_arx_r5a_bringup/test/test_workflow_contract.py
++++ b/isaac_ros_manipulation_arx_r5a_bringup/test/test_workflow_contract.py
+@@ -70,11 +70,26 @@ def test_launch_does_not_use_upstream_robot_dispatch():
+         'GripperType',
+         'workflows.launch.py',
+         'sensors/cameras.launch.py',
++        'realsense.launch.py',
++        'nvblox_manipulator_realsense.yaml',
++        'start_camera',
++        'camera_ids_config_name',
+     )
+     for symbol in forbidden:
+         assert symbol not in launch_source
+ 
+ 
++def test_overlay_does_not_require_an_embedded_camera_driver():
++    """ZED X and D455 streams are owned by Isaac Sim or external drivers."""
++    manifest = (PACKAGE_ROOT / 'package.xml').read_text(encoding='utf-8')
++    environment_check = (
++        PACKAGE_ROOT.parents[0] / 'scripts' / 'check_environment.sh'
++    ).read_text(encoding='utf-8')
++
++    assert 'realsense2_camera' not in manifest
++    assert 'realsense2_camera' not in environment_check
++
++
+ def test_perception_servers_can_be_replaced_without_name_conflicts():
+     launch_source = (
+         PACKAGE_ROOT / 'launch' / 'arx_r5a_apriltag_pick_and_place.launch.py'
+@@ -84,6 +99,52 @@ def test_perception_servers_can_be_replaced_without_name_conflicts():
+     assert "if _bool(context, 'start_object_selection_server'):" in launch_source
+ 
+ 
++def test_apriltag_pipeline_defaults_to_zed_x_and_uses_rectify_contract():
++    """The fixed eye-to-hand camera owns the complete perception namespace."""
++    launch_source = (
++        PACKAGE_ROOT / 'launch' / 'arx_r5a_apriltag_pick_and_place.launch.py'
++    ).read_text(encoding='utf-8')
++
++    assert "DeclareLaunchArgument('perception_namespace', default_value='zed_x')" in (
++        launch_source
++    )
++    assert "DeclareLaunchArgument('camera_width', default_value='1920')" in (
++        launch_source
++    )
++    assert "DeclareLaunchArgument('camera_height', default_value='1200')" in (
++        launch_source
++    )
++    assert "default_value='/zed_x/left/image_raw'" in launch_source
++    assert "default_value='/zed_x/left/camera_info'" in launch_source
++    assert "default_value='/zed_x/aligned_depth_to_left/image_raw'" in launch_source
++    assert "default_value='/zed_x/aligned_depth_to_left/camera_info'" in launch_source
++    assert "default_value='/cumotion/zed_x/robot_mask'" in launch_source
++    assert "default_value='/cumotion/zed_x/world_depth'" in launch_source
++    assert "default_value='/zed_x/tag_detections'" in launch_source
++    assert "default_value='zed_x_left_camera_optical_frame'" in launch_source
++    assert 'namespace=perception_namespace' in launch_source
++    assert "f'/{perception_namespace}/apriltag/image_rect'" in launch_source
++    assert "f'/{perception_namespace}/apriltag/camera_info_rect'" in launch_source
++    assert "('image_raw', image_topic)" in launch_source
++    assert "('image', image_topic)" not in launch_source
++    assert 'camera_1' not in launch_source
++
++
++def test_robot_segmenter_and_nvblox_share_configurable_camera_topics():
++    """The ZED/D455 switch must cover the complete RGB-D mapping pipeline."""
++    launch_source = (
++        PACKAGE_ROOT / 'launch' / 'arx_r5a_apriltag_pick_and_place.launch.py'
++    ).read_text(encoding='utf-8')
++
++    assert "context, 'depth_image_topic'" in launch_source
++    assert "context, 'depth_camera_info_topic'" in launch_source
++    assert "context, 'robot_mask_topic'" in launch_source
++    assert "context, 'world_depth_topic'" in launch_source
++    assert "_value(context, 'color_image_topic')" in launch_source
++    assert "_value(context, 'color_camera_info_topic')" in launch_source
++    assert "_value(context, 'world_depth_topic')" in launch_source
++
++
+ def test_apriltag_pose_frame_and_timestamp_policy_are_launch_configurable():
+     """Eye-in-hand must expose exact-time TF and clock-skew controls."""
+     launch_source = (
+diff --git a/scripts/check_environment.sh b/scripts/check_environment.sh
+index b32f456..eaaaf93 100755
+--- a/scripts/check_environment.sh
++++ b/scripts/check_environment.sh
+@@ -19,7 +19,6 @@ packages=(
+   isaac_ros_cumotion_object_attachment
+   nvblox_ros
+   nvblox_examples_bringup
+-  realsense2_camera
+   isaac_ros_manipulation_arx_r5a_driver_utils
+   isaac_ros_manipulation_arx_r5a_robot_description
+   isaac_ros_manipulation_arx_r5a_ros2_control

@@ -5,7 +5,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-python_bin="${ISAAC_SIM_PYTHON:-/home/lbz/miniforge3/envs/isaaclab/bin/python}"
+python_bin="${ISAAC_SIM_PYTHON:-python}"
 isaacsim_root="$("${python_bin}" -c 'import importlib.util, pathlib; spec=importlib.util.find_spec("isaacsim"); print(pathlib.Path(next(iter(spec.submodule_search_locations))))')"
 usd_libs=''
 for candidate in "${isaacsim_root}/extscache"/omni.usd.libs-*; do

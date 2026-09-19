@@ -1,0 +1,104 @@
+{
+  "official_n1_7_loader_verified": true,
+  "status": "passed",
+  "official_commit": "9c7e746b2cd37a810070a98ef41d290a07e806c2",
+  "verified_at_utc": "20260916T140252947413Z",
+  "python": "3.12.3",
+  "torch": "2.9.0+cpu",
+  "torchcodec": "0.8.0",
+  "device": "cpu",
+  "episodes": 1,
+  "frames": 2058,
+  "checks": [
+    {
+      "episode_index": 0,
+      "frames": 2058,
+      "decoded_frames": [
+        0,
+        1029,
+        2057
+      ],
+      "relative_chunks": 2043
+    }
+  ],
+  "input_sha256": {
+    "data/chunk-000/episode_000000.parquet": "2068318f00d1345f854f6e36d768723234add1909ce23bd545b118bd25d51b8e",
+    "videos/chunk-000/observation.images.wrist/episode_000000.mp4": "d5549e59926e39ab8d76c13f91a7d4ee911e02413fd92ca22908b8f1a4a6133e",
+    "meta/info.json": "c8f7c0f081195a450025a8aaf9f11dc6105a3b15ab436ed28ba649477d159d3c",
+    "meta/modality.json": "db9803a9249802f437e0ef00e453e5723e00df88342f493ab37faba8987a5957",
+    "meta/episodes.jsonl": "ed007d938ada26dd883ac265ecf7ec3733c23c834e857181d341b8eff2138066",
+    "meta/tasks.jsonl": "b56942fd410138d9026b17161367ae3f66db094fee39784588ee75d9f380bdfb",
+    "meta/stats.json": "1c5862d6eb637089bfb70523bd1e057fba89481208837d3c4a6dd672463978ad",
+    "meta/relative_stats.json": "c5556085c93752ee146fa25bda0f976833b482707df3c15ce22f3baa4c4c6be8",
+    "training/door_wrist_n17.py": "b1c8c5513e59d7fad1b97c1794e8adbca5124e9ffd4c5733557a12b320f93753"
+  },
+  "model_training_executed": false,
+  "validated_config_contract": {
+    "video": {
+      "modality_keys": [
+        "wrist"
+      ],
+      "delta_indices": [
+        0
+      ]
+    },
+    "state": {
+      "modality_keys": [
+        "single_arm",
+        "gripper"
+      ],
+      "delta_indices": [
+        0
+      ]
+    },
+    "action": {
+      "modality_keys": [
+        "single_arm",
+        "gripper"
+      ],
+      "delta_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "action_configs": [
+        {
+          "key": "single_arm",
+          "rep": "RELATIVE",
+          "type": "NON_EEF",
+          "format": "DEFAULT",
+          "state_key": null
+        },
+        {
+          "key": "gripper",
+          "rep": "ABSOLUTE",
+          "type": "NON_EEF",
+          "format": "DEFAULT",
+          "state_key": null
+        }
+      ]
+    },
+    "language": {
+      "modality_keys": [
+        "annotation.human.task_description"
+      ],
+      "delta_indices": [
+        0
+      ]
+    }
+  },
+  "scope": "official statistics, every numeric row/relative chunk, three decoded RGB frames per episode"
+}

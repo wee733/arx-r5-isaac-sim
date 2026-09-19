@@ -1,5 +1,8 @@
 # ARX R5A cuMotion Simulation for Isaac Sim
 
+**新电脑迁移请先阅读 [迁移与恢复手册](docs/migration.md)。** 最新开门与 GR00T
+功能位于 `groot_date_generate` 分支，场景和样本需要执行 `git lfs pull`。
+
 [中文](README.md) · [AprilTag pick-and-place demo](docs/apriltag-pick-place-demo.md) ·
 [Architecture](docs/architecture.md) · [Model validation](docs/model-validation.md)
 

@@ -1,0 +1,90 @@
+{
+  "schema": "arx-door-skillgen-result-v1",
+  "environment": "Isaac-ARX-R5-Door-SkillGen-v0",
+  "angle_deg": 3.5,
+  "physics_executed": true,
+  "success": true,
+  "failure_stage": null,
+  "failure_reason": null,
+  "frames": 2025,
+  "hdf5_frames": 2025,
+  "hdf5_episodes": 1,
+  "final_door_angle_deg": 31.957056045532227,
+  "physical_audit": {
+    "physics_steps": 2025,
+    "final_door_angle_deg": 31.957056045532227,
+    "max_handle_angle_deg": 44.176292419433594,
+    "max_latch_m": 0.01571189984679222,
+    "min_camera_clearance_m": 0.018740177154541016,
+    "max_arm_contact_n": 0.0,
+    "knob_grasp_observed": true,
+    "unlock_observed": true,
+    "gap_with_knob_grasp_observed": true,
+    "camera_frames_verified": 2025,
+    "max_camera_position_error_m": 6.973662860780802e-08,
+    "max_camera_rotation_error_rad": 4.886611144100384e-07
+  },
+  "source_seed": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/seed/candidate_006.hdf5",
+  "video_alignment": "pre_action_observation_at_30_hz",
+  "camera_verification": {
+    "schema": "arx-wrist-camera-live-mount-v2",
+    "mount_link": "link6",
+    "mount_transform": [
+      [
+        2.7618310305399518e-08,
+        0.5000000539386819,
+        -0.8660253726429239,
+        0.1044276157
+      ],
+      [
+        -0.9999999999999997,
+        2.7618310527444136e-08,
+        -1.5945437692455048e-08,
+        -0.0115000179
+      ],
+      [
+        1.5945438136544254e-08,
+        0.866025372642924,
+        0.5000000539386821,
+        0.0767273606
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "use_fabric": true,
+    "camera_prim_path": "/World/SkillGenWristCamera",
+    "frames_verified": 2025,
+    "max_position_error_m": 6.973662860780802e-08,
+    "max_rotation_error_rad": 4.886611144100384e-07
+  },
+  "generation_config": {
+    "refresh_panel_once_after_transition": true,
+    "panel_transition_standoff_m": 0.04,
+    "physics_dt_s": 0.008333333333333333,
+    "control_dt_s": 0.03333333333333333,
+    "audit_sampling_hz": 30,
+    "transform_actual_skill_entrance": true,
+    "rgb_storage": "streamed_mp4_not_retained_in_generator_observations"
+  },
+  "planner": {
+    "name": "DoorCuMotionPlanner",
+    "env_id": 0,
+    "debug": false,
+    "backend": "nvidia_cumotion_native",
+    "sample_dt": 0.03333333333333333,
+    "time_dilation_factor": 0.5
+  },
+  "artifacts": {
+    "scene": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/scene.usd",
+    "scene_manifest": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/scene.json",
+    "cuboids": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/cuboids.json",
+    "hdf5": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/generated.hdf5",
+    "wrist_video": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/wrist.mp4",
+    "overview_video": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/overview.mp4",
+    "cumotion": "/home/workspace/arx-r5-isaac-sim/generated/door_skillgen/camera_v2_batch_a_20260916/angle_p003_5/cumotion"
+  }
+}
