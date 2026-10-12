@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "python_minor": "3.12",
+  "cumotion_version": "1.1.0",
+  "numpy_version": "1.26.4",
+  "wheel_tag": "cp312-cp312-linux_x86_64",
+  "cuda_variant": "13.0",
+  "runtime_dir": "generated/runtime/cumotion",
+  "installation_reference": "https://nvidia-isaac.github.io/cumotion/getting_started.html"
+}

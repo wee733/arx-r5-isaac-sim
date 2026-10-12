@@ -144,3 +144,8 @@ venv/
 !/generated/door_datasets/
 !/generated/door_datasets/n17_wrist_camera_v2_smoke_20260916/
 !/generated/door_datasets/n17_wrist_camera_v2_smoke_20260916/**
+
+# Local-only project material (kept on disk, not versioned)
+/docs/
+/tests/
+/arx_r5_isaac_sim_bringup/assets/door/

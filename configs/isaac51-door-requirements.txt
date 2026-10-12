@@ -1,0 +1,32 @@
+# Source imports for core/assets/tasks/mimic are provided by arx_isaac51.pth.
+# Isaac Lab 2.3's livestream-only starlette pin conflicts with Sim 5.1 FastAPI;
+# keep Sim's web stack. Optional Pink/dex/RL-training packages are not needed
+# by the ARX door generation path and are not installed here.
+setuptools<82
+toml
+onnx>=1.18.0
+prettytable==3.3.0
+hidapi==0.14.0.post2
+gymnasium==1.2.1
+pyglet<2
+transformers==4.57.6
+einops
+warp-lang
+pillow==11.3.0
+pytest
+pytest-mock
+junitparser
+flatdict==4.0.0
+flaky
+packaging<24
+h5py==3.16.0
+tomli
+ipywidgets==8.1.5
+protobuf>=4.25.8,!=5.26.0
+hydra-core
+tensorboard
+moviepy
+# Newer IPython requires psutil>=7, conflicting with Sim's exact psutil pin.
+ipython==8.31.0
+psutil==5.9.8
+wheel==0.45.1

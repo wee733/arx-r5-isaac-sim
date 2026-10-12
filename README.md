@@ -4,6 +4,44 @@
 和 GR00T 数据功能在 `groot_date_generate` 分支；克隆后必须执行 `git lfs pull`。
 下文原有目录示例属于早期 ROS 布局，当前迁移目录、依赖补丁和安装顺序以迁移手册为准。
 
+**开门数据流水线先看 [流水线总览](docs/pipeline.md)**：代码在 `arx_door/`（按阶段分包），
+命令在 `scripts/door/<阶段>/`，测试在 `tests/`（`scripts/door/run_tests.sh`）。
+`docs/`、`tests/` 与门资产 `arx_r5_isaac_sim_bringup/assets/door/` 只保存在本地、不进 git，
+新机器需从迁移备份拷贝；`scripts/door/setup/check_migration.py` 会检查它们是否齐全。
+细节：[迁移与双版本运行](docs/migration.md) → [SkillGen 采集](docs/door_skillgen_usage.md) →
+[数据质量与增广门槛](docs/data-quality.md)。下文"仓库结构"之后的内容描述 ROS bringup 子系统。
+Sim 5.1 / Lab 2.3 与 Sim 6.1 / Lab 3.0 使用独立 Python 环境和明确的 API 适配；
+实际验收状态记录在 [运行配置](configs/isaac_runtime_profiles.json) 与每次 trial 的结果中。
+当前先恢复和增广真实物理轨迹，LeRobot / GR00T 训练留待数据达到验收门槛后进行。
+
+当前新增候选已完成 **101 条不同物理轨迹、166,206 帧、约 92.3 分钟**，覆盖
+两种行为、四种真实外观及 −30°至 +30°。这些数据通过物理、双视频解码和阶段画面
+审核；候选集合和恢复入口保存在
+`generated/door_quality/candidate_completion_20261002/`。另有 **20 条**独立保留验证
+全部通过，来自两组独立源；合计 **121 条 / 198,887 帧 / 110.5 分钟**，阶段画面
+121 条均已实际复核。已达到本轮首次仿真微调实验的工程门槛，尚未训练或导出 LeRobot。
+新增源和回放的 human review 仍为 pending，策略泛化尚未验证。实际数据入口为
+`generated/door_quality/final_dataset_manifest_20261002.json`。
+
+2026-10-02 实物状态：旧种子在 Sim 5.1 完整回放通过；当前训练候选以新专家
+A005（门边换抓）和 K001（持续抓旋钮）两种行为为主。A005 在 Sim 6.1 / 5.1 分别完成
+1893 / 1902 帧物理回放与相机、双视频验收；最终门角分别 31.7145° / 35.3075°，
+K001 两版本均完成 1341 帧完整回放。两版本物理结果仍有差异，各批单独记录。
+旧种子的 6.1 换抓入口限制和 A004 增广不足 29°的失败保留。新专家 human review 保持
+pending，训练尚未启动。
+
+边界对照进一步发现源 Core 示教与 Lab 默认物理配置不同。新增显式
+`--physics-profile source_cpu`，匹配源 CPU／MBP／CCD 与求解参数，并核对实际
+运行场景。同一新 D51 示教的 +30°／0.65 m 回放现已在 5.1、6.1 分别完成
+2102、2098 帧物理及完整双视频验收；原 5.1 默认物理的解锁失败仍保留。
+默认配置和主 121 条数据保持原样，边界通过不能推成所有摆位稳健。说明见迁移手册。
+
+随后发现 A005/K001 旧录制的六张门板纹理仍引用迁移前目录，门板呈黑色；
+数值成功与视频解码通过不等于最终视觉训练验收通过。场景复制入口现按完整资产
+后缀修复并记录 remap，未知缺失文件会明确拒绝。修复后白、蓝、绿、砂色新渲染与
+完整物理回放已通过，覆盖 +30°门边换抓和 −30°持续抓旋钮；5.1 砂色回放也已通过。
+旧录像保留，默认 `pre_action` 渲染调度已通过两版本完整 A/B 验证。
+
 [English](README.en.md) · [AprilTag 抓放 Demo](docs/apriltag-pick-place-demo.md) ·
 [架构说明](docs/architecture.md) · [模型验收](docs/model-validation.md)
 
@@ -40,7 +78,10 @@ authored USD 的相机发布、TF 和 AprilTag 感知已经验证。眼在手外
 - authored USD AprilTag Demo 串联 GPU 检测、官方行为树、cuMotion 和自动抓放。
 - 支持 GUI、headless、USD 导出、CPU 契约测试和可复现模型审计。
 
-## 版本基线
+## ROS 仿真工作流的版本基线
+
+以下表格属于原有 ROS/cuMotion 工作流；当前开门数据的两套隔离 SDK 版本与
+物理配置见 [迁移手册](docs/migration.md)，不要用此表覆盖数据生成环境。
 
 | 组件 | 版本 |
 |---|---|
@@ -521,8 +562,11 @@ arx-r5-isaac-sim/
 │   ├── urdf/                      # 仿真专用 TopicBasedSystem xacro
 │   ├── config/                    # controller 与初始姿态
 │   └── test/                      # 不启动 GPU 的契约测试
+├── arx_door/                      # 开门数据流水线库（见 docs/pipeline.md）
+├── tests/                         # 开门流水线测试
 ├── pictures/                      # GitHub 项目介绍图
-├── scripts/                       # 启动、健康检查与模型审计
+├── scripts/                       # ROS 启动、健康检查与模型审计
+│   └── door/                      # 开门流水线命令，按阶段分目录
 ├── docs/                          # 架构和模型验收说明
 └── dependencies.repos             # 固定外部依赖版本
 ```

@@ -1,0 +1,324 @@
+{
+  "schema": "arx-door-augmentation-plan-v1",
+  "threshold_basis": "Project engineering targets for deciding whether to try fine-tuning; not NVIDIA requirements or a guarantee of generalization.",
+  "minimum_candidate_episodes": 100,
+  "minimum_unique_candidate_trajectories": 100,
+  "target_candidate_episodes": 200,
+  "minimum_independent_holdout_episodes": 20,
+  "minimum_candidate_behavior_groups": 2,
+  "minimum_candidate_visual_variants": 4,
+  "minimum_current_profile_candidates": 100,
+  "current_runtime_profile": "isaac61",
+  "required_geometry_angles_deg": [
+    -30,
+    -20,
+    -10,
+    0,
+    10,
+    20,
+    30
+  ],
+  "minimum_episodes_per_required_angle": 3,
+  "angle_tolerance_deg": 0.25,
+  "sources": {
+    "candidate_006": {
+      "seed_file": "generated/door_skillgen/seed/candidate_006.hdf5",
+      "behavior_group": "upright_side_grasp_original",
+      "independence_group": "candidate_006",
+      "reviewed_distinct_behavior": true,
+      "assigned_split": "candidate"
+    },
+    "candidate_A004": {
+      "seed_file": "generated/door_skillgen/seed/candidate_A004.hdf5",
+      "behavior_group": "upright_side_grasp_original",
+      "independence_group": "candidate_A004",
+      "reviewed_distinct_behavior": true,
+      "assigned_split": "candidate",
+      "review_status": "agent_reviewed_seed",
+      "note": "New independent 6.1 physical recording, yaw160/edgeX0.740/pregrasp0.20; same side-grasp behavior family as candidate006, does not increase behavior-group diversity."
+    },
+    "candidate_A005": {
+      "seed_file": "generated/door_skillgen/seed/candidate_A005.hdf5",
+      "behavior_group": "upright_side_grasp_original",
+      "independence_group": "candidate_A005",
+      "reviewed_distinct_behavior": true,
+      "assigned_split": "candidate",
+      "review_status": "agent_reviewed_seed",
+      "note": "Independent physical Sim6.1 recording with final angle 33.64 degrees, same side-grasp family; larger final margin before reanchoring, human review pending."
+    },
+    "candidate_K001": {
+      "seed_file": "generated/door_skillgen/seed/candidate_K001.hdf5",
+      "behavior_group": "knob_hold_open",
+      "independence_group": "candidate_K001",
+      "reviewed_distinct_behavior": true,
+      "assigned_split": "candidate",
+      "review_status": "agent_reviewed_seed",
+      "note": "Independent real Sim6.1 source from base -20 degrees, stays on knob through final open with no panel regrasp; human review pending."
+    },
+    "candidate_H_E001": {
+      "seed_file": "generated/door_skillgen/seed/candidate_H_E001.hdf5",
+      "behavior_group": "upright_side_grasp_original",
+      "independence_group": "candidate_H_E001",
+      "reviewed_distinct_behavior": true,
+      "assigned_split": "holdout",
+      "review_status": "agent_reviewed_seed",
+      "planned_recording": {
+        "behavior_family": "edge_regrasp",
+        "angle_deg": 11,
+        "radius_m": 0.632,
+        "visual_seed": 5
+      },
+      "note": "Fresh independent physical recording reviewed with full decoded videos and actual phase images; same declared behavior family, held out before recording; simulator/procedural source holdout, no real-world generalization claim.",
+      "human_review_status": "pending",
+      "source_recording_dir": "generated/door_teaching/holdout_H_E001_20261002/candidate_H_E001",
+      "source_recording_sha256": "10da3abe0696a05e0f178fa7763618d504ea4dbac812f8bbbd1410d22629c8bb"
+    },
+    "candidate_H_E002": {
+      "seed_file": "generated/door_skillgen/seed/candidate_H_E002.hdf5",
+      "behavior_group": "upright_side_grasp_original",
+      "independence_group": "candidate_H_E002",
+      "reviewed_distinct_behavior": false,
+      "assigned_split": "holdout",
+      "review_status": "failed_unlock_unreviewed",
+      "planned_recording": {
+        "behavior_family": "edge_regrasp",
+        "angle_deg": 21,
+        "radius_m": 0.642,
+        "visual_seed": 6
+      },
+      "note": "Physical unlock failed in fresh02 and fresh03; retained unapproved, never included in the accepted source pool. Replaced by a separately assigned, newly recorded source at proven acquisition geometry.",
+      "human_review_status": "pending",
+      "failed_recordings": [
+        "generated/door_teaching/holdout_H_E002_20261002_fresh02",
+        "generated/door_teaching/holdout_H_E002_20261002_fresh03"
+      ]
+    },
+    "candidate_H_K001": {
+      "seed_file": "generated/door_skillgen/seed/candidate_H_K001.hdf5",
+      "behavior_group": "knob_hold_open",
+      "independence_group": "candidate_H_K001",
+      "reviewed_distinct_behavior": true,
+      "assigned_split": "holdout",
+      "review_status": "agent_reviewed_seed",
+      "planned_recording": {
+        "behavior_family": "knob_hold_open",
+        "angle_deg": -21,
+        "radius_m": 0.622,
+        "visual_seed": 7
+      },
+      "note": "Fresh independent physical recording reviewed with full decoded videos and actual phase images; same declared behavior family, held out before recording; simulator/procedural source holdout, no real-world generalization claim.",
+      "human_review_status": "pending",
+      "source_recording_dir": "generated/door_teaching/holdout_H_K001_20261002_fresh02/candidate_H_K001",
+      "source_recording_sha256": "85a19ce16dc302ca09cd3ec2396c3199222868ebe03f989fccd663a3ae24c872"
+    },
+    "candidate_H_K002": {
+      "seed_file": "generated/door_skillgen/seed/candidate_H_K002.hdf5",
+      "behavior_group": "knob_hold_open",
+      "independence_group": "candidate_H_K002",
+      "reviewed_distinct_behavior": false,
+      "assigned_split": "holdout",
+      "review_status": "failed_unlock_unreviewed",
+      "planned_recording": {
+        "behavior_family": "knob_hold_open",
+        "angle_deg": -16,
+        "radius_m": 0.642,
+        "visual_seed": 8
+      },
+      "note": "Physical unlock failed in fresh02 and fresh03; retained unapproved, never included in the accepted source pool. Replaced by a separately assigned, newly recorded source at proven acquisition geometry.",
+      "human_review_status": "pending",
+      "failed_recordings": [
+        "generated/door_teaching/holdout_H_K002_20261002_fresh02",
+        "generated/door_teaching/holdout_H_K002_20261002_fresh03"
+      ]
+    },
+    "candidate_H_E003": {
+      "seed_file": "generated/door_skillgen/seed/candidate_H_E003.hdf5",
+      "behavior_group": "upright_side_grasp_original",
+      "independence_group": "candidate_H_E001",
+      "reviewed_distinct_behavior": true,
+      "assigned_split": "holdout",
+      "split_assigned_before_recording_at_utc": "2026-10-02T01:09:20.628616+00:00",
+      "review_status": "agent_reviewed_seed",
+      "human_review_status": "pending",
+      "planned_recording": {
+        "behavior_family": "edge_regrasp",
+        "angle_deg": 11,
+        "radius_m": 0.632,
+        "visual_seed": 6,
+        "edge_height_m": 1.01,
+        "edge_yaw_deg": 160.0,
+        "edge_pregrasp_distance_m": 0.2,
+        "retreat_distance_m": 0.08,
+        "edge_x_m": 0.74,
+        "final_angle_deg": 33.0,
+        "gripper_force_n": 60.0,
+        "gripper_stiffness": 3000.0,
+        "mimic_frequency": 0.0
+      },
+      "planned_descendants": {
+        "radius_m": 0.632,
+        "angles_deg": [
+          3,
+          8,
+          13,
+          18,
+          24
+        ],
+        "visual_seed": 6,
+        "trial_seed": 0,
+        "split": "holdout"
+      },
+      "source_recording_dir": "generated/door_teaching/holdout_H_E003_20261002_fresh02/candidate_H_E003",
+      "note": "Separate owned simulator run after reset, using original A005 initial state at successful E1 placement and visual6. All recorded numerical fields equal H_E001; canonical holdout independence group and source identity remain H_E001, so this replay does not add numerical source diversity. Five different-angle descendants require individual physical review and trajectory deduplication. Agent-reviewed; human review pending. The failed fresh01 unlock-confirmation recording remains unapproved and retained.",
+      "prepared_scene": "generated/door_teaching/holdout_H_E003_20261002_prepared02/scene.usd",
+      "scene_source_kind": "initial_scene.usd",
+      "initial_scene_status": "prepared",
+      "failed_recordings": [
+        "generated/door_teaching/holdout_H_E003_20261002_fresh01"
+      ],
+      "source_recording_sha256": "10da3abe0696a05e0f178fa7763618d504ea4dbac812f8bbbd1410d22629c8bb",
+      "canonical_source_id": "candidate_H_E001",
+      "source_recording_kind": "deterministic_physical_replay",
+      "numeric_equality_report": "generated/door_quality/H_E003_vs_H_E001_source_numeric_20261002.json",
+      "own_contexts_ik_report": "generated/door_quality/fresh_holdout_H_E003_contexts_ik_20261002.json",
+      "initial_independence_group_reserved_before_recording": "candidate_H_E003"
+    },
+    "candidate_H_K003": {
+      "seed_file": "generated/door_skillgen/seed/candidate_H_K003.hdf5",
+      "behavior_group": "knob_hold_open",
+      "independence_group": "candidate_H_K001",
+      "reviewed_distinct_behavior": true,
+      "assigned_split": "holdout",
+      "split_assigned_before_recording_at_utc": "2026-10-02T01:09:20.628616+00:00",
+      "review_status": "agent_reviewed_seed",
+      "human_review_status": "pending",
+      "planned_recording": {
+        "behavior_family": "knob_hold_open",
+        "angle_deg": -21,
+        "radius_m": 0.622,
+        "visual_seed": 8,
+        "edge_height_m": 1.01,
+        "edge_yaw_deg": 160.0,
+        "edge_pregrasp_distance_m": 0.2,
+        "retreat_distance_m": 0.08,
+        "edge_x_m": 0.74,
+        "final_angle_deg": 33.0,
+        "gripper_force_n": 60.0,
+        "gripper_stiffness": 3000.0,
+        "mimic_frequency": 0.0
+      },
+      "planned_descendants": {
+        "radius_m": 0.622,
+        "angles_deg": [
+          -28,
+          -23,
+          -20,
+          -16,
+          -13
+        ],
+        "visual_seed": 8,
+        "trial_seed": 0,
+        "split": "holdout"
+      },
+      "source_recording_dir": "generated/door_teaching/holdout_H_K003_20261002_fresh01/candidate_H_K003",
+      "note": "Separate owned simulator run after reset, using original K001 initial state at successful K1 placement and visual8. All recorded numerical fields equal H_K001; canonical holdout independence group and source identity remain H_K001, so this replay does not add numerical source diversity. Five different-angle descendants require individual physical review and trajectory deduplication. Agent-reviewed; human review pending.",
+      "prepared_scene": "generated/door_teaching/holdout_H_K003_20261002_prepared02/scene.usd",
+      "scene_source_kind": "initial_scene.usd",
+      "initial_scene_status": "prepared",
+      "source_recording_sha256": "85a19ce16dc302ca09cd3ec2396c3199222868ebe03f989fccd663a3ae24c872",
+      "canonical_source_id": "candidate_H_K001",
+      "source_recording_kind": "deterministic_physical_replay",
+      "numeric_equality_report": "generated/door_quality/H_K003_vs_H_K001_source_numeric_20261002.json",
+      "own_contexts_ik_report": "generated/door_quality/fresh_holdout_H_K003_contexts_ik_20261002.json",
+      "initial_independence_group_reserved_before_recording": "candidate_H_K003"
+    }
+  },
+  "quality_gates": {
+    "fps": 30,
+    "door_angle_deg": 29,
+    "finger_contact_n": 3,
+    "unlock_handle_angle_deg": 43.5,
+    "unlock_latch_m": 0.0154,
+    "knob_gap_angle_deg": 10,
+    "min_camera_clearance_m": 0.01,
+    "max_arm_contact_n": 40,
+    "max_camera_position_error_m": 0.0001,
+    "max_camera_rotation_error_rad": 0.001,
+    "minimum_active_arm_joints": 3,
+    "minimum_joint_span_rad": 0.1,
+    "minimum_gripper_span_m": 0.005,
+    "idle_arm_step_rad": 0.0001,
+    "idle_gripper_step_m": 1e-05,
+    "max_command_idle_fraction": 0.5,
+    "max_command_idle_run_s": 10,
+    "minimum_sample_image_std": 3,
+    "max_sample_black_fraction": 0.98,
+    "duplicate_decimals": 5
+  },
+  "phases": [
+    {
+      "id": "baseline",
+      "goal": "Replay the approved seed on each available isolated Isaac profile; compare reset, camera, grasp, unlock and final contact evidence before broadening.",
+      "angles_deg": [
+        0,
+        -3,
+        3,
+        -5,
+        5
+      ],
+      "advance_when": "Current runtime completes audited physical trials; failures remain recorded. An unavailable historical runtime is explicitly pending, never declared equivalent."
+    },
+    {
+      "id": "geometry",
+      "goal": "Acquire additional approved experts with genuinely different grasp or free-space paths; expand both signs gradually to the original ±30 degree requirement.",
+      "angle_stages_deg": [
+        [
+          -5,
+          -3,
+          0,
+          3,
+          5
+        ],
+        [
+          -15,
+          -10,
+          -5,
+          0,
+          5,
+          10,
+          15
+        ],
+        [
+          -30,
+          -20,
+          -10,
+          0,
+          10,
+          20,
+          30
+        ]
+      ],
+      "candidate_start_example": "3 approved sources × 7 angles × 5 trial RNG seeds = 105 attempts; only audited numerically unique successes count.",
+      "candidate_target_example": "4 approved sources × 13 angles × 4 trial RNG seeds = 208 attempts before failures or duplicates.",
+      "warning": "Changing RNG seeds with one source and zero motion noise does not establish new behavior or guarantee a distinct trajectory."
+    },
+    {
+      "id": "visual",
+      "goal": "Apply and record at least four real simulator-rendered lighting/material/background variants; preserve collision geometry and the calibrated wrist mount, then repeat quality review.",
+      "variant_examples": [
+        "nominal",
+        "warm_dim_light",
+        "cool_bright_light",
+        "door_material_background_changed"
+      ],
+      "advance_when": "Applied variant parameters and scene evidence exist, phase images decode correctly, and trajectories remain physically valid. A renamed file or declared variant alone does not count."
+    },
+    {
+      "id": "holdout",
+      "goal": "Reserve at least 20 audited unique trials derived from independent source recordings/groups and separately scheduled placements/visual settings.",
+      "split_policy": "Assign sources and independence groups before generation; all descendants of a group stay in one split. Never shuffle episodes from one source between candidate and holdout.",
+      "advance_when": "No trajectory, source recording or independence group overlaps candidate and holdout. Holdout remains untouched by later training selection."
+    }
+  ],
+  "fine_tuning_decision": "Meeting these gates means the dataset is ready to discuss an initial fine-tuning experiment. Policy success and generalization still require subsequent independent closed-loop evaluation; LeRobot and GR00T export/training are intentionally deferred."
+}

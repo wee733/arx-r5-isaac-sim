@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Build and run the fixed-base ARX R5A scene in Isaac Sim 5.1."""
+"""Build and run the fixed-base ARX R5A scene with Isaac Sim core APIs."""
 
 import argparse
 from dataclasses import dataclass
@@ -195,6 +195,9 @@ def _parse_position_vector(value: str) -> dict[str, float]:
     return positions
 
 
+URDF_RELATIVE = 'urdf/r5a_cumotion.urdf'
+
+
 def _description_share_from_ament() -> Optional[Path]:
     try:
         from ament_index_python.packages import get_package_share_directory
@@ -216,6 +219,9 @@ def _source_tree_candidates() -> list[Path]:
                 parent / 'arx-r5-moveit' / DESCRIPTION_PACKAGE,
                 parent / 'isaac_ros_manipulation' / 'arx-r5-moveit' /
                 DESCRIPTION_PACKAGE,
+                # Migrated workspace layout used by the door pipeline.
+                parent / 'B2ARX_Train_12DOF' / 'Isaac_Ros_CuMotion_ArxR5a' /
+                DESCRIPTION_PACKAGE,
             ]
         )
     return candidates
@@ -223,9 +229,15 @@ def _source_tree_candidates() -> list[Path]:
 
 def find_description_share(explicit_path: Optional[str]) -> Path:
     """Find the installed or source-tree ARX description package."""
-    candidates = []
     if explicit_path:
-        candidates.append(Path(explicit_path))
+        return _validated_description_share(explicit_path)
+    if os.environ.get('ARX_DESCRIPTION_DIR'):
+        # An explicit model selection must never silently use a different robot.
+        candidate = Path(os.environ['ARX_DESCRIPTION_DIR']).expanduser().resolve()
+        if not (candidate / URDF_RELATIVE).is_file():
+            raise RuntimeError(f'ARX_DESCRIPTION_DIR does not contain the ARX URDF: {candidate}')
+        return candidate
+    candidates = []
     if os.environ.get('ARX_R5_DESCRIPTION_SHARE'):
         candidates.append(Path(os.environ['ARX_R5_DESCRIPTION_SHARE']))
 
@@ -236,14 +248,22 @@ def find_description_share(explicit_path: Optional[str]) -> Path:
 
     for candidate in candidates:
         candidate = candidate.expanduser().resolve()
-        if (candidate / 'urdf' / 'r5a_cumotion.urdf').is_file():
+        if (candidate / URDF_RELATIVE).is_file():
             return candidate
 
     raise FileNotFoundError(
         'ARX R5A description package was not found. Source the '
-        'arx-r5-moveit install space, set ARX_R5_DESCRIPTION_SHARE, or pass '
+        'arx-r5-moveit install space, set ARX_DESCRIPTION_DIR / ARX_R5_DESCRIPTION_SHARE, or pass '
         '--description-share.'
     )
+
+
+def _validated_description_share(path: str) -> Path:
+    """Validate a user-selected model before constructing the scene."""
+    candidate = Path(path).expanduser().resolve()
+    if not (candidate / URDF_RELATIVE).is_file():
+        raise FileNotFoundError(f'ARX URDF is missing from --description-share: {candidate}')
+    return candidate
 
 
 def find_demo_config(

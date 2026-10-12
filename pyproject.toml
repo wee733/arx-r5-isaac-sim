@@ -1,5 +1,7 @@
 [tool.pytest.ini_options]
-testpaths = ["arx_r5_isaac_sim_bringup/test"]
+# Door pipeline tests run in the selected Isaac venv; ROS package tests
+# live in arx_r5_isaac_sim_bringup/test and run in a ROS-sourced Python.
+testpaths = ["tests"]
 addopts = "-ra"
 markers = [
   "copyright: ROS copyright linter",

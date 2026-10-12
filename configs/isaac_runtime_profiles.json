@@ -1,0 +1,75 @@
+{
+  "schema": "arx-isaac-runtime-profiles-v1",
+  "profiles": {
+    "isaac51": {
+      "isaac_sim": "5.1.0.0",
+      "isaac_lab": "2.3.2",
+      "isaac_lab_revision": "f4aa17f87e2e5db5484f0b5974918573e8918ce2",
+      "python": "3.11",
+      "numpy": "1.26.0",
+      "torch": "2.7.0+cu128",
+      "quaternion": "wxyz",
+      "physics_backend": "isaacsim_physx",
+      "validation": "full physical replay verified 2026-10-02: historical/default gripper model 2058 frames/32.373001 degrees; measured gripper model 2099 frames/32.366108 degrees; original source entry retained, camera v2 every frame verified; new agent-reviewed candidate_A005 also passes 1902 frames/35.307510 degrees, both videos fully decoded; candidate_K001 knob_hold_open passes 1341 frames/32.9810028 degrees, continuous two-finger knob contact after gap and full video decode verified; pre_action A005 full A/B passed; migrated texture + warm_sand appearance full knob replay verified 1341 frames, all 33 numeric datasets identical to legacy baseline",
+      "source_cpu_validation": {
+        "date": "2026-10-02",
+        "source_id": "candidate_D51_E30_CONT001",
+        "angle_deg": 30.0,
+        "radius_m": 0.65,
+        "new_visual_draw_seed": 0,
+        "inherited_visual_seed": 1,
+        "frames": 2102,
+        "physical_and_full_video_usable": true,
+        "handle_max_deg": 43.67436218261719,
+        "latch_max_m": 0.015533368103206158,
+        "final_door_angle_deg": 34.04158401489258,
+        "actual_device": "cpu",
+        "live_scene_audit_passed": true,
+        "original_material_bindings_preserved": true,
+        "evidence_directory": "generated/door_quality/source_cpu_same_source_diagnostics_20261002",
+        "generalization_verified": false,
+        "scope": "One same-source boundary case; separate diagnostic, excluded from main121. Does not establish numerical cross-SDK equivalence."
+      },
+      "physics_profile_default": "lab_default",
+      "known_limitations": [
+        "lab_default A005 +30/r0.65 and +30/r0.63 fail the strict observed unlock gate; preserve failed trials. D51 +30/r0.65 source_cpu passes a separate same-source replay.",
+        "Passing nominal replays do not certify arbitrary placements or alternate physics profiles."
+      ]
+    },
+    "isaac61": {
+      "isaac_sim": "6.1.0.0",
+      "isaac_lab": "3.0.0",
+      "isaac_lab_revision": "9bae4fda59b2fc6c4ebb955bc5df577a5dcdde28",
+      "python": "3.12",
+      "numpy": "2.3.1",
+      "torch": "2.11.0+cu128",
+      "quaternion": "xyzw",
+      "physics_backend": "isaacsim_physx",
+      "validation": "full physical replay verified 2026-10-02 with new agent-reviewed candidate_A005: 1893 frames/31.714483 degrees; original source entry retained, measured gripper native connections, camera v2 every frame and both videos decoded; historical candidate006 remains incompatible at panel entrance; candidate_K001 knob_hold_open passes 1341 frames/32.9815674 degrees, continuous two-finger knob contact after gap and full video decode verified; pre_action A005 full A/B passed; migrated texture full edge replay verified, all 33 numeric datasets identical to pre_action baseline; fresh colored edge +30/r0.63 and knob -30/r0.59, -10/r0.63 physical/video audits passed",
+      "source_cpu_validation": {
+        "date": "2026-10-02",
+        "source_id": "candidate_D51_E30_CONT001",
+        "angle_deg": 30.0,
+        "radius_m": 0.65,
+        "new_visual_draw_seed": 0,
+        "inherited_visual_seed": 1,
+        "frames": 2098,
+        "physical_and_full_video_usable": true,
+        "handle_max_deg": 43.53570556640625,
+        "latch_max_m": 0.015484056435525417,
+        "final_door_angle_deg": 33.959407806396484,
+        "actual_device": "cpu",
+        "live_scene_audit_passed": true,
+        "original_material_bindings_preserved": true,
+        "evidence_directory": "generated/door_quality/source_cpu_same_source_diagnostics_20261002",
+        "generalization_verified": false,
+        "scope": "One same-source boundary case; separate diagnostic, excluded from main121. Does not establish numerical cross-SDK equivalence."
+      },
+      "physics_profile_default": "lab_default",
+      "known_limitations": [
+        "Historical candidate006 panel entrance remains incompatible under strict native collision/IK checks.",
+        "D51 source_cpu +30/r0.65 passed with only 0.0357deg handle margin and 0.0841mm latch margin; no robust perturbation or persistent unlocked-dwell claim."
+      ]
+    }
+  }
+}

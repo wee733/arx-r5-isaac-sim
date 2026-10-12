@@ -1,0 +1,13 @@
+# Critical pins for the historical Isaac Sim 5.1 / Isaac Lab 2.3 stack.
+isaacsim==5.1.0.0
+numpy==1.26.0
+torch==2.7.0+cu128
+torchvision==0.22.0+cu128
+torchaudio==2.7.0+cu128
+h5py==3.16.0
+pillow==11.3.0
+setuptools<82
+# Retain Sim 5.1's process library and compatible bootstrap/notebook tools.
+psutil==5.9.8
+wheel==0.45.1
+ipython==8.31.0
