@@ -1,5 +1,21 @@
 # ARX R5A cuMotion 仿真（Isaac Sim）
 
+[![CI](https://github.com/wee733/arx-r5-isaac-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/wee733/arx-r5-isaac-sim/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+![Isaac Sim 5.1 / 6.1](https://img.shields.io/badge/Isaac_Sim-5.1%20%7C%206.1-76B900?logo=nvidia&logoColor=white)
+![ROS 2 Jazzy](https://img.shields.io/badge/ROS_2-Jazzy-22314E?logo=ros&logoColor=white)
+![cuMotion GPU Planning](https://img.shields.io/badge/cuMotion-GPU_Planning-76B900)
+![SkillGen Door Data](https://img.shields.io/badge/SkillGen-Door_Data-0078D4)
+
+<p align="center">
+  <img src="pictures/arx.png" alt="ARX R5A 在 RViz 和 Isaac Sim 5.1 中的仿真画面" width="100%">
+</p>
+
+*ARX R5A 在 RViz 与 Isaac Sim 5.1 中的仿真画面。*
+
+[English](README.en.md) · [AprilTag 抓放 Demo](docs/apriltag-pick-place-demo.md) ·
+[架构说明](docs/architecture.md) · [模型验收](docs/model-validation.md)
+
 **新电脑迁移先看 [迁移与恢复手册](docs/migration.md)。** 最新开门示教、SkillGen
 和 GR00T 数据功能在 `groot_date_generate` 分支；克隆后必须执行 `git lfs pull`。
 下文原有目录示例属于早期 ROS 布局，当前迁移目录、依赖补丁和安装顺序以迁移手册为准。
@@ -42,18 +58,6 @@ pending，训练尚未启动。
 完整物理回放已通过，覆盖 +30°门边换抓和 −30°持续抓旋钮；5.1 砂色回放也已通过。
 旧录像保留，默认 `pre_action` 渲染调度已通过两版本完整 A/B 验证。
 
-[English](README.en.md) · [AprilTag 抓放 Demo](docs/apriltag-pick-place-demo.md) ·
-[架构说明](docs/architecture.md) · [模型验收](docs/model-validation.md)
-
-[![CI](https://github.com/wee733/arx-r5-isaac-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/wee733/arx-r5-isaac-sim/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-
-<p align="center">
-  <img src="pictures/arx.png" alt="ARX R5A cuMotion running in RViz and Isaac Sim" width="100%">
-</p>
-
-*RViz 中的 cuMotion/MoveIt 规划与 Isaac Sim 5.1 中的 ARX R5A articulation 同步执行。*
-
 这是 ARX R5A 的独立 Isaac Sim 仿真仓库。它按照 NVIDIA
 [cuMotion MoveIt + Isaac Sim 4.5 教程](https://nvidia-isaac-ros.github.io/v/release-4.5/concepts/manipulation/cumotion_moveit/tutorial_isaac_sim.html)
 实现从 GPU 规划到 PhysX 执行、再到 ROS 2 状态回传的完整闭环，而不只是显示 URDF。
@@ -77,6 +81,21 @@ authored USD 的相机发布、TF 和 AprilTag 感知已经验证。眼在手外
   `mimic=joint7, multiplier=1` 复制到第八个命令项，使两指都收到 drive target。
 - authored USD AprilTag Demo 串联 GPU 检测、官方行为树、cuMotion 和自动抓放。
 - 支持 GUI、headless、USD 导出、CPU 契约测试和可复现模型审计。
+
+## 开门过程示例
+
+以下阶段图来自 2026-10-02 的 Isaac Sim 6.1 PhysX 仿真回放，以腕部和全景视角
+展示两种开门行为。对应示范的人工审核仍为 pending。
+
+<!-- Source: generated/door_skillgen/validated61_texture_edge0_20261002/angle_p000_0/semantic_review/completion_extra_phase_sheet.jpg -->
+![门边换抓的腕部与全景阶段图](pictures/door-edge-regrasp.jpg)
+
+*门边换抓：接近 → 抓旋钮 → 解锁 → 拉缝 → 换抓门边 → 开门终态。*
+
+<!-- Source: generated/door_skillgen/validated61_geometry_knob_m30_20261002/visual_seed_2/angle_m030_0/semantic_review/completion_extra_phase_sheet.jpg -->
+![持续抓旋钮的腕部与全景阶段图](pictures/door-knob-hold.jpg)
+
+*持续抓旋钮：绿色门、−30°摆位，展示抓取、解锁、拉缝与持续抓旋钮开门。*
 
 ## ROS 仿真工作流的版本基线
 

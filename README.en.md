@@ -1,17 +1,23 @@
 # ARX R5A cuMotion Simulation for Isaac Sim
 
-**新电脑迁移请先阅读 [迁移与恢复手册](docs/migration.md)。** 最新开门与 GR00T
-功能位于 `groot_date_generate` 分支，场景和样本需要执行 `git lfs pull`。
+[![CI](https://github.com/wee733/arx-r5-isaac-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/wee733/arx-r5-isaac-sim/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+![Isaac Sim 5.1 / 6.1](https://img.shields.io/badge/Isaac_Sim-5.1%20%7C%206.1-76B900?logo=nvidia&logoColor=white)
+![ROS 2 Jazzy](https://img.shields.io/badge/ROS_2-Jazzy-22314E?logo=ros&logoColor=white)
+![cuMotion GPU Planning](https://img.shields.io/badge/cuMotion-GPU_Planning-76B900)
+![SkillGen Door Data](https://img.shields.io/badge/SkillGen-Door_Data-0078D4)
+
+<p align="center">
+  <img src="pictures/arx.png" alt="ARX R5A simulation shown in RViz and Isaac Sim 5.1" width="100%">
+</p>
+
+*ARX R5A simulation shown in RViz and Isaac Sim 5.1.*
 
 [中文](README.md) · [AprilTag pick-and-place demo](docs/apriltag-pick-place-demo.md) ·
 [Architecture](docs/architecture.md) · [Model validation](docs/model-validation.md)
 
-[![CI](https://github.com/wee733/arx-r5-isaac-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/wee733/arx-r5-isaac-sim/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
-
-<p align="center">
-  <img src="pictures/arx.png" alt="ARX R5A planning and execution in RViz and Isaac Sim" width="100%">
-</p>
+**新电脑迁移请先阅读 [迁移与恢复手册](docs/migration.md)。** 最新开门与 GR00T
+功能位于 `groot_date_generate` 分支，场景和样本需要执行 `git lfs pull`。
 
 This repository is the simulation companion to
 [`Isaac_Ros_CuMotion_ArxR5a`](https://github.com/wee733/Isaac_Ros_CuMotion_ArxR5a).
@@ -49,6 +55,22 @@ and Isaac Sim 5.1.0 installed in a conda environment named `isaaclab`.
 the commanded gripper-controller joint. `joint8` is not an independent
 controller DOF; TopicBasedSystem mirrors the `joint7` position into the eighth
 transport command so both articulation fingers receive a drive target.
+
+## Door-opening process examples
+
+These phase sheets show two door-opening behaviors from Isaac Sim 6.1
+PhysX replays recorded on 2026-10-02, using wrist and overview views.
+Human review of the corresponding demonstrations remains pending.
+
+<!-- Source: generated/door_skillgen/validated61_texture_edge0_20261002/angle_p000_0/semantic_review/completion_extra_phase_sheet.jpg -->
+![Wrist and overview phase sheet for door-edge regrasp](pictures/door-edge-regrasp.jpg)
+
+*Door-edge regrasp: approach → knob grasp → unlock → initial opening → transfer to the door edge → final opening.*
+
+<!-- Source: generated/door_skillgen/validated61_geometry_knob_m30_20261002/visual_seed_2/angle_m030_0/semantic_review/completion_extra_phase_sheet.jpg -->
+![Wrist and overview phase sheet for continuous knob grasp](pictures/door-knob-hold.jpg)
+
+*Continuous knob grasp with a green door at −30°: grasp, unlock, initial opening, and final opening while holding the knob.*
 
 ## Repository responsibilities
 
