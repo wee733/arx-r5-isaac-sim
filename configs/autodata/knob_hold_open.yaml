@@ -18,7 +18,7 @@ subtasks:
     - object_ref: knob
       description: Hold knob through unlocking and full opening.
       subtask_start_signal: knob_interaction
-      # e417401 pool indexes start signals using the TERM name, even for its
+      # The pinned pool (unchanged e417401..953cd37) indexes start signals using the TERM name, even for its
       # last subtask. Keep this key; the last segment still ends at actions[T].
       subtask_term_signal: knob_interaction
       selection_strategy: nearest_neighbor_object

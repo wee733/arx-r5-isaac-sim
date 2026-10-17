@@ -32,11 +32,16 @@ for group in ${groups}; do
   case "${group}" in
     sim)
       [[ -x "${sim_python}" ]] || { echo "simulation Python unavailable; run scripts/door/setup/setup_door_runtime.py" >&2; exit 2; }
+      # AutoData adapter tests import the pinned submodule; no other test sees it.
+      autodata_root="${repo_root}/$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["source"]["path"])' \
+        "${repo_root}/dependencies/autodata.lock.json")"
       for path in "${repo_root}"/tests/*/test_*.py; do
         file="${path#"${repo_root}/tests/"}"
         [[ " ${dataset_tests[*]} " == *" ${file} "* ]] && continue
+        extra=()
+        [[ "${file}" == autodata/* ]] && extra=(PYTHONPATH="${autodata_root}")
         # usd_environment() refuses a ROS LD_LIBRARY_PATH inherited from the shell.
-        run_file "${sim_python}" "${file}" -u LD_LIBRARY_PATH
+        run_file "${sim_python}" "${file}" -u LD_LIBRARY_PATH "${extra[@]}"
       done ;;
     dataset)
       [[ -x "${data_python}" ]] || { echo "GR00T data Python unavailable; run scripts/door/setup/setup_groot_data_runtime.py" >&2; exit 2; }
