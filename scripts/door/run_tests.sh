@@ -17,7 +17,7 @@ sim_python="${ISAAC_SIM_PYTHON:-$(python3 -c 'import json,sys; print(json.load(o
   "${repo_root}/generated/runtime/local.json" 2>/dev/null)}"
 data_python="${GROOT_DATA_PYTHON:-${repo_root}/generated/runtime/groot_data/.venv/bin/python}"
 tools="${repo_root}/generated/runtime/tools/usr"
-dataset_tests=(test_door_skillgen_lerobot.py test_door_n17_validation.py)
+dataset_tests=(dataset/test_door_skillgen_lerobot.py dataset/test_door_n17_validation.py dataset/test_door_v2_export.py)
 status=0
 
 run_file() {
@@ -32,8 +32,8 @@ for group in ${groups}; do
   case "${group}" in
     sim)
       [[ -x "${sim_python}" ]] || { echo "simulation Python unavailable; run scripts/door/setup/setup_door_runtime.py" >&2; exit 2; }
-      for path in "${repo_root}"/tests/test_*.py; do
-        file="$(basename "${path}")"
+      for path in "${repo_root}"/tests/*/test_*.py; do
+        file="${path#"${repo_root}/tests/"}"
         [[ " ${dataset_tests[*]} " == *" ${file} "* ]] && continue
         # usd_environment() refuses a ROS LD_LIBRARY_PATH inherited from the shell.
         run_file "${sim_python}" "${file}" -u LD_LIBRARY_PATH

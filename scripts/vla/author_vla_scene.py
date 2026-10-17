@@ -26,7 +26,7 @@ so the generated USD matches its own contract by construction. That is what the
 hand-edited AprilTag scene lost: its ``/R5a`` pose silently drifted away from
 ``arx_sim_usd_scene.yaml`` and the simulator now refuses to start on it.
 
-Run through ``scripts/run_author_vla_scene.sh``, which puts the Isaac Sim USD
+Run through ``scripts/vla/run_author_vla_scene.sh``, which puts the Isaac Sim USD
 libraries on the path.
 """
 
@@ -44,7 +44,7 @@ from arx_r5_isaac_sim_bringup.vla.task_config import (
 )
 
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[1] / 'arx_r5_isaac_sim_bringup'
+PACKAGE_ROOT = Path(__file__).resolve().parents[2] / 'arx_r5_isaac_sim_bringup'
 SOURCE_USD = PACKAGE_ROOT / 'assets' / 'scenes' / 'arx_sim.usd'
 DESTINATION_USD = PACKAGE_ROOT / 'assets' / 'scenes' / 'arx_vla_scene.usd'
 TASK_CONFIG = PACKAGE_ROOT / 'config' / 'vla_task.yaml'

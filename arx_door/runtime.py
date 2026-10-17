@@ -18,7 +18,7 @@ import sysconfig
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROFILE_PATH = ROOT / 'configs/isaac_runtime_profiles.json'
+PROFILE_PATH = ROOT / 'configs/runtime/isaac_runtime_profiles.json'
 LOCAL_RUNTIME_PATH = ROOT / 'generated/runtime/local.json'
 VIDEO_TOOLS = ROOT / 'generated/runtime/tools'
 VIDEO_TOOL_LIBRARIES = VIDEO_TOOLS / 'usr/lib/x86_64-linux-gnu'

@@ -65,6 +65,13 @@ class DoorCuMotionPlannerConfig:
     sample_dt: float = 1.0 / 30.0
     time_dilation_factor: float = 0.5
     motion_noise_scale: float = 0.0
+    # 'direct_if_collision_free' returns a deterministic minimum-jerk straight
+    # joint path when the native inspector proves it clear, else falls back to
+    # the trajectory optimizer, whose seeds produce multimodal detours.
+    path_mode: str = 'trajectory_optimizer'
+    direct_peak_velocity: float = 0.4
+    # The folded start pose already sits 14 mm from the base support cuboid.
+    direct_clearance_m: float = 0.005
 
 
 def _failure(status: str, reason: str) -> dict[str, Any]:
@@ -193,6 +200,8 @@ class DoorCuMotionPlanner(MotionPlannerBase):
         self.visualize_spheres = False
         self.approach_standoff_m = 0.0
         self.transition_goal_override: np.ndarray | None = None
+        # Per-call override of the direct-path clearance (pre-grasp recovery).
+        self.direct_clearance_override_m: float | None = None
 
     def reset_plan(self) -> None:
         """Discard every waypoint and reset the iteration cursor."""
@@ -284,6 +293,11 @@ class DoorCuMotionPlanner(MotionPlannerBase):
             'source': 'isaac_lab_skillgen',
             'approach_standoff_m': self.approach_standoff_m,
             'env_id': selected_env,
+            'path_mode': self.config.path_mode,
+            'direct_peak_velocity': self.config.direct_peak_velocity,
+            'direct_clearance_m': (self.config.direct_clearance_m
+                                   if self.direct_clearance_override_m is None
+                                   else self.direct_clearance_override_m),
         }
         self.last_request = request
         result = self.runner.plan(request)
@@ -336,6 +350,7 @@ class DoorCuMotionPlanner(MotionPlannerBase):
             'backend': 'nvidia_cumotion_native',
             'sample_dt': self.config.sample_dt,
             'time_dilation_factor': self.config.time_dilation_factor,
+            'path_mode': self.config.path_mode,
             'runtime': (self.last_result or {}).get('runtime'),
             'model': (self.last_result or {}).get('model'),
         }

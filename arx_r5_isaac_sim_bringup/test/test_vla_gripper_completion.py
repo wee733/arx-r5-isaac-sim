@@ -44,7 +44,7 @@ SIMULATION_SOURCE = (
     / 'simulation.py'
 ).read_text(encoding='utf-8')
 RUN_SCRIPT = (
-    PACKAGE_ROOT.parent / 'scripts' / 'run_vla_collect.sh'
+    PACKAGE_ROOT.parent / 'scripts' / 'vla' / 'run_vla_collect.sh'
 ).read_text(encoding='utf-8')
 LAUNCH_SOURCE = (
     PACKAGE_ROOT / 'launch' / 'arx_r5a_vla_collect.launch.py'
@@ -1054,7 +1054,7 @@ def test_vla_runner_rejects_stale_singleton_ros_graph_entities():
 def test_vla_sim_uses_a_critically_damped_drive_with_tracking_margin():
     """Do not hide joint3 gravity error by loosening controller tolerance."""
     sim_script = (
-        PACKAGE_ROOT.parent / 'scripts' / 'run_vla_sim.sh'
+        PACKAGE_ROOT.parent / 'scripts' / 'vla' / 'run_vla_sim.sh'
     ).read_text(encoding='utf-8')
     assert 'ARX_VLA_DRIVE_STIFFNESS:-1600.0' in sim_script
     assert 'ARX_VLA_DRIVE_DAMPING:-80.0' in sim_script

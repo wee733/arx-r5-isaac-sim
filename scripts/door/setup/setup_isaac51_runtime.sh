@@ -35,8 +35,8 @@ uv pip install --python "${python_bin}" 'isaacsim[all,extscache]==5.1.0.0' \
 uv pip install --python "${python_bin}" --index-url https://download.pytorch.org/whl/cu128 \
   'torch==2.7.0+cu128' 'torchvision==0.22.0+cu128' 'torchaudio==2.7.0+cu128'
 uv pip install --python "${python_bin}" \
-  --constraint "${repo_root}/configs/isaac51-door-constraints.txt" \
-  --requirement "${repo_root}/configs/isaac51-door-requirements.txt"
+  --constraint "${repo_root}/dependencies/python/isaac51-door-constraints.txt" \
+  --requirement "${repo_root}/dependencies/python/isaac51-door-requirements.txt"
 python3 "${repo_root}/scripts/door/setup/setup_door_runtime.py" --profile isaac51 \
   --isaac-lab-root "${lab_root}" --source-python "${python_bin}" --keep-default
 uv pip check --python "${python_bin}"

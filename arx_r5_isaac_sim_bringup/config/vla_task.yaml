@@ -4,7 +4,7 @@
 # Task, workcell geometry and episode randomization for VLA data collection.
 #
 # This file is the single source of truth for the scene. Both
-# scripts/author_vla_scene.py (which writes assets/scenes/arx_vla_scene.usd)
+# scripts/vla/author_vla_scene.py (which writes assets/scenes/arx_vla_scene.usd)
 # and the generated cuMotion collision scene config/vla_ground.scene are
 # derived from the values below, so the USD, the collision world and the
 # episode driver cannot drift apart.

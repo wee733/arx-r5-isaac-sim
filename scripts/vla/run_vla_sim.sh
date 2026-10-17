@@ -13,7 +13,7 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 package_source="${repo_root}/arx_r5_isaac_sim_bringup"
 scene_usd="${ARX_VLA_SCENE_USD:-${package_source}/assets/scenes/arx_vla_scene.usd}"
 scene_config="${ARX_VLA_SCENE_CONFIG:-${package_source}/config/vla_scene.yaml}"
@@ -30,11 +30,11 @@ drive_damping="${ARX_VLA_DRIVE_DAMPING:-80.0}"
 
 if [[ ! -f "${scene_usd}" ]]; then
   echo "VLA scene USD not found: ${scene_usd}" >&2
-  echo "Generate it first with: ${repo_root}/scripts/run_author_vla_scene.sh" >&2
+  echo "Generate it first with: ${repo_root}/scripts/vla/run_author_vla_scene.sh" >&2
   exit 2
 fi
 
-exec "${repo_root}/scripts/run_isaac_sim.sh" \
+exec "${repo_root}/scripts/ros/run_isaac_sim.sh" \
   --usd "${scene_usd}" \
   --usd-scene-config "${scene_config}" \
   --task-config "${task_config}" \

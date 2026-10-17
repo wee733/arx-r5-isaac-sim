@@ -1,0 +1,20 @@
+{
+  "schema": "arx-policy-scenarios-v1",
+  "description": "Fixed baseline first; deterministic small evaluation sweep. Build scenes independently, never move the wrist mount or change physics gains.",
+  "max_steps": 1800,
+  "success_hold_steps": 30,
+  "trials": [
+    {"name": "baseline", "angle_deg": -17.5, "radius_m": 0.60, "visual_seed": 1},
+    {"name": "position_left", "angle_deg": -19.0, "radius_m": 0.60, "visual_seed": 1},
+    {"name": "position_right", "angle_deg": -16.0, "radius_m": 0.60, "visual_seed": 1},
+    {"name": "appearance", "angle_deg": -17.5, "radius_m": 0.60, "visual_seed": 2}
+  ],
+  "randomization": {
+    "enabled_by_default": false,
+    "angle_deg": [-20.0, -15.0],
+    "radius_m": [0.595, 0.605],
+    "visual_seeds": [1, 2, 3, 4],
+    "seed": 20261015,
+    "note": "Evaluation sampling only; initial states must remain reachable and collision-free. A reproducible seed does not establish physical validity."
+  }
+}

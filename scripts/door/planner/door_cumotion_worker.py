@@ -151,6 +151,51 @@ def configure_gripper_defaults(xrdf, urdf, request):
                   'held_constant_during_plan': True}
 
 
+PATH_MODES = ('trajectory_optimizer', 'direct_if_collision_free')
+
+
+def direct_joint_path(start, target, *, peak_velocity, sample_dt, min_duration=0.5):
+    """Sample a minimum-jerk straight joint path, the shortest unimodal motion.
+
+    The duration makes the fastest joint peak at ``peak_velocity`` (min-jerk
+    peaks at 15/8 times the mean velocity). Returns ``(timestamps, positions)``.
+    """
+    start = np.asarray(start, dtype=float)
+    target = np.asarray(target, dtype=float)
+    if not math.isfinite(peak_velocity) or peak_velocity <= 0:
+        raise ValueError('direct_peak_velocity must be positive and finite')
+    duration = max(min_duration, 15. / 8. * float(np.abs(target - start).max()) / peak_velocity)
+    timestamps = np.arange(0.0, duration, sample_dt)
+    if not len(timestamps) or duration - timestamps[-1] > 1e-10:
+        timestamps = np.append(timestamps, duration)
+    phase = timestamps / duration
+    blend = 10 * phase ** 3 - 15 * phase ** 4 + 6 * phase ** 5
+    return timestamps, start + blend[:, None] * (target - start)
+
+
+def check_direct_path(start, target, *, clearance, within_limits, self_colliding, obstacle_distance,
+                      max_step_rad=0.01):
+    """Return ``(clear, minimum_clearance, reason)`` for a straight joint path.
+
+    The checker callables wrap the native cuMotion robot/world inspector, so
+    the same collision model and world view decide both planning modes.
+    """
+    start = np.asarray(start, dtype=float)
+    target = np.asarray(target, dtype=float)
+    steps = max(2, int(math.ceil(float(np.abs(target - start).max()) / max_step_rad)) + 1)
+    minimum = math.inf
+    for fraction in np.linspace(0.0, 1.0, steps):
+        joints = start + fraction * (target - start)
+        if not within_limits(joints):
+            return False, minimum, f'joint limits violated at fraction {fraction:.3f}'
+        if self_colliding(joints):
+            return False, minimum, f'self collision at fraction {fraction:.3f}'
+        minimum = min(minimum, float(obstacle_distance(joints)))
+        if minimum < clearance:
+            return False, minimum, f'obstacle clearance {minimum:.4f} m below {clearance} m'
+    return True, minimum, None
+
+
 def plan(request, description_dir):
     """Return a sampled trajectory, or retain the native solver failure."""
     if sys.version_info[:2] != (3, 12):
@@ -233,6 +278,42 @@ def plan(request, description_dir):
         'empty_world': not bool(cuboids),
         'label': 'EMPTY_WORLD_DIAGNOSTIC' if not cuboids else 'REQUEST_CUBOIDS',
     }
+    path_mode = request.get('path_mode', 'trajectory_optimizer')
+    if path_mode not in PATH_MODES:
+        raise ValueError(f'path_mode must be one of {PATH_MODES}')
+    response['path_mode'] = 'trajectory_optimizer'
+    if path_mode == 'direct_if_collision_free':
+        if not joint_target:
+            raise ValueError('direct_if_collision_free requires target_joints')
+        goal = vector(request['target_joints'], 6, 'target_joints')
+        inspector = cm.create_robot_world_inspector(robot, view)
+        clearance = float(request.get('direct_clearance_m', 0.005))
+        clear, minimum, rejection = check_direct_path(
+            start, goal, clearance=clearance,
+            within_limits=lambda q: robot.kinematics().within_cspace_limits(q, False),
+            self_colliding=lambda q: bool(inspector.frames_in_self_collision(q)),
+            obstacle_distance=inspector.min_distance_to_obstacle,
+        )
+        response['direct_path'] = {'clearance_m': clearance, 'min_obstacle_distance_m': minimum,
+                                   'accepted': clear, 'rejection': rejection}
+        if clear:
+            timestamps, positions = direct_joint_path(
+                start, goal, peak_velocity=float(request.get('direct_peak_velocity', 0.4)),
+                sample_dt=sample_dt)
+            final_pose = robot.kinematics().pose(positions[-1], 'link6')
+            final_rotation = final_pose.rotation
+            response.update({
+                'success': True, 'status': 'SUCCESS', 'status_code': 0,
+                'path_mode': 'direct_if_collision_free',
+                'positions': positions.tolist(), 'timestamps': timestamps.tolist(),
+                'duration_sec': float(timestamps[-1]), 'sample_dt': sample_dt,
+                'time_dilation_factor': speed,
+                'final_position': final_pose.translation.tolist(),
+                'final_quaternion_xyzw': [
+                    final_rotation.x(), final_rotation.y(), final_rotation.z(), final_rotation.w(),
+                ],
+            })
+            return response
     config = cm.create_default_trajectory_optimizer_config(robot, 'link6', view)
     planner = cm.create_trajectory_optimizer(config)
     if joint_target:

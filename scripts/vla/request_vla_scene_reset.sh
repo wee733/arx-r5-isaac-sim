@@ -33,7 +33,7 @@ if [[ ! "${request_token}" =~ ^[0-9]+$ ]] || (( request_token < 1 || request_tok
 fi
 command_value=$(( (request_token << 16) | (seed + 1) ))
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 workspace_root="${ARX_WORKSPACE_ROOT:-$(dirname "${repo_root}")}"
 ros_setup="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
 sim_ws="${ARX_SIM_WS:-${workspace_root}/arx_r5_sim_ws}"
@@ -61,7 +61,7 @@ echo "ROS_DOMAIN_ID=${ROS_DOMAIN_ID}  RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}"
 if ! ros2 topic list 2>/dev/null | grep -Fxq /clock; then
   echo >&2
   echo "No /clock on domain ${ROS_DOMAIN_ID}: Isaac Sim is not visible." >&2
-  echo "Start it with scripts/run_vla_sim.sh, or set ROS_DOMAIN_ID to match." >&2
+  echo "Start it with scripts/vla/run_vla_sim.sh, or set ROS_DOMAIN_ID to match." >&2
   exit 2
 fi
 
@@ -89,4 +89,4 @@ echo "  [arx-r5-sim] scene reset seed=${seed}: block at (...)"
 echo "and /vla/scene_reset_ack for the same integer ${command_value}."
 echo
 echo "If nothing appeared there, the graph node is not receiving. Check that"
-echo "the sim was started with --task-config (scripts/run_vla_sim.sh does)."
+echo "the sim was started with --task-config (scripts/vla/run_vla_sim.sh does)."

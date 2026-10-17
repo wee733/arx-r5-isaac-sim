@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 workspace_root="${ARX_WORKSPACE_ROOT:-$(dirname "${repo_root}")}"
 ros_setup="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
 default_isaac_ros_ws="${workspace_root}/isaac_ros_ws"
@@ -50,7 +50,7 @@ demo_launch_file="${ARX_DEMO_LAUNCH_FILE:-arx_r5a_zedx_eye_to_hand.launch.py}"
 demo_camera_label="${ARX_DEMO_CAMERA_LABEL:-ZED X eye-to-hand camera}"
 color_image_topic="${ARX_DEMO_COLOR_IMAGE_TOPIC:-/zed_x/left/image_raw}"
 color_info_topic="${ARX_DEMO_COLOR_INFO_TOPIC:-/zed_x/left/camera_info}"
-sim_start_command="${ARX_DEMO_SIM_COMMAND:-${repo_root}/scripts/run_zedx_sim.sh}"
+sim_start_command="${ARX_DEMO_SIM_COMMAND:-${repo_root}/scripts/ros/run_zedx_sim.sh}"
 
 usage() {
   cat <<EOF
@@ -124,7 +124,7 @@ fi
 
 if [[ ! -f "${sim_ws}/install/setup.bash" ]]; then
   echo "Simulation workspace is not built: ${sim_ws}/install/setup.bash" >&2
-  echo "Build arx_r5_isaac_sim_bringup first; see docs/apriltag-pick-place-demo.md." >&2
+  echo "Build arx_r5_isaac_sim_bringup first; see docs/ros/apriltag-pick-place-demo.md." >&2
   exit 2
 fi
 source_setup "${sim_ws}/install/setup.bash"

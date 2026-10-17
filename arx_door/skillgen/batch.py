@@ -204,6 +204,8 @@ def validate_trial_output(trial: TrialSpec) -> dict:
         key: str(_relative_artifact(trial.output_dir, artifacts.get(key), key))
         for key in ('scene', 'scene_manifest', 'cuboids', 'hdf5', 'wrist_video', 'overview_video')
     }
+    if 'ego_video' in artifacts:  # data v2 body-fixed second view
+        resolved['ego_video'] = str(_relative_artifact(trial.output_dir, artifacts['ego_video'], 'ego_video'))
     if trial.visual_seed:
         scene_manifest = json.loads(Path(resolved['scene_manifest']).read_text())
         appearance = scene_manifest.get('appearance', {})

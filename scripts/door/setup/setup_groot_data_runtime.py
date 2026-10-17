@@ -60,7 +60,7 @@ def main() -> int:
         run([uv, 'venv', '-q', '--python', args.python, venv])
     run([uv, 'pip', 'install', '-q', '--python', python, '--index-url', TORCH_INDEX, *TORCH])
     run([uv, 'pip', 'install', '-q', '--python', python,
-         '-r', ROOT / 'requirements-groot-data.txt', 'pytest==9.1.1'])
+         '-r', ROOT / 'dependencies/python/groot-data.txt', 'pytest==9.1.1'])
     checkout_groot(runtime / 'groot_n17_source')
     # torchcodec loads FFmpeg shared libraries; use the project's copy when
     # the host has none (scripts/door/setup/setup_door_runtime.py installs it).

@@ -16,15 +16,16 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path[:0] = [str(ROOT), str(Path(__file__).resolve().parent)]
-from arx_door import paths  # noqa: E402
+sys.path.insert(0, str(ROOT))
+from arx_door import paths, quality  # noqa: E402
 
 import h5py  # noqa: E402
 from arx_door.contract import EDGE_REGRASP, KNOB_HOLD_OPEN  # noqa: E402
-import run_door_augmentation_campaign as candidate  # noqa: E402
-from run_door_augmentation_campaign import (  # noqa: E402
-    next_batch_argv, one, quality, read_json, runtime_provenance, snapshot,
-    trial_plan, validate_batch, validate_runtime, values, write_json,
+from arx_door.files import read_json, write_json
+from arx_door.runtime import runtime_provenance, validate_runtime
+from arx_door.skillgen import campaign as candidate  # noqa: E402
+from arx_door.skillgen.campaign import (  # noqa: E402
+    next_batch_argv, one, snapshot, trial_plan, validate_batch, values,
 )
 
 

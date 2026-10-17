@@ -4,9 +4,9 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-exec "${repo_root}/scripts/run_isaac_sim.sh" \
+exec "${repo_root}/scripts/ros/run_isaac_sim.sh" \
   --usd \
   --camera-mode zedx \
   --reset-usd-joints \

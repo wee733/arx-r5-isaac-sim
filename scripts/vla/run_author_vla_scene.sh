@@ -13,7 +13,7 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 package_source="${repo_root}/arx_r5_isaac_sim_bringup"
 python_bin="${ISAAC_SIM_PYTHON:-python}"
 
@@ -55,4 +55,4 @@ python_libdir="$("${python_bin}" -c \
 export PYTHONPATH="${package_source}:${usd_libs}${PYTHONPATH:+:${PYTHONPATH}}"
 export LD_LIBRARY_PATH="${usd_libs}/bin${python_libdir:+:${python_libdir}}${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 
-exec "${python_bin}" "${repo_root}/scripts/author_vla_scene.py" "$@"
+exec "${python_bin}" "${repo_root}/scripts/vla/author_vla_scene.py" "$@"

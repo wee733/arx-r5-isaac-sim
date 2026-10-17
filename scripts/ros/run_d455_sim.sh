@@ -4,13 +4,13 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Keep this vector synchronized with config/d455_observation_positions.yaml.
 # It is a retained startup seed, not an authored-USD end-to-end acceptance
 # result. Camera/TF/AprilTag perception is verified; reachability must be
 # accepted again after the permanent /R5a root move.
-exec "${repo_root}/scripts/run_isaac_sim.sh" \
+exec "${repo_root}/scripts/ros/run_isaac_sim.sh" \
   --usd \
   --camera-mode d455 \
   --reset-usd-joints \

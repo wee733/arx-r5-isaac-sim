@@ -1,0 +1,50 @@
+{
+  "schema": "arx-groot-policy-v2",
+  "official_commit": "d2b7e75b937e3ec9aa5dbc798f08b89692c49734",
+  "official_source": "generated/runtime/groot_policy/source",
+  "policy_python": "generated/runtime/groot_policy/.venv/bin/python",
+  "hf_home": "generated/runtime/groot_policy/huggingface",
+  "checkpoint": "generated/door_policy/models/v2_first_success/checkpoint",
+  "dataset": "generated/door_policy/bundles/v2_first_success/datasets/holdout",
+  "training_results": "generated/door_policy/training_results_v2",
+  "embodiment_tag": "NEW_EMBODIMENT",
+  "language": "Move the open gripper to the front of the round doorknob.",
+  "effective_action_horizon": 16,
+  "execution_horizon": 8,
+  "denoising_steps": 4,
+  "control_hz": 30,
+  "physics_hz": 120,
+  "physics_profile": "source_cpu",
+  "host": "127.0.0.1",
+  "port": 5567,
+  "seed": 42,
+  "source_scene": "generated/door_teaching/fresh_experts_20261013_005036/attempts/candidate_N13_K001/scene.usd",
+  "seed_dir": "generated/door_teaching/fresh_experts_20261013_005036/attempts/candidate_N13_K001/candidate_N13_K001",
+  "seed_dataset": "generated/door_teaching/fresh_experts_20261013_005036/seeds/candidate_N13_K001.hdf5",
+  "baseline_scene": "generated/door_skillgen/n17_knob_20261013_040828/batches/candidate_r6000_v001/visual_seed_1/angle_m017_5/scene.usd",
+  "baseline_cuboids": "generated/door_skillgen/n17_knob_20261013_040828/batches/candidate_r6000_v001/visual_seed_1/angle_m017_5/cuboids.json",
+  "video_keys": [
+    "wrist",
+    "ego"
+  ],
+  "language_key": "annotation.human.stage_description",
+  "language_mode": "stage",
+  "gripper_gate": {
+    "close_below_m": 0.01,
+    "open_above_m": 0.02,
+    "close_steps": 3,
+    "open_steps": 15
+  },
+  "ego_camera": {
+    "position_base_m": [
+      0.1,
+      0.0,
+      0.12
+    ],
+    "yaw_deg": 0.0,
+    "pitch_up_deg": 20.0,
+    "horizontal_fov_deg": 87.0,
+    "width": 640,
+    "height": 480
+  }
+}

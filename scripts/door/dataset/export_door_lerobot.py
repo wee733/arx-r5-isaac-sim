@@ -15,6 +15,7 @@ import math
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 
 # One instruction per demonstrated behavior: a knob_hold_open episode never
@@ -27,6 +28,10 @@ TASKS = {
 }
 TASK = TASKS['edge_regrasp']
 VIDEO_KEY = 'observation.images.wrist'
+# Data v2 adds the body-fixed ego view (arx_door.scene.ego_camera).
+VIDEO_KEYS = {'wrist': VIDEO_KEY, 'ego': 'observation.images.ego'}
+VIDEO_ARTIFACTS = {'wrist': 'wrist_video', 'ego': 'ego_video'}
+STAGE_KEY = 'annotation.human.stage_description'
 JOINT_NAMES = [f'joint{i}' for i in range(1, 8)]
 
 
@@ -245,6 +250,34 @@ def verify_camera_evidence(path, evidence, data, n):
             'mount_verification_source': 'result.json/camera_verification'}
 
 
+def trim_video(source, destination, start):
+    """Re-encode from frame ``start`` with fresh timestamps (crop at export)."""
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(source), '-vf',
+                    f'trim=start_frame={start},setpts=PTS-STARTPTS', '-an', '-c:v', 'libx264',
+                    '-preset', 'veryfast', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', '30',
+                    str(destination)], check=True, capture_output=True)
+
+
+SEED_CACHE = {}
+
+
+def annotate_stages(path, result, hdf5_path):
+    """Recover per-frame stages from the reviewed seed; see arx_door.dataset.stages."""
+    import h5py
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+    from arx_door.dataset.stages import annotate_generated, load_seed_skill
+
+    seed_path = artifact_path(path, result.get('source_seed'))
+    if seed_path not in SEED_CACHE:
+        SEED_CACHE[seed_path] = load_seed_skill(seed_path)
+    try:
+        with h5py.File(hdf5_path, 'r') as file:
+            return annotate_generated(file['data/demo_0'], SEED_CACHE[seed_path])
+    except (KeyError, ValueError) as error:
+        raise ValueError(f'{path}: stage alignment failed: {error}') from error
+
+
 def load_generated(path, result, provenance):
     """Read native pre-action data and verify final absolute-command semantics.
 
@@ -295,6 +328,9 @@ def load_generated(path, result, provenance):
         raise ValueError(f'{path}: missing artifact manifest')
     hdf5_path = artifact_path(path, artifacts.get('hdf5'))
     video_path = artifact_path(path, artifacts.get('wrist_video'))
+    provenance['video_artifacts'] = {
+        camera: str(artifact_path(path, artifacts[key])) for camera, key in VIDEO_ARTIFACTS.items()
+        if artifacts.get(key)}
     try:
         with h5py.File(hdf5_path, 'r') as file:
             group = file['data']
@@ -363,6 +399,15 @@ def export(args):
     import pyarrow as pa
     import pyarrow.parquet as pq
 
+    cameras = list(dict.fromkeys(getattr(args, 'camera', None) or ['wrist']))
+    if cameras[0] != 'wrist' or any(camera not in VIDEO_KEYS for camera in cameras):
+        raise ValueError(f'cameras must start with wrist and be among {sorted(VIDEO_KEYS)}')
+    stage_language = bool(getattr(args, 'stage_language', False))
+    crop_recovery = bool(getattr(args, 'crop_before_recovery', False))
+    max_overshoot = getattr(args, 'max_transition_overshoot', None)
+    annotate = stage_language or crop_recovery or max_overshoot is not None
+    if attempts and (annotate or cameras != ['wrist']):
+        raise ValueError('ego video, stage labels and recovery crops require generated sources')
     loaded = []
     fps = float(metadata[0]['fps']) if metadata else 30.0
     if not math.isfinite(fps) or fps <= 0:
@@ -412,8 +457,50 @@ def export(args):
             raise ValueError(f'{path}: wrist video must be 640x480 h264 yuv420p')
         if loaded and any(video[k] != loaded[0][2][k] for k in ('width', 'height', 'codec_name', 'pix_fmt')):
             raise ValueError('all wrist videos must use the same resolution and encoding')
+        data['videos'] = {'wrist': video_path}
+        for camera in cameras[1:]:
+            extra = provenance['video_artifacts'].get(camera)
+            if extra is None:
+                raise ValueError(f'{path}: requested {camera} video is not in the artifact manifest')
+            extra = Path(extra)
+            probe = probe_video(extra)
+            if (int(probe['nb_read_frames']) != n
+                    or (probe['width'], probe['height'], probe['codec_name'], probe['pix_fmt'])
+                    != (640, 480, 'h264', 'yuv420p')):
+                raise ValueError(f'{path}: {camera} video must be {n} frames of 640x480 h264 yuv420p')
+            data['videos'][camera] = extra
+            provenance[f'{camera}_video_sha256'] = file_hash(extra)
+        if annotate:
+            annotation = annotate_stages(path, result, Path(provenance['hdf5']))
+            alignment = annotation['alignment']
+            provenance['stage_alignment'] = {**alignment.to_json(),
+                                             'first_transition': annotation['transition'],
+                                             'recovery': annotation['recovery']}
+            crop = alignment.recovery_start if crop_recovery and alignment.recovery_start else 0
+            # Only planned motion kept in the episode is gated: a cropped
+            # perturbation transition is not training data.
+            kept = [annotation['recovery']] if crop else [annotation['transition'], annotation['recovery']]
+            overshoot = max(item['max_overshoot_rad'] for item in kept if item is not None)
+            if max_overshoot is not None and overshoot > max_overshoot:
+                excluded.append({**provenance, 'reason': 'transition_overshoot',
+                                 'max_overshoot_rad': overshoot,
+                                 'limit_rad': max_overshoot})
+                continue
+            data['stage'] = annotation['stage']
+            data['frame_source'] = alignment.source
+            data['seed_frame'] = alignment.seed_frame
+            if crop:
+                for key in ('state', 'action', 'phase', 'door', 'stage', 'frame_source',
+                            'seed_frame', 'wrist_camera_pose', 'wrist_camera_expected_pose'):
+                    data[key] = data[key][crop:]
+                n -= crop
+                data['timestamp'] = (np.arange(n) / fps).astype(data['timestamp'].dtype)
+                provenance['cropped_leading_frames'] = int(crop)
+            data['crop'] = int(crop)
         loaded.append((path, data, video, n, video_path, provenance))
 
+    if not loaded:
+        raise ValueError('no source passed the export gates; see the excluded reasons')
     seen_content = set()
     for path, data, video, n, video_path, provenance in loaded:
         digest = hashlib.sha256()
@@ -437,15 +524,26 @@ def export(args):
     all_states, all_actions = [], []
     task_texts = [episode_task(args, provenance) for *_, provenance in loaded]
     task_list = list(dict.fromkeys(task_texts))
+    if stage_language:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+        from arx_door.dataset.stages import KNOB_HOLD_OPEN_STAGES, STAGE_NAMES
+        if any(text != TASKS['knob_hold_open'] for text in task_texts):
+            raise ValueError('stage language is defined for knob_hold_open episodes only')
+        stage_texts = [stage.instruction for stage in KNOB_HOLD_OPEN_STAGES]
+        task_list = list(dict.fromkeys(task_list + stage_texts))
     for index, (path, data, video, n, video_path, source_provenance) in enumerate(loaded):
         task_index = task_list.index(task_texts[index])
         chunk = index // 1000
         data_dir = staging / f'data/chunk-{chunk:03d}'
-        video_dir = staging / f'videos/chunk-{chunk:03d}' / VIDEO_KEY
         data_dir.mkdir(parents=True, exist_ok=True)
-        video_dir.mkdir(parents=True, exist_ok=True)
         state, action = data['state'].astype('float32'), data['action'].astype('float32')
         task_indices = pa.array(np.full(n, task_index), type=pa.int64())
+        columns = {}
+        episode_texts = [task_texts[index]]
+        if stage_language:
+            stage_index = np.asarray([task_list.index(stage_texts[label]) for label in data['stage']])
+            columns[STAGE_KEY] = pa.array(stage_index, type=pa.int64())
+            episode_texts += [stage_texts[label] for label in dict.fromkeys(data['stage'].tolist())]
         table = pa.table({
             'observation.state': pa.array(state.tolist(), type=pa.list_(pa.float32(), 7)),
             'action': pa.array(action.tolist(), type=pa.list_(pa.float32(), 7)),
@@ -457,18 +555,29 @@ def export(args):
             'annotation.human.task_description': task_indices,
             'next.done': pa.array([False] * (n - 1) + [True], type=pa.bool_()),
             'next.reward': pa.array([0.0] * (n - 1) + [1.0], type=pa.float32()),
+            **columns,
         })
         filename = f'episode_{index:06d}'
         pq.write_table(table, data_dir / (filename + '.parquet'))
-        shutil.copyfile(video_path, video_dir / (filename + '.mp4'))
-        camera_diagnostics = {key: data[key] for key in ('wrist_camera_pose', 'wrist_camera_expected_pose')
+        for camera, camera_path in data.get('videos', {'wrist': video_path}).items():
+            video_dir = staging / f'videos/chunk-{chunk:03d}' / VIDEO_KEYS[camera]
+            video_dir.mkdir(parents=True, exist_ok=True)
+            target = video_dir / (filename + '.mp4')
+            if data.get('crop'):
+                trim_video(camera_path, target, data['crop'])
+                if int(probe_video(target)['nb_read_frames']) != n:
+                    raise ValueError(f'{path}: cropped {camera} video frame count mismatch')
+            else:
+                shutil.copyfile(camera_path, target)
+        camera_diagnostics = {key: data[key] for key in ('wrist_camera_pose', 'wrist_camera_expected_pose',
+                                                         'stage', 'frame_source', 'seed_frame')
                               if key in data}
         np.savez_compressed(staging / 'diagnostics' / (filename + '.npz'),
                             phase=data['phase'], door=data['door'], timestamp=data['timestamp'],
                             **camera_diagnostics)
         stats = {'observation.state': statistics(state), 'action': statistics(action)}
         episode_stats.append({'episode_index': index, 'stats': stats})
-        episodes.append({'episode_index': index, 'tasks': [task_texts[index]], 'length': n})
+        episodes.append({'episode_index': index, 'tasks': episode_texts, 'length': n})
         provenance.append({
             'episode_index': index, 'source': str(path),
             **source_provenance,
@@ -482,23 +591,25 @@ def export(args):
         for key in ('observation.state', 'action')
     }
     video = loaded[0][2]
-    features[VIDEO_KEY] = {
-        'dtype': 'video', 'shape': [video['height'], video['width'], 3],
-        'names': ['height', 'width', 'channels'],
-        'info': {'video.height': video['height'], 'video.width': video['width'],
-                 'video.codec': video['codec_name'], 'video.pix_fmt': video['pix_fmt'],
-                 'video.is_depth_map': False, 'video.fps': fps,
-                 'video.channels': 3, 'has_audio': False},
-    }
+    for camera in cameras:
+        features[VIDEO_KEYS[camera]] = {
+            'dtype': 'video', 'shape': [video['height'], video['width'], 3],
+            'names': ['height', 'width', 'channels'],
+            'info': {'video.height': video['height'], 'video.width': video['width'],
+                     'video.codec': video['codec_name'], 'video.pix_fmt': video['pix_fmt'],
+                     'video.is_depth_map': False, 'video.fps': fps,
+                     'video.channels': 3, 'has_audio': False},
+        }
     for key in ('timestamp', 'frame_index', 'episode_index', 'index', 'task_index',
-                'annotation.human.task_description', 'next.done', 'next.reward'):
+                'annotation.human.task_description', 'next.done', 'next.reward',
+                *([STAGE_KEY] if stage_language else [])):
         dtype = ('float32' if key in ('timestamp', 'next.reward') else
                  'bool' if key == 'next.done' else 'int64')
         features[key] = {'dtype': dtype, 'shape': [1], 'names': None}
     write_json(meta_dir / 'info.json', {
         'codebase_version': 'v2.1', 'robot_type': 'arx_r5a',
         'total_episodes': len(loaded), 'total_frames': offset, 'total_tasks': len(task_list),
-        'total_videos': len(loaded), 'total_chunks': (len(loaded) + 999) // 1000,
+        'total_videos': len(loaded) * len(cameras), 'total_chunks': (len(loaded) + 999) // 1000,
         'chunks_size': 1000, 'fps': fps,
         'splits': {('train' if getattr(args, 'split', None) in (None, 'candidate')
                     else args.split): f'0:{len(loaded)}'},
@@ -509,8 +620,10 @@ def export(args):
     write_json(meta_dir / 'modality.json', {
         'state': {'single_arm': {'start': 0, 'end': 6}, 'gripper': {'start': 6, 'end': 7}},
         'action': {'single_arm': {'start': 0, 'end': 6}, 'gripper': {'start': 6, 'end': 7}},
-        'video': {'wrist': {'original_key': VIDEO_KEY}},
-        'annotation': {'human.task_description': {'original_key': 'annotation.human.task_description'}},
+        'video': {camera: {'original_key': VIDEO_KEYS[camera]} for camera in cameras},
+        'annotation': {'human.task_description': {'original_key': 'annotation.human.task_description'},
+                       **({'human.stage_description': {'original_key': STAGE_KEY}}
+                          if stage_language else {})},
     })
     write_jsonl(meta_dir / 'episodes.jsonl', episodes)
     write_jsonl(meta_dir / 'tasks.jsonl',
@@ -528,12 +641,15 @@ def export(args):
         'review_gate': 'NPZ only: success=true AND review_required=false; generated samples are not user-reviewed',
         'generated_gate': 'result success=true AND physics_executed=true AND HDF5 success=true AND valid physical audit AND pre_action_observation_at_30_hz AND v2 per-frame live link6 wrist camera verification at /World/SkillGenWristCamera with Fabric enabled',
         'dataset_split': getattr(args, 'split', None),
+        'cameras': cameras, 'stage_language': stage_language,
+        'stage_names': list(STAGE_NAMES) if stage_language else None,
+        'crop_before_recovery': crop_recovery, 'max_transition_overshoot_rad': max_overshoot,
         'sources': provenance, 'excluded_sources': excluded,
         'schema_source': 'https://github.com/NVIDIA/Isaac-GR00T/blob/main/getting_started/data_preparation.md',
     })
     (staging / 'README.md').write_text(
         ('# TEST_ONLY synthetic schema fixture\n\nNOT robot expert data.\n\n' if args.test_only else '# ARX door dataset\n\n')
-        + 'Single wrist RGB; 7D absolute state and command targets.\n\n'
+        + f'RGB views: {", ".join(cameras)}; 7D absolute state and command targets.\n\n'
         + 'Official GR00T N1.7 loader validation and official statistics generation have NOT run. '
         + 'The basic stats.json is incomplete for training. Regenerate official absolute and relative '
         + 'statistics and validate the single-arm data configuration before fine-tuning.\n'
@@ -555,6 +671,14 @@ def main():
     parser.add_argument('--split', choices=['candidate', 'holdout', 'diagnostic'],
                         help='export only trials from this dataset split (recommended)')
     parser.add_argument('--test-only', action='store_true', help='isolated synthetic schema fixture only')
+    parser.add_argument('--camera', action='append', choices=sorted(VIDEO_KEYS),
+                        help='RGB views to export, wrist first (default: wrist); repeatable')
+    parser.add_argument('--stage-language', action='store_true',
+                        help='add per-frame stage instructions as annotation.human.stage_description')
+    parser.add_argument('--crop-before-recovery', action='store_true',
+                        help='drop the deliberate perturbation that precedes a recovery segment')
+    parser.add_argument('--max-transition-overshoot', type=float,
+                        help='exclude episodes whose kept planned motion (transition, recovery) overshoots by more (rad)')
     args = parser.parse_args()
     try:
         export(args)

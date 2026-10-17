@@ -32,6 +32,16 @@ def write_json(path, value):
     temporary.replace(path)
 
 
+VIDEO_CONTRACTS = (['wrist'], ['wrist', 'ego'])
+LANGUAGE_KEYS = ('annotation.human.task_description', 'annotation.human.stage_description')
+
+
+def config_object(module):
+    """Single-wrist configs export ``door_wrist_config``; data v2 exports ``door_config``."""
+    config = getattr(module, 'door_config', None)
+    return config if config is not None else module.door_wrist_config
+
+
 def validate_config_contract(config):
     """Reject sampling or conversion options outside the approved contract.
 
@@ -43,13 +53,21 @@ def validate_config_contract(config):
         ActionConfig, ActionFormat, ActionRepresentation, ActionType, ModalityConfig,
     )
 
+    if type(config) is not dict:
+        raise ValueError('config requires exactly video, state, action and language modalities')
+    video = getattr(config.get('video'), 'modality_keys', None)
+    language = getattr(config.get('language'), 'modality_keys', None)
+    if video not in VIDEO_CONTRACTS:
+        raise ValueError(f'config video keys must be one of {VIDEO_CONTRACTS}')
+    if language is None or len(language) != 1 or language[0] not in LANGUAGE_KEYS:
+        raise ValueError(f'config language requires one key among {LANGUAGE_KEYS}')
     expected = {
-        'video': (['wrist'], [0]),
+        'video': (list(video), [0]),
         'state': (['single_arm', 'gripper'], [0]),
         'action': (['single_arm', 'gripper'], list(range(16))),
-        'language': (['annotation.human.task_description'], [0]),
+        'language': (list(language), [0]),
     }
-    if type(config) is not dict or set(config) != set(expected):
+    if set(config) != set(expected):
         raise ValueError('config requires exactly video, state, action and language modalities')
     modality_fields = {'delta_indices', 'modality_keys', 'sin_cos_embedding_keys',
                        'mean_std_embedding_keys', 'action_configs'}
@@ -91,7 +109,24 @@ def validate_config_contract(config):
     return validated
 
 
-def validate(dataset, groot_root, config_path):
+def override_gripper_state_range(meta, low, high):
+    """Normalize gripper state over its physical stroke, not the 2 mm data spread.
+
+    With q01/q99 from data the open (28 mm) and knob-blocked (26 mm) widths span
+    the whole [-1, 1] range, so any mid-air partial closure saturates to the
+    "already grasping" value. Only the state gripper statistics change.
+    """
+    path = meta / 'stats.json'
+    stats = json.loads(path.read_text())
+    entry = stats['observation.state']
+    for key, value in (('min', low), ('q01', low), ('max', high), ('q99', high)):
+        entry[key][6] = value
+    write_json(path, stats)
+    return {'observation.state[6]': {'low': low, 'high': high,
+                                     'keys': ['min', 'q01', 'max', 'q99']}}
+
+
+def validate(dataset, groot_root, config_path, gripper_state_range=None):
     """Validate the single-wrist dataset using unmodified official code."""
     meta = dataset / 'meta'
     # A failed revalidation must never leave an earlier acceptance flag true.
@@ -129,14 +164,18 @@ def validate(dataset, groot_root, config_path):
     spec = importlib.util.spec_from_file_location('arx_door_runtime_config', config_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    config = module.door_wrist_config
+    config = config_object(module)
     config_contract = validate_config_contract(config)
+    video_keys = config['video'].modality_keys
+    language_key = config['language'].modality_keys[0]
     info = json.loads((meta / 'info.json').read_text())
     modality = json.loads((meta / 'modality.json').read_text())
     if info['codebase_version'] != 'v2.1' or info['fps'] != 30:
         raise ValueError('expected LeRobot v2.1 at 30 Hz')
-    if set(modality['video']) != {'wrist'} or config['video'].modality_keys != ['wrist']:
-        raise ValueError('this validator requires the approved wrist-only contract')
+    if not set(video_keys) <= set(modality['video']):
+        raise ValueError(f'config videos {video_keys} are not all in dataset {sorted(modality["video"])}')
+    if language_key.removeprefix('annotation.') not in modality['annotation']:
+        raise ValueError(f'dataset lacks the configured language column {language_key}')
     if info['total_episodes'] != len(episodes):
         raise ValueError('episode metadata count mismatch')
 
@@ -151,6 +190,8 @@ def validate(dataset, groot_root, config_path):
             path.replace(backup / name)
     generate_stats(dataset)
     generate_rel_stats(dataset, EmbodimentTag.NEW_EMBODIMENT)
+    stats_override = (override_gripper_state_range(meta, *gripper_state_range)
+                      if gripper_state_range else None)
     loader = LeRobotEpisodeLoader(dataset, config, decoder_kwargs={'num_ffmpeg_threads': 1})
     relative_loader = RelativeActionLoader(dataset, EmbodimentTag.NEW_EMBODIMENT, 'single_arm')
     stats = loader.get_dataset_statistics()
@@ -193,7 +234,7 @@ def validate(dataset, groot_root, config_path):
             ('action.single_arm', action[:, :6]), ('action.gripper', action[:, 6:]),
         ):
             np.testing.assert_array_equal(np.stack(data[key]), expected)
-        language = data['language.annotation.human.task_description']
+        language = data[f'language.{language_key}']
         if any(text not in ep['tasks'] for text in language):
             raise ValueError(f'episode {index} task text failed official decoding')
         chunks = np.asarray(relative_loader.load_relative_actions(position))
@@ -202,15 +243,17 @@ def validate(dataset, groot_root, config_path):
         np.testing.assert_allclose(chunks, expected, atol=1e-6, rtol=0)
         frames = np.array(sorted({0, count // 2, count - 1}))
         videos = loader._load_video_data(index, frames)
-        if videos['wrist'].shape != (len(frames), 480, 640, 3):
-            raise ValueError(f'episode {index} decoded wrist shape {videos["wrist"].shape}')
+        for key in video_keys:
+            if videos[key].shape != (len(frames), 480, 640, 3):
+                raise ValueError(f'episode {index} decoded {key} shape {videos[key].shape}')
         checks.append({'episode_index': index, 'frames': count,
                        'decoded_frames': frames.tolist(), 'relative_chunks': len(chunks)})
         input_hashes[str(parquet.relative_to(dataset))] = hashlib.sha256(parquet.read_bytes()).hexdigest()
-        video = dataset / info['video_path'].format(
-            episode_chunk=index // info['chunks_size'], episode_index=index,
-            video_key=modality['video']['wrist']['original_key'])
-        input_hashes[str(video.relative_to(dataset))] = hashlib.sha256(video.read_bytes()).hexdigest()
+        for key in video_keys:
+            video = dataset / info['video_path'].format(
+                episode_chunk=index // info['chunks_size'], episode_index=index,
+                video_key=modality['video'][key]['original_key'])
+            input_hashes[str(video.relative_to(dataset))] = hashlib.sha256(video.read_bytes()).hexdigest()
         offset += count
         print(f'PASS episode {index}: {count} rows, wrist RGB, absolute targets, relative chunks', flush=True)
     if offset != info['total_frames']:
@@ -220,10 +263,10 @@ def validate(dataset, groot_root, config_path):
         input_hashes[f'meta/{name}'] = hashlib.sha256((meta / name).read_bytes()).hexdigest()
     config_dir = dataset / 'training'
     config_dir.mkdir(exist_ok=True)
-    config_copy = config_dir / 'door_wrist_n17.py'
+    config_copy = config_dir / config_path.name
     if config_copy.resolve() != config_path.resolve():
         shutil.copyfile(config_path, config_copy)
-    input_hashes['training/door_wrist_n17.py'] = hashlib.sha256(config_copy.read_bytes()).hexdigest()
+    input_hashes[f'training/{config_path.name}'] = hashlib.sha256(config_copy.read_bytes()).hexdigest()
     report = {
         'official_n1_7_loader_verified': True, 'status': 'passed',
         'official_commit': commit, 'verified_at_utc': stamp,
@@ -232,6 +275,7 @@ def validate(dataset, groot_root, config_path):
         'episodes': len(checks), 'frames': offset, 'checks': checks,
         'input_sha256': input_hashes, 'model_training_executed': False,
         'validated_config_contract': config_contract,
+        'statistics_override': stats_override,
         'scope': 'official statistics, every numeric row/relative chunk, three decoded RGB frames per episode',
     }
     write_json(report_path, report)
@@ -241,10 +285,11 @@ def validate(dataset, groot_root, config_path):
         export_report['official_validation_report'] = 'meta/n17_validation.json'
         write_json(export_path, export_report)
     (dataset / 'README.md').write_text(
-        '# ARX door — single-wrist GR00T N1.7 dataset\n\n'
+        f'# ARX door — GR00T N1.7 dataset ({", ".join(video_keys)})\n\n'
         f'{len(checks)} successful generated episodes, {offset} frames at 30 Hz.\n\n'
-        'LeRobot v2.1; wrist RGB only; absolute joint1..joint6 radians and joint7 metres. '
-        'Use training/door_wrist_n17.py: relative arm targets, absolute gripper, horizon 16.\n\n'
+        f'LeRobot v2.1; RGB {", ".join(video_keys)}; language {language_key}; absolute '
+        'joint1..joint6 radians and joint7 metres. '
+        f'Use training/{config_path.name}: relative arm targets, absolute gripper, horizon 16.\n\n'
         f'Official loader and statistics verified against NVIDIA Isaac-GR00T {commit}. '
         'See meta/n17_validation.json for runtime, input hashes and validation coverage.\n\n'
         'No model training was performed. This small, narrow-position pilot is not '
@@ -258,10 +303,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dataset', type=Path, required=True)
     parser.add_argument('--groot-root', type=Path, required=True)
-    parser.add_argument('--config', type=Path, default=ROOT / 'configs/door_wrist_n17.py')
+    parser.add_argument('--config', type=Path, default=ROOT / 'configs/dataset/door_wrist_n17.py')
+    parser.add_argument('--gripper-state-range', type=float, nargs=2, metavar=('LOW', 'HIGH'),
+                        help='normalize state.gripper over this physical range, e.g. 0 0.028')
     args = parser.parse_args()
     try:
-        report = validate(args.dataset.resolve(), args.groot_root.resolve(), args.config.resolve())
+        report = validate(args.dataset.resolve(), args.groot_root.resolve(), args.config.resolve(),
+                          gripper_state_range=args.gripper_state_range)
     except (ValueError, KeyError, OSError, AssertionError, ImportError, subprocess.SubprocessError) as error:
         report_path = args.dataset / 'meta/n17_validation.json'
         if report_path.parent.is_dir():

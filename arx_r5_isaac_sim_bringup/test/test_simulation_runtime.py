@@ -83,7 +83,7 @@ def test_standalone_launcher_selects_abi_by_actual_sim(sim_python, sim, python, 
         'PYTHONPATH': path,
     })
     result = subprocess.run(
-        ['bash', str(ROOT / 'scripts/run_isaac_sim.sh'), '--no-ros', '--headless'],
+        ['bash', str(ROOT / 'scripts/ros/run_isaac_sim.sh'), '--no-ros', '--headless'],
         env=environment, text=True, capture_output=True,
     )
     assert (result.returncode == 0) is accepted, result.stderr
@@ -100,7 +100,7 @@ def test_standalone_launcher_keeps_selected_ros_bridge(sim_python, sim, python):
     environment, bridges = sim_python
     environment.update({'TEST_SIM_VERSION': sim, 'TEST_PYTHON_VERSION': python})
     result = subprocess.run(
-        ['bash', str(ROOT / 'scripts/run_isaac_sim.sh'), '--headless'],
+        ['bash', str(ROOT / 'scripts/ros/run_isaac_sim.sh'), '--headless'],
         env=environment, text=True, capture_output=True,
     )
     assert result.returncode == 0, result.stderr

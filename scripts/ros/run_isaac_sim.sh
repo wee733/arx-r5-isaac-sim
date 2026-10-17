@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 package_source="${repo_root}/arx_r5_isaac_sim_bringup"
 python_bin="${ISAAC_SIM_PYTHON:-python}"
 use_ros=true

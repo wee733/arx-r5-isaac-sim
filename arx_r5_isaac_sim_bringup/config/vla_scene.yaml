@@ -16,7 +16,7 @@ robot:
   world_frame: world
   base_frame: base_link
   # Column-mounted pose: 0.35 m above the floor, Ry(+15 deg) forward pitch.
-  # scripts/author_vla_scene.py writes these exact values into the USD, so the
+  # scripts/vla/author_vla_scene.py writes these exact values into the USD, so the
   # scene and this contract cannot drift apart the way the AprilTag scene did.
   expected_world_to_base_translation: [-0.2, 0.0, 0.35]
   expected_world_to_base_rotation: [0.0, 0.1305261922, 0.0, 0.9914448614]

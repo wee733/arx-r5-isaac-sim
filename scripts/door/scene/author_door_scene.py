@@ -123,7 +123,7 @@ def author(args):
 def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', type=Path, default=PACKAGE / 'config/door_scene.yaml')
+    parser.add_argument('--config', type=Path, default=ROOT / 'configs/scene/door_scene.yaml')
     parser.add_argument('--output', type=Path, default=ROOT / 'generated/door/scene.usd')
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--episode-index', type=int, default=0)

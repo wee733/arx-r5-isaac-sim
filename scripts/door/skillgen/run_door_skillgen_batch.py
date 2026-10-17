@@ -145,6 +145,8 @@ def run_trial(trial, args, environment: dict, sim_environment: dict) -> dict:
     ]
     if args.urdf:
         command.extend(['--urdf', str(args.urdf.resolve())])
+    if getattr(args, 'generation_profile', None):
+        command.extend(['--generation-profile', str(args.generation_profile.resolve())])
     with (trial.output_dir / 'generation.log').open('w') as log:
         process = run_process(command, env=sim_environment, cwd=ROOT, stdout=log,
                               stderr=subprocess.STDOUT, timeout=args.timeout_s + 180)
@@ -214,6 +216,8 @@ def main() -> int:
     parser.add_argument('--render-schedule', choices=['legacy', 'pre_action'], default='pre_action',
                         help='camera render timing; legacy is available for historical replay')
     parser.add_argument('--timeout-s', type=float, default=900)
+    parser.add_argument('--generation-profile', type=Path,
+                        help='data v2 profile (e.g. configs/skillgen/data_v2.json)')
     args = parser.parse_args()
     if args.max_trials is not None and args.max_trials <= 0:
         parser.error('--max-trials must be positive')
@@ -253,6 +257,11 @@ def main() -> int:
             configuration['allow_agent_reviewed_seeds'] = True
         if args.radius_m is not None:
             configuration['radius_m'] = args.radius_m
+        if args.generation_profile:
+            from arx_door.skillgen.recovery import load_generation_profile
+            configuration['generation_profile'] = {
+                'path': str(args.generation_profile.resolve()),
+                'contents': load_generation_profile(args.generation_profile)}
         report = open_batch(args.output_root, trials, resume=args.resume, runtime=runtime,
                             configuration=configuration)
     except (OSError, RuntimeError, ValueError) as error:

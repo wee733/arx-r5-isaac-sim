@@ -37,7 +37,7 @@ def generate_tag(destination: Path, tag_id: int) -> None:
 
 def main() -> None:
     """Generate source and destination textures beside the package."""
-    repository_root = Path(__file__).resolve().parents[1]
+    repository_root = Path(__file__).resolve().parents[2]
     asset_directory = (
         repository_root / 'arx_r5_isaac_sim_bringup' / 'assets' / 'apriltag'
     )

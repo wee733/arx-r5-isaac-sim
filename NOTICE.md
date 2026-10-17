@@ -36,6 +36,6 @@ and the Isaac Sim 5.1 ROS 2 MoveIt sample architecture. Isaac Sim, Isaac ROS
 cuMotion, ROS 2, MoveIt, and `topic_based_ros2_control` retain their respective
 licenses.
 
-`dependencies.repos` pins but does not redistribute PickNik Robotics'
+`dependencies/ros.repos` pins but does not redistribute PickNik Robotics'
 `topic_based_ros2_control`; its source remains under its upstream BSD-3-Clause
 license when imported into a workspace.

@@ -20,7 +20,7 @@ fi
 tool="${1:?usage: run_dataset_tool.sh <export_door_lerobot.py|validate_door_n17.py> [args...]}"
 shift
 case "${tool}" in
-  export_door_lerobot.py|validate_door_n17.py) ;;
+  export_door_lerobot.py|validate_door_n17.py|audit_stage_prompter.py|build_v2_bundle.py) ;;
   *) echo "unknown dataset tool: ${tool}" >&2; exit 2 ;;
 esac
 # Never mix ROS or Isaac Sim Python packages into the data validator.

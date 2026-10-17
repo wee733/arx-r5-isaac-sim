@@ -55,6 +55,8 @@ parser.add_argument('--physics-profile', choices=PHYSICS_PROFILES, default='lab_
                     help='source_cpu selects source CPU PhysX/MBP/CCD; default preserves Lab physics')
 parser.add_argument('--dataset-split', choices=('candidate', 'holdout', 'diagnostic'),
                     default='candidate')
+parser.add_argument('--generation-profile', type=Path,
+                    help='data v2 profile: planner path mode, recovery perturbation, ego camera')
 parser.add_argument(
     '--smoke-only',
     action='store_true',
@@ -104,6 +106,11 @@ from arx_door.skillgen.compat import (  # noqa: E402
     as_torch, quaternion_from_xyzw, quaternion_to_xyzw,
 )
 from arx_door.skillgen.generator import DoorDataGenerator  # noqa: E402
+from arx_door.skillgen.cumotion_planner import DoorCuMotionPlannerConfig  # noqa: E402
+from arx_door.skillgen.recovery import (  # noqa: E402
+    RecoveryProfile, load_generation_profile, sample_perturbation, trial_key,
+)
+from arx_door.scene.ego_camera import ego_camera_cfg, ego_mount  # noqa: E402
 from arx_door.contract import (  # noqa: E402
     EDGE_REGRASP, evaluate_door_success, final_contact_object,
 )
@@ -188,6 +195,13 @@ def _open_stage(scene: Path):
     return stage
 
 
+GENERATION_PROFILE = load_generation_profile(args_cli.generation_profile)
+EGO_MOUNT = (ego_mount(GENERATION_PROFILE['ego_camera'])
+             if 'ego_camera' in GENERATION_PROFILE else None)
+# Extra cameras rendered at each pre-action observation besides the wrist.
+STATIC_CAMERAS = ('overview_camera',) + (('ego_camera',) if EGO_MOUNT else ())
+
+
 def _configure_environment() -> tuple[object, object]:
     os.environ['ARX_DOOR_SKILLGEN_SCENE'] = str(args_cli.scene.resolve())
     os.environ['ARX_DOOR_SKILLGEN_MANIFEST'] = str(
@@ -224,6 +238,10 @@ def _configure_environment() -> tuple[object, object]:
         # Keep physics/control dt unchanged and avoid an unrecorded RTX frame
         # after the same action. Reset re-renders remain enabled.
         cfg.scene.overview_camera.update_period = 0.0
+    if EGO_MOUNT is not None:
+        placement = json.loads(args_cli.scene_manifest.read_text())['placement']
+        cfg.scene.ego_camera = ego_camera_cfg(
+            placement, EGO_MOUNT, quaternion_from_xyzw=quaternion_from_xyzw)
     configure_physics_profile(cfg.sim, args_cli.physics_profile, SOURCE_PHYSICS_SETTINGS)
     return cfg, success_term
 
@@ -287,7 +305,8 @@ def _sync_wrist_camera(env, *, render=True):
     if render or args_cli.render_schedule == 'legacy':
         sensor.update(0., force_recompute=True)
     if render and args_cli.render_schedule == 'pre_action':
-        env.scene.sensors['overview_camera'].update(0., force_recompute=True)
+        for name in STATIC_CAMERAS:
+            env.scene.sensors[name].update(0., force_recompute=True)
 
 
 def _camera_mount_diagnostics(env) -> dict:
@@ -344,9 +363,10 @@ def _run_attempt(env, success_term, planner, writers, audit) -> dict:
         raise ValueError(f'expected one seed episode, found {pool.num_datagen_infos}')
     generator = DoorDataGenerator(
         env=env, src_demo_datagen_info_pool=pool, motion_planner=planner,
-        source_dataset_path=args_cli.input_file,
+        source_dataset_path=args_cli.input_file, perturbation=audit.get('recovery_perturbation'),
     )
     audit['skill_entrance_adjustments'] = generator.entrance_adjustments
+    audit['recovery'] = generator.recovery_audit
 
     async def generate_once():
         return await generator.generate(
@@ -571,6 +591,9 @@ def _run_on_stage() -> int:
             args_cli.artifact_dir / 'overview.mp4', 960, 720
         ),
     }
+    if EGO_MOUNT is not None:
+        writers['ego_camera'] = RawVideoWriter(
+            args_cli.artifact_dir / 'ego.mp4', int(EGO_MOUNT['width']), int(EGO_MOUNT['height']))
     runner = SubprocessCuMotionRunner(
         paths.CUMOTION_LAUNCHER,
         args_cli.artifact_dir / 'cumotion',
@@ -580,7 +603,12 @@ def _run_on_stage() -> int:
         env.scene['robot'],
         runner=runner,
         kinematics=ArmKinematics(args_cli.urdf),
+        config=DoorCuMotionPlannerConfig(**GENERATION_PROFILE.get('planner', {})),
     )
+    perturbation = (sample_perturbation(RecoveryProfile.from_json(GENERATION_PROFILE['recovery']),
+                                        trial_key(args_cli.trial_seed, args_cli.angle_deg,
+                                                  args_cli.visual_seed))
+                    if 'recovery' in GENERATION_PROFILE else None)
     results = None
     error = None
     audit = {
@@ -597,6 +625,7 @@ def _run_on_stage() -> int:
         'camera_frames_verified': 0,
         'max_camera_position_error_m': 0.0,
         'max_camera_rotation_error_rad': 0.0,
+        'recovery_perturbation': perturbation,
     }
     success = False
     acceptance_reasons = []
@@ -693,6 +722,8 @@ def _run_on_stage() -> int:
         'behavior_family': behavior_family,
         'final_contact_object': contact_object,
         'video_alignment': 'pre_action_observation_at_30_hz',
+        **({'ego_camera': {**EGO_MOUNT, 'frames': writers['ego_camera'].frames,
+                           'static_in_world': True}} if EGO_MOUNT is not None else {}),
         'camera_verification': {
             'schema': 'arx-wrist-camera-live-mount-v2',
             'mount_link': 'link6',
@@ -716,6 +747,9 @@ def _run_on_stage() -> int:
             'rgb_storage': 'streamed_mp4_not_retained_in_generator_observations',
             'render_schedule': args_cli.render_schedule,
             'actual_sdk_clocks': render_clock,
+            'generation_profile': (str(args_cli.generation_profile.resolve())
+                                   if args_cli.generation_profile else None),
+            'generation_profile_contents': GENERATION_PROFILE or None,
         },
         'planner': planner.get_planner_info(),
         'artifacts': {
@@ -725,6 +759,8 @@ def _run_on_stage() -> int:
             'hdf5': str(selected_hdf5.resolve()),
             'wrist_video': str((args_cli.artifact_dir / 'wrist.mp4').resolve()),
             'overview_video': str((args_cli.artifact_dir / 'overview.mp4').resolve()),
+            **({'ego_video': str((args_cli.artifact_dir / 'ego.mp4').resolve())}
+               if EGO_MOUNT is not None else {}),
             'cumotion': str((args_cli.artifact_dir / 'cumotion').resolve()),
         },
     }

@@ -30,7 +30,7 @@ def main():
     raise RuntimeError(
         'This pilot recipe is withdrawn after collision review: wrist-camera '
         'geometry is missing and local IK segments are not collision validated. '
-        'See docs/door_collision_review.md. No simulator commands were sent.')
+        'See docs/door/door_collision_review.md. No simulator commands were sent.')
     if not 15 < args.final_angle <= 35:
         parser.error('pilot final angle must be above 15 and at most 35 degrees')
     root = Path(__file__).resolve().parents[3]

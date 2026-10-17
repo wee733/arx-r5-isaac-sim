@@ -68,7 +68,7 @@ def stage_fixture():
     if not SCENE_USD.is_file():
         pytest.skip(
             f'{SCENE_USD.name} has not been generated; '
-            'run scripts/run_author_vla_scene.sh'
+            'run scripts/vla/run_author_vla_scene.sh'
         )
     stage = Usd.Stage.Open(str(SCENE_USD), Usd.Stage.LoadNone)
     assert stage is not None, f'failed to open {SCENE_USD}'

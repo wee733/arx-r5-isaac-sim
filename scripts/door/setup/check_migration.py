@@ -15,10 +15,10 @@ BASE_REQUIRED = {
     'generated/door_teaching/upright02/candidate_006/episode.json',
     'generated/door_teaching/upright02/candidate_006/trajectory.npz',
     'generated/door_skillgen/seed/candidate_006.hdf5',
-    'dependencies.repos', 'dependencies-isaac-ros.repos',
-    'dependencies-skillgen.repos', 'configs/door_migration_samples.json',
-    'patches/isaac_ros_manipulation.patch',
-    'patches/isaac_ros_manipulation_arx_r5a.patch',
+    'dependencies/ros.repos', 'dependencies/isaac_ros.repos',
+    'dependencies/skillgen.repos', 'configs/runtime/door_migration_samples.json',
+    'dependencies/patches/isaac_ros_manipulation.patch',
+    'dependencies/patches/isaac_ros_manipulation_arx_r5a.patch',
     # Local-only (gitignored); restore from the migration backup, not git.
     'docs/migration.md',
     'arx_r5_isaac_sim_bringup/assets/door/door.usda',
@@ -36,7 +36,7 @@ def inspect_migration(root: Path) -> dict:
     errors = []
     warnings = []
     required = set(BASE_REQUIRED)
-    samples_path = root / 'configs/door_migration_samples.json'
+    samples_path = root / 'configs/runtime/door_migration_samples.json'
     if samples_path.is_file():
         samples = json.loads(samples_path.read_text())
         for attempt in samples['generated_attempts']:

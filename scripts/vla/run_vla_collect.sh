@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 workspace_root="${ARX_WORKSPACE_ROOT:-$(dirname "${repo_root}")}"
 ros_setup="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
 default_isaac_ros_ws="${workspace_root}/isaac_ros_ws"
@@ -19,7 +19,7 @@ sim_ws="${ARX_SIM_WS:-${workspace_root}/arx_r5_sim_ws}"
 isaac_ros_python_site="${ISAAC_ROS_PYTHON_SITE:-/var/lib/isaac-ros-cli/isaac-ros/lib/python3.12/site-packages}"
 wait_seconds="${ARX_VLA_WAIT_SECONDS:-30}"
 graph_check_seconds="${ARX_VLA_GRAPH_CHECK_SECONDS:-2}"
-sim_start_command="${repo_root}/scripts/run_vla_sim.sh"
+sim_start_command="${repo_root}/scripts/vla/run_vla_sim.sh"
 
 usage() {
   cat <<EOF

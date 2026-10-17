@@ -20,7 +20,7 @@ import zipfile
 
 
 ROOT = Path(__file__).resolve().parents[3]
-CONFIG = ROOT / 'configs/cumotion_runtime.json'
+CONFIG = ROOT / 'configs/runtime/cumotion_runtime.json'
 
 
 def resolve_wheel(explicit, config):

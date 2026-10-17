@@ -108,6 +108,8 @@ class DoorSceneCfg(InteractiveSceneCfg):
         update_period=1.0 / 30.0,
         update_latest_camera_pose=True,
     )
+    # Optional body-fixed second view; see arx_door.scene.ego_camera.
+    ego_camera: CameraCfg | None = None
     left_panel_contact = ContactSensorCfg(
         prim_path='/R5a/link7',
         update_period=0.0,
