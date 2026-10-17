@@ -1,3 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "arx-door"
+version = "0.1.0"
+description = "ARX R5A door-opening data pipeline on Isaac Sim and AutoData"
+requires-python = ">=3.11"
+# The simulation stack (numpy, h5py, torch, omni.*, isaaclab, autodata_*)
+# comes from the pinned Isaac Sim/AutoData container, not from PyPI. Keeping
+# this list empty makes `pip install -e .` safe in CI and leaves version
+# resolution where it is actually controlled: dependencies/autodata.lock.json.
+dependencies = []
+
+[tool.setuptools.packages.find]
+# Only the first-party adapter package is installed. third_party/AutoData is a
+# submodule with its own setup.py and must never be collected here.
+include = ["arx_door*"]
+
 [tool.pytest.ini_options]
 # Door pipeline tests run in the selected Isaac venv; ROS package tests
 # live in arx_r5_isaac_sim_bringup/test and run in a ROS-sourced Python.

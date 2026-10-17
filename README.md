@@ -13,8 +13,12 @@
 
 *ARX R5A 在 RViz 与 Isaac Sim 5.1 中的仿真画面。*
 
-[English](README.en.md) · [AprilTag 抓放 Demo](docs/apriltag-pick-place-demo.md) ·
-[架构说明](docs/architecture.md) · [模型验收](docs/model-validation.md)
+[English](README.en.md) · [AprilTag 抓放 Demo](docs/ros/apriltag-pick-place-demo.md) ·
+[架构说明](docs/ros/architecture.md) · [模型验收](docs/ros/model-validation.md)
+
+**AutoData 开发入口：[固定依赖与目录结构](dependencies/README.md) → [生成与验收](scripts/door/autodata/README.md)。**
+后续开门数据生成以 AutoData 为主线；官方源码固定在 `third_party/AutoData`，ARX 适配留在本仓库。
+目前完成依赖结构接入，官方示例和 ARX 运行时验收仍待完成。
 
 **新电脑迁移先看 [迁移与恢复手册](docs/migration.md)。** 最新开门示教、SkillGen
 和 GR00T 数据功能在 `groot_date_generate` 分支；克隆后必须执行 `git lfs pull`。
@@ -24,11 +28,14 @@
 命令在 `scripts/door/<阶段>/`，测试在 `tests/`（`scripts/door/run_tests.sh`）。
 `docs/`、`tests/` 与门资产 `arx_r5_isaac_sim_bringup/assets/door/` 只保存在本地、不进 git，
 新机器需从迁移备份拷贝；`scripts/door/setup/check_migration.py` 会检查它们是否齐全。
-细节：[迁移与双版本运行](docs/migration.md) → [SkillGen 采集](docs/door_skillgen_usage.md) →
-[数据质量与增广门槛](docs/data-quality.md)。下文"仓库结构"之后的内容描述 ROS bringup 子系统。
+细节：[迁移与双版本运行](docs/migration.md) → [SkillGen 采集](docs/door/door_skillgen_usage.md) →
+[数据质量与增广门槛](docs/door/data-quality.md)。下文"仓库结构"之后的内容描述 ROS bringup 子系统。
 Sim 5.1 / Lab 2.3 与 Sim 6.1 / Lab 3.0 使用独立 Python 环境和明确的 API 适配；
-实际验收状态记录在 [运行配置](configs/isaac_runtime_profiles.json) 与每次 trial 的结果中。
-当前先恢复和增广真实物理轨迹，LeRobot / GR00T 训练留待数据达到验收门槛后进行。
+实际验收状态记录在 [运行配置](configs/runtime/isaac_runtime_profiles.json) 与每次 trial 的结果中。
+**GR00T 后续评估入口：[策略推理与闭环手册](scripts/door/policy/README.md)**。
+2026-10-15，旋钮开门 N1.7 微调 job 4075 已完成 10000 步，最终模型已取回；
+服务端已完成 20 条留出轨迹的开环评估，本机 GPU 推理已通过，仿真闭环另行记录。
+按功能找入口请看 [开门功能索引](scripts/door/README.md)。下面的 2026-10-02 数据与运行记录为历史阶段。
 
 当前新增候选已完成 **101 条不同物理轨迹、166,206 帧、约 92.3 分钟**，覆盖
 两种行为、四种真实外观及 −30°至 +30°。这些数据通过物理、双视频解码和阶段画面
@@ -290,7 +297,7 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 "$ISAAC_SIM_PYTHON" -c 'import isaacsim; print(isaacsim.__file__)'
 cd "$ISAAC_ROS_SRC/arx-r5-isaac-sim"
-./scripts/run_isaac_sim.sh
+./scripts/ros/run_isaac_sim.sh
 ```
 
 成功时会看到：
@@ -306,7 +313,7 @@ rclpy loaded
 无界面运行：
 
 ```bash
-./scripts/run_isaac_sim.sh --headless
+./scripts/ros/run_isaac_sim.sh --headless
 ```
 
 ### 终端 2：cuMotion + MoveIt + RViz
@@ -437,7 +444,7 @@ conda activate isaaclab
 export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
-./scripts/run_zedx_sim.sh
+./scripts/ros/run_zedx_sim.sh
 ```
 
 终端 2 进入 `(isaac-ros)` shell，第一次先禁止自动运动：
@@ -446,13 +453,13 @@ cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
 export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
-./scripts/run_zedx_demo.sh auto_start:=False
+./scripts/ros/run_zedx_demo.sh auto_start:=False
 ```
 
 只读验收：
 
 ```bash
-./scripts/check_ros_graph.sh --zedx
+./scripts/ros/check_ros_graph.sh --zedx
 ```
 
 authored USD 已验证 ZED X 图像、CameraInfo、TF 和官方 CUDA cuAprilTag 感知；ZED
@@ -470,7 +477,7 @@ conda activate isaaclab
 export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
-./scripts/run_d455_sim.sh
+./scripts/ros/run_d455_sim.sh
 ```
 
 终端 2 的 `(isaac-ros)` shell：
@@ -479,7 +486,7 @@ cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
 export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
-./scripts/run_d455_demo.sh auto_start:=False
+./scripts/ros/run_d455_demo.sh auto_start:=False
 ```
 
 `run_d455_sim.sh` 会把机械臂初始化到一个保留的 D455 启动关节位
@@ -501,7 +508,7 @@ adapter 会过滤并缓存稳定的 `base_link` 目标；行为树开始后，cu
 只读验收：
 
 ```bash
-./scripts/check_ros_graph.sh --d455
+./scripts/ros/check_ros_graph.sh --d455
 ```
 
 确认检测、TF、controller 和规划服务均正常后，去掉 `auto_start:=False` 即可自动发送
@@ -521,7 +528,7 @@ action 和三个 controller 是否为 `active`：
 ```bash
 export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
-"$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim/scripts/check_ros_graph.sh"
+"$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim/scripts/ros/check_ros_graph.sh"
 ```
 
 正常输出末尾为：
@@ -573,21 +580,37 @@ flowchart LR
 
 ## 仓库结构
 
+按“开门数据流水线 / ROS 仿真 / VLA 采集”三个子系统分开，跨阶段复用的代码和配置集中放置。
+
 ```text
 arx-r5-isaac-sim/
-├── arx_r5_isaac_sim_bringup/
-│   ├── arx_r5_isaac_sim_bringup/  # Isaac Sim standalone 与接口契约
-│   ├── launch/                    # cuMotion/MoveIt/ros2_control bringup
-│   ├── urdf/                      # 仿真专用 TopicBasedSystem xacro
-│   ├── config/                    # controller 与初始姿态
-│   └── test/                      # 不启动 GPU 的契约测试
-├── arx_door/                      # 开门数据流水线库（见 docs/pipeline.md）
-├── tests/                         # 开门流水线测试
-├── pictures/                      # GitHub 项目介绍图
-├── scripts/                       # ROS 启动、健康检查与模型审计
-│   └── door/                      # 开门流水线命令，按阶段分目录
-├── docs/                          # 架构和模型验收说明
-└── dependencies.repos             # 固定外部依赖版本
+├── arx_door/                      # 开门流水线库（可复用代码，见 docs/pipeline.md）
+│   ├── contract.py quality.py     #   跨阶段：任务语义、物理/视频质量门槛
+│   ├── kinematics.py runtime.py   #   跨阶段：运动学、运行环境与解释器选择
+│   ├── paths.py files.py          #   跨阶段：脚本路径表、原子 JSON 读写
+│   ├── scene/                     #   阶段 1：场景摆位与 USD 资产
+│   ├── demos/                     #   阶段 2：专家示范审核与种子转换
+│   ├── skillgen/                  #   阶段 3：SkillGen 环境、批次与 campaign
+│   └── policy/                    #   模型观测/动作协议、闭环运行辅助
+├── scripts/
+│   ├── door/<阶段>/               # 开门流水线命令：setup scene demos skillgen dataset policy
+│   │                              #   planner diagnostics legacy；run_tests.sh 运行测试
+│   ├── ros/                       # Isaac Sim + ROS 2 启动、AprilTag demo、图检查
+│   ├── vla/                       # VLA 场景生成、采集与复位
+│   ├── model/                     # URDF/XRDF 模型审计
+│   └── run_door_skillgen.sh       # 旧路径转发器（已有 campaign 队列引用，保留）
+├── configs/
+│   ├── runtime/                   # 固定 Isaac/cuMotion 运行配置、迁移样本清单
+│   ├── scene/ dataset/            # 门场景参数、GR00T N1.7 模态配置
+│   ├── policy/                    # 模型推理、固定评估场景与随机化范围
+│   └── door_augmentation_plan.json # 增广计划（已有队列记录其绝对路径，保持原位）
+├── dependencies/                  # 外部源码 .repos、上游补丁、Python 依赖锁定
+├── arx_r5_isaac_sim_bringup/      # ROS 2 包：bringup、AprilTag、VLA 采集与机器人/门资产
+├── tests/<阶段>/                  # 开门流水线测试（scene demos skillgen dataset shared）
+├── docs/                          # pipeline.md migration.md 与 door/ ros/ vla/ 专题文档
+├── generated/                     # 运行环境与采集产物（仅保留选定样本入库）
+│   └── door_policy/               # 模型/数据引用、训练结果入口、独立评估 runs
+└── pictures/                      # GitHub 项目介绍图
 ```
 
 ## 开发与离线验证
@@ -602,7 +625,7 @@ python -m pytest -q arx_r5_isaac_sim_bringup/test/test_contract.py
 导出可检查的 USD：
 
 ```bash
-./scripts/run_isaac_sim.sh \
+./scripts/ros/run_isaac_sim.sh \
   --headless --no-ros --exit-after-build \
   --save-usd generated/arx_r5a_scene.usda
 ```
@@ -611,10 +634,10 @@ USD 是生成物，默认不提交。仓库已为 `.usd`、`.usda`、`.usdc`、`
 配置 Git LFS。
 
 模型 FK 和 XRDF sphere/mesh 审计见
-[模型验收说明](docs/model-validation.md)；脚本支持文本或 JSON 输出：
+[模型验收说明](docs/ros/model-validation.md)；脚本支持文本或 JSON 输出：
 
 ```bash
-./scripts/audit_model.py \
+./scripts/model/audit_model.py \
   --description-share /path/to/isaac_ros_manipulation_arx_r5a_robot_description \
   --vendor-urdf /path/to/X5liteaa0.urdf \
   --output json

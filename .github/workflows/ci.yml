@@ -9,6 +9,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      # The gitlink is in the tree, so this needs no submodule checkout or network.
+      # Nested Arena/Lab pins are skipped until AutoData itself is initialised.
+      - name: Verify dependency pins
+        run: python3 dependencies/verify_pins.py
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "source": {
+    "path": "third_party/AutoData",
+    "url": "https://github.com/isaac-sim/AutoData.git",
+    "commit": "953cd37778abd79f1c4621aa20183b0c5f9096a9"
+  },
+  "submodules": {
+    "arena": {
+      "path": "submodules/IsaacLab-Arena",
+      "commit": "c7edf3a9d5d8276565208f72422f8f8a0806d6cf"
+    },
+    "lab": {
+      "path": "submodules/IsaacLab-Arena/submodules/IsaacLab",
+      "commit": "91a0906f93802eb859192dcb0bca879f891e92d6"
+    }
+  },
+  "runtime": {
+    "base_image": "nvcr.io/nvidia/isaac-sim:6.1.0",
+    "image": "arx-autodata:953cd37778ab-sim6.1-curobo",
+    "container": "arx-autodata-sim61"
+  }
+}

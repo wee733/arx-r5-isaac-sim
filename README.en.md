@@ -13,8 +13,12 @@
 
 *ARX R5A simulation shown in RViz and Isaac Sim 5.1.*
 
-[中文](README.md) · [AprilTag pick-and-place demo](docs/apriltag-pick-place-demo.md) ·
-[Architecture](docs/architecture.md) · [Model validation](docs/model-validation.md)
+[中文](README.md) · [AprilTag pick-and-place demo](docs/ros/apriltag-pick-place-demo.md) ·
+[Architecture](docs/ros/architecture.md) · [Model validation](docs/ros/model-validation.md)
+
+**AutoData: [pinned dependencies and layout](dependencies/README.md) → [generation guide](scripts/door/autodata/README.md).**
+Future door-data generation uses AutoData, pinned under `third_party/AutoData`, with ARX adapters in this repository.
+Dependency integration is in place; official-example and ARX runtime validation remain pending.
 
 **新电脑迁移请先阅读 [迁移与恢复手册](docs/migration.md)。** 最新开门与 GR00T
 功能位于 `groot_date_generate` 分支，场景和样本需要执行 `git lfs pull`。
@@ -259,7 +263,7 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 "$ISAAC_SIM_PYTHON" -c 'import isaacsim; print(isaacsim.__file__)'
 cd "$SIM_REPO"
-./scripts/run_isaac_sim.sh
+./scripts/ros/run_isaac_sim.sh
 ```
 
 The script locates the Isaac Sim installation from the selected Python and
@@ -270,7 +274,7 @@ reports `/R5a/root_joint`, joints `joint1` through `joint8`, and the
 For a headless session, add `--headless`:
 
 ```bash
-./scripts/run_isaac_sim.sh --headless
+./scripts/ros/run_isaac_sim.sh --headless
 ```
 
 ### Terminal 2: cuMotion, MoveIt, ros2_control, and RViz
@@ -406,7 +410,7 @@ conda activate isaaclab
 export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
-./scripts/run_zedx_sim.sh
+./scripts/ros/run_zedx_sim.sh
 ```
 
 Terminal 2, inside the `(isaac-ros)` shell; disable automatic motion on the
@@ -416,13 +420,13 @@ first run:
 export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
-./scripts/run_zedx_demo.sh auto_start:=False
+./scripts/ros/run_zedx_demo.sh auto_start:=False
 ```
 
 Read-only acceptance check:
 
 ```bash
-./scripts/check_ros_graph.sh --zedx
+./scripts/ros/check_ros_graph.sh --zedx
 ```
 
 The authored USD has verified ZED X image, CameraInfo, TF, and official CUDA
@@ -444,7 +448,7 @@ conda activate isaaclab
 export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
-./scripts/run_d455_sim.sh
+./scripts/ros/run_d455_sim.sh
 ```
 
 Terminal 2, inside the `(isaac-ros)` shell:
@@ -453,7 +457,7 @@ Terminal 2, inside the `(isaac-ros)` shell:
 export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 cd "$HOME/workspace/isaac_ros_source/arx-r5-isaac-sim"
-./scripts/run_d455_demo.sh auto_start:=False
+./scripts/ros/run_d455_demo.sh auto_start:=False
 ```
 
 `run_d455_sim.sh` initializes the arm at a retained D455 startup joint seed:
@@ -480,7 +484,7 @@ the arm moves.
 Read-only acceptance check:
 
 ```bash
-./scripts/check_ros_graph.sh --d455
+./scripts/ros/check_ros_graph.sh --d455
 ```
 
 After perception, TF, controllers, and planning services pass inspection,
@@ -505,7 +509,7 @@ export SIM_REPO="$ISAAC_ROS_SRC/arx-r5-isaac-sim"
 export ROS_DOMAIN_ID=25
 export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
-"$SIM_REPO/scripts/check_ros_graph.sh"
+"$SIM_REPO/scripts/ros/check_ros_graph.sh"
 ros2 topic hz /isaac_joint_states
 ros2 topic hz /isaac_joint_commands
 ros2 topic echo /isaac_joint_states --once
@@ -539,14 +543,21 @@ execution. No rate output before clicking **Execute** is therefore expected.
 ```text
 arx-r5-isaac-sim/
 ├── arx_r5_isaac_sim_bringup/  # ROS package, launch, control, and simulation code
-├── scripts/                    # Isaac Sim launcher and ROS graph health check
+├── arx_door/                   # Door-opening data pipeline library (see docs/pipeline.md)
+├── scripts/
+│   ├── ros/                    # Isaac Sim launcher, camera demos, ROS graph health check
+│   ├── vla/                    # VLA scene authoring, collection, and reset
+│   ├── model/                  # URDF/XRDF model audit
+│   └── door/                   # Door pipeline commands, one folder per stage
+├── configs/                    # Runtime, scene, and dataset configuration
+├── dependencies/               # Pinned .repos files, upstream patches, Python locks
+├── tests/                      # Door pipeline tests, one folder per stage
 ├── pictures/                   # Project images
-├── docs/                       # Architecture and model-validation notes
-└── dependencies.repos          # Pinned external source dependencies
+└── docs/                       # Pipeline, migration, and door/ros/vla notes
 ```
 
-See [architecture.md](docs/architecture.md) for the interface design and
-[model-validation.md](docs/model-validation.md) for the known geometry, TCP,
+See [architecture.md](docs/ros/architecture.md) for the interface design and
+[model-validation.md](docs/ros/model-validation.md) for the known geometry, TCP,
 collision-mesh, and XRDF coverage limitations.
 
 ## Current scope
