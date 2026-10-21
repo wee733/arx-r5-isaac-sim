@@ -17,7 +17,7 @@ sim_python="${ISAAC_SIM_PYTHON:-$(python3 -c 'import json,sys; print(json.load(o
   "${repo_root}/generated/runtime/local.json" 2>/dev/null)}"
 data_python="${GROOT_DATA_PYTHON:-${repo_root}/generated/runtime/groot_data/.venv/bin/python}"
 tools="${repo_root}/generated/runtime/tools/usr"
-dataset_tests=(dataset/test_door_skillgen_lerobot.py dataset/test_door_n17_validation.py dataset/test_door_v2_export.py)
+dataset_tests=(dataset/test_door_skillgen_lerobot.py dataset/test_door_n17_validation.py dataset/test_door_v2_export.py dataset/test_autodata_alignment.py)
 status=0
 
 run_file() {

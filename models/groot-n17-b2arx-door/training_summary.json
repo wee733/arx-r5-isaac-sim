@@ -1,0 +1,81 @@
+{
+  "model": "nvidia/GR00T-N1.7-3B",
+  "official_commit": "dac54b313160c201c450f97df0fd74ebd379c892",
+  "checkpoint": "checkpoint-10000",
+  "slurm_job": 4311,
+  "job_state": "COMPLETED",
+  "exit_code": "0:0",
+  "started_at": "2026-10-20T12:41:57+08:00",
+  "completed_at": "2026-10-21T04:10:25+08:00",
+  "optimizer_steps": 10000,
+  "training_loss_last_three": [
+    0.0211,
+    0.023,
+    0.0223
+  ],
+  "training_loss_run_average": 0.09336050090789795,
+  "gpu_count": 2,
+  "micro_batch_per_gpu": 4,
+  "gradient_accumulation": 8,
+  "effective_batch": 64,
+  "learning_rate": 2e-05,
+  "train_episodes": 56,
+  "holdout_episodes": 16,
+  "train_frames": 68191,
+  "holdout_frames": 18884,
+  "holdout_sources": [
+    "G04",
+    "G05"
+  ],
+  "dataset_format": "LeRobot v2.1",
+  "parameters": {
+    "modules": {
+      "vision": {
+        "total": 406957056,
+        "trainable": 406957056
+      },
+      "language": {
+        "total": 1116542976,
+        "trainable": 1116542976
+      },
+      "diffusion": {
+        "total": 1091722240,
+        "trainable": 1091722240
+      },
+      "other": {
+        "total": 490876928,
+        "trainable": 490876928
+      },
+      "projector": {
+        "total": 37916800,
+        "trainable": 37916800
+      }
+    },
+    "frozen_parameters": [],
+    "lora_parameters": [],
+    "total": 3144016000,
+    "trainable": 3144016000
+  },
+  "first_backward_gradients": {
+    "projector": {
+      "parameter": "action_head.action_decoder.layer1.W",
+      "gradient_l2": 0.12480908632278442
+    },
+    "diffusion": {
+      "parameter": "action_head.model.timestep_encoder.timestep_embedder.linear_1.weight",
+      "gradient_l2": 0.012724744156002998
+    },
+    "vision": {
+      "parameter": "backbone.model.model.visual.patch_embed.proj.weight",
+      "gradient_l2": 0.05069604143500328
+    },
+    "language": {
+      "parameter": "backbone.model.model.language_model.embed_tokens.weight",
+      "gradient_l2": 0.016737068071961403
+    }
+  },
+  "full_checkpoint_structural_validation": "passed",
+  "heldout_model_evaluation_completed": false,
+  "closed_loop_evaluation_completed": false,
+  "lingbot_finetuning_completed": false
+}

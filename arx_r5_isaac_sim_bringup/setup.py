@@ -64,14 +64,6 @@ setup(
             glob('assets/meshes/*.obj'),
         ),
         (
-            os.path.join('share', package_name, 'assets', 'door'),
-            glob('assets/door/*.usd*') + glob('assets/door/*.md'),
-        ),
-        (
-            os.path.join('share', package_name, 'assets', 'door', 'textures'),
-            glob('assets/door/textures/*.png'),
-        ),
-        (
             os.path.join('share', package_name, 'launch'),
             glob('launch/*.launch.py'),
         ),

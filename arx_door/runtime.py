@@ -206,21 +206,11 @@ def usd_environment() -> dict[str, str]:
 
 
 def arx_description_dir() -> Path:
-    """Resolve an explicit or migrated ARX model without relying on old mounts."""
-    explicit = os.environ.get('ARX_DESCRIPTION_DIR')
-    if explicit:
-        candidate = Path(explicit).expanduser().resolve()
-        if not (candidate / URDF_RELATIVE).is_file():
-            raise RuntimeError(f'ARX_DESCRIPTION_DIR does not contain the ARX URDF: {candidate}')
-        return candidate
-    candidates = (
-        ROOT.parent / 'arx-r5-moveit/isaac_ros_manipulation_arx_r5a_robot_description',
-        ROOT.parent / 'B2ARX_Train_12DOF/Isaac_Ros_CuMotion_ArxR5a/isaac_ros_manipulation_arx_r5a_robot_description',
-    )
-    for candidate in candidates:
-        if (candidate / URDF_RELATIVE).is_file():
-            return candidate.resolve()
-    raise RuntimeError('ARX robot description not found; set ARX_DESCRIPTION_DIR')
+    """Return the project's ARX R5A model (URDF + cuMotion XRDF) under assets/."""
+    description = ROOT / 'assets/arx_r5a'
+    if not (description / URDF_RELATIVE).is_file():
+        raise RuntimeError(f'ARX URDF missing from the project assets: {description / URDF_RELATIVE}')
+    return description.resolve()
 
 
 def planning_urdf(explicit: str | Path | None = None) -> Path:
@@ -229,8 +219,7 @@ def planning_urdf(explicit: str | Path | None = None) -> Path:
     expected = (description / URDF_RELATIVE).resolve()
     selected = Path(explicit).expanduser().resolve() if explicit else expected
     if selected != expected:
-        raise RuntimeError('Planning URDF differs from the native cuMotion model; '
-                           'set ARX_DESCRIPTION_DIR to the matching URDF/XRDF package: '
+        raise RuntimeError('Planning URDF differs from the native cuMotion model in assets/arx_r5a: '
                            f'{selected} != {expected}')
     if not (description / XRDF_RELATIVE).is_file():
         raise RuntimeError(f'Native cuMotion XRDF not found: {description / XRDF_RELATIVE}')

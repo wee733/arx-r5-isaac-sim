@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 
 
-# Generated scenes record texture paths under this package-relative suffix, so
-# the asset directory itself stays at its historical location.
+# Scenes recorded before the move reference arx_r5_isaac_sim_bringup/assets/<suffix>;
+# the same suffix now resolves under the project assets/ directory.
 from ..paths import ASSETS as PROJECT_ASSETS
 
 

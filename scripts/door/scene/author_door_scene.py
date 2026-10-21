@@ -73,7 +73,7 @@ def author(args):
     UsdGeom.SetStageMetersPerUnit(stage, 1.0)
     stage.SetDefaultPrim(stage.GetPrimAtPath('/World'))
     door = UsdGeom.Xform.Define(stage, '/World/Door')
-    asset = PACKAGE / 'assets/door/door.usda'
+    asset = ROOT / 'assets/door/door.usda'
     door.GetPrim().GetReferences().AddReference(os.path.relpath(asset, output.parent))
     reference = stage.GetPrimAtPath(handle_path)
     if not reference:

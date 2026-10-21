@@ -219,9 +219,8 @@ def _source_tree_candidates() -> list[Path]:
                 parent / 'arx-r5-moveit' / DESCRIPTION_PACKAGE,
                 parent / 'isaac_ros_manipulation' / 'arx-r5-moveit' /
                 DESCRIPTION_PACKAGE,
-                # Migrated workspace layout used by the door pipeline.
-                parent / 'B2ARX_Train_12DOF' / 'Isaac_Ros_CuMotion_ArxR5a' /
-                DESCRIPTION_PACKAGE,
+                # Project checkout: the same model the door pipeline uses.
+                parent / 'assets' / 'arx_r5a',
             ]
         )
     return candidates

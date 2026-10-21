@@ -10,3 +10,10 @@
 *.npz filter=lfs diff=lfs merge=lfs -text
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 *.parquet filter=lfs diff=lfs merge=lfs -text
+
+# Final inference weights only; optimizer states remain outside Git
+/models/groot-n17-b2arx-door/*.safetensors filter=lfs diff=lfs merge=lfs -text
+
+# Preserve upstream license bytes and patch context lines verbatim
+/models/groot-n17-b2arx-door/LICENSE -whitespace
+/dependencies/patches/*.patch -whitespace

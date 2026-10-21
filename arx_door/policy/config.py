@@ -10,7 +10,7 @@ from pathlib import Path
 
 from arx_door.runtime import ROOT, clean_environment
 
-DEFAULT_CONFIG = ROOT / 'configs/policy/arx_knob_n17.json'
+DEFAULT_CONFIG = ROOT / 'configs/policy/arx_knob_v2_n17.json'
 
 
 def load_config(path: Path = DEFAULT_CONFIG) -> dict:

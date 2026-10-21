@@ -22,7 +22,6 @@
   "seed_dir": "generated/door_teaching/fresh_experts_20261013_005036/attempts/candidate_N13_K001/candidate_N13_K001",
   "seed_dataset": "generated/door_teaching/fresh_experts_20261013_005036/seeds/candidate_N13_K001.hdf5",
   "baseline_scene": "generated/door_skillgen/n17_knob_20261013_040828/batches/candidate_r6000_v001/visual_seed_1/angle_m017_5/scene.usd",
-  "baseline_cuboids": "generated/door_skillgen/n17_knob_20261013_040828/batches/candidate_r6000_v001/visual_seed_1/angle_m017_5/cuboids.json",
   "video_keys": [
     "wrist",
     "ego"

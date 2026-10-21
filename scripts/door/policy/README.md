@@ -5,7 +5,9 @@
 不会调用 SkillGen、cuMotion 或示范回放来产生 rollout 动作。
 
 当前官方源码固定为训练使用的 `d2b7e75b937e3ec9aa5dbc798f08b89692c49734`。
-本入口运行原 Isaac Lab 环境；它不是 Arena Experiment Runner 的迁移验收。
+本入口在固定 AutoData 容器内构建 `arx_door.envs.door` Arena 环境，与生成端共用定义；
+它不是 Arena Experiment Runner 的迁移验收。默认使用 v2 配置，需先准备相应 checkpoint。
+复现旧 Job 4075 必须显式传入 `--config configs/policy/arx_knob_n17.json`。
 Arena 现有 N1.6 DROID 示例不能仅替换模型路径后直接用于 N1.7 ARX。
 
 ## 按功能找文件
@@ -21,7 +23,7 @@ Arena 现有 N1.6 DROID 示例不能仅替换模型路径后直接用于 N1.7 AR
 | 位置/外观变化与随机范围 | `configs/policy/evaluation_scenarios.json` |
 | 可复用协议与运行辅助 | `arx_door/policy/` |
 | 模型、数据和原训练报告统一入口 | `generated/door_policy/{models,datasets,training_results}` |
-| 每次评估结果、录像和失败记录 | `generated/door_policy/runs/` |
+| 每次评估结果、录像和失败记录 | `generated/door_autodata/policy/`（容器内 `/outputs/policy/`） |
 
 从**项目根目录**运行下列命令。每次使用新输出目录，避免覆盖已有证据。
 
@@ -36,37 +38,40 @@ bash scripts/door/policy/run_policy.sh serve \
 
 服务先用 3 帧真实 holdout 观测验证 GPU 推理与 16×7 输出、保存 `receipt.json`，
 再在 `127.0.0.1:5567` 服务。`POLICY_SERVER_READY` 表示可以启动仿真。
-服务与仿真在不同 Python 环境中；轻量 IPC bridge 把官方 PolicyClient 留在 GR00T
-环境，避免将模型和 CUDA 原生依赖注入 Kit。协议不重复对 relative 动作加 state：
+服务与仿真在不同 Python 环境中；容器里的轻量 IPC bridge 仅加载官方 PolicyClient，
+通过 host 网络连接模型服务。协议不重复对 relative 动作加 state：
 官方 `decode_action` 已返回绝对目标。
 
 终端二：
 
 ```bash
-python3 scripts/door/policy/evaluate.py --scenarios baseline
+bash scripts/door/autodata/run_container.sh --exec /isaac-sim/python.sh \
+  /workspaces/arx/scripts/door/policy/evaluate.py --headless --scenarios baseline
 ```
 
-默认显示 Isaac Sim 窗口，持续运行一次最多 1800 步 / 60 秒仿真时间的闭环尝试。
+以上命令无窗口运行一次最多 1800 步 / 60 秒仿真时间的闭环尝试。
 物理 120Hz、控制 30Hz；模型每次预测 16 步，仅执行前 8 步后重新观察。
 推理等待期间物理暂停，这是同步仿真评估，不证明实机实时控制能力。
-无图形环境可明确加 `--headless`；首次验收保留图形窗口。
+当前容器启动器用于 headless 验证，录像保存在每次运行目录中。
 
-模型服务加载后，评估器要求至少 6GiB 剩余显存才启动渲染。当前一模型一场景
-观测到合计约 11.2GiB 显存占用。这个前置余量不保证其他任务不会随后占用显存。
+模型服务加载后，评估器要求至少 6GiB 剩余显存才启动渲染。旧运行时一模型一场景
+曾观测到合计约 11.2GiB 显存占用，该数值尚未在新 Arena 容器中复核。这个前置余量不保证其他任务不会随后占用显存。
 
 ## 场景变化与自动随机化
 
 先跑固定场景，确认观测/动作接口正常，再分别改变位置和外观：
 
 ```bash
-python3 scripts/door/policy/evaluate.py \
+bash scripts/door/autodata/run_container.sh --exec /isaac-sim/python.sh \
+  /workspaces/arx/scripts/door/policy/evaluate.py --headless \
   --scenarios position_left position_right appearance
 ```
 
 自动采样 5 个场景，并保留基准作为对照：
 
 ```bash
-python3 scripts/door/policy/evaluate.py --scenarios baseline --random-episodes 5
+bash scripts/door/autodata/run_container.sh --exec /isaac-sim/python.sh \
+  /workspaces/arx/scripts/door/policy/evaluate.py --headless --scenarios baseline --random-episodes 5
 ```
 
 采样范围、seed 与外观候选位于场景配置中。每次完整保存采样清单 `scenarios.json`。
@@ -90,7 +95,7 @@ python3 scripts/door/policy/evaluate.py --scenarios baseline --random-episodes 5
 
 ```bash
 generated/runtime/groot_policy/.venv/bin/python scripts/door/policy/report.py \
-  generated/door_policy/runs/<本次评估目录>
+  generated/door_autodata/policy/<本次评估目录>
 ```
 
 使用既有严格物理门槛：最终门角 >29°、双指力各 ≥3N 且方向相反、非手指

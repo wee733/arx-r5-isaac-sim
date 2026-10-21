@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import os
 import selectors
 import subprocess
 import time
@@ -22,12 +23,23 @@ class RemotePolicy:
         self.output = output
         self.config = config
         self.log = (output / 'client.log').open('w')
+        # Only the lightweight official RPC client runs here; the model server
+        # keeps its own GR00T runtime. A host venv may point to an interpreter
+        # outside the container mounts and must not be executed inside Arena.
+        python = resource(config, 'policy_python')
+        environment = policy_environment(config)
+        if os.environ.get('ARX_AUTODATA_COMMIT'):
+            python = Path('/isaac-sim/python.sh')
+            environment = os.environ.copy()
+            environment['PYTHONPATH'] = os.pathsep.join(filter(None, (
+                str(ROOT), str(resource(config, 'official_source')), environment.get('PYTHONPATH'))))
+            environment.pop('GROOT_PATCH_MISTRAL', None)
         self.process = subprocess.Popen(
-            [str(resource(config, 'policy_python')),
+            [str(python),
              str(ROOT / 'scripts/door/policy/client_bridge.py'),
              '--config', str(config_path.absolute())],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log, text=True,
-            bufsize=1, env=policy_environment(config))
+            bufsize=1, env=environment)
         self.selector = selectors.DefaultSelector()
         self.selector.register(self.process.stdout, selectors.EVENT_READ)
         try:
@@ -108,20 +120,23 @@ class MountedCamera:
     """Preserve the trained link6 mount and render from actual articulation poses."""
 
     def __init__(self, env):
-        import omni.usd
-        from pxr import UsdGeom
         self.env = env
-        prim = omni.usd.get_context().get_stage().GetPrimAtPath('/R5a/link6/TeachingWristCamera')
-        self.mount = np.asarray(UsdGeom.Xformable(prim).GetLocalTransformation()).T.copy()
+        self.mount = np.asarray(env.cfg.arx_wrist_mount, dtype=float)
 
     def render(self) -> dict:
         import torch
         from scipy.spatial.transform import Rotation
 
-        from arx_door.skillgen.compat import as_torch, quaternion_from_xyzw, quaternion_to_xyzw
+        from arx_door.envs.compat import as_torch, quaternion_from_xyzw, quaternion_to_xyzw
 
         env = self.env
-        expected = env.get_robot_eef_pose('link6')[0].cpu().numpy() @ self.mount
+        robot = env.scene['robot']
+        ids, _ = robot.find_bodies(['link6'], preserve_order=True)
+        state = as_torch(robot.data.body_link_state_w)[0, ids[0]].cpu().numpy()
+        tool = np.eye(4)
+        tool[:3, :3] = Rotation.from_quat(quaternion_to_xyzw(state[3:7])).as_matrix()
+        tool[:3, 3] = state[:3]
+        expected = tool @ self.mount
         quat = quaternion_from_xyzw(Rotation.from_matrix(expected[:3, :3]).as_quat())
         sensor = env.scene.sensors['wrist_camera']
         sensor.set_world_poses(
@@ -129,9 +144,9 @@ class MountedCamera:
             torch.as_tensor(quat[None], dtype=torch.float32, device=env.device), convention='opengl')
         env.sim.render()
         sensor.update(0., force_recompute=True)
-        env.scene.sensors['overview_camera'].update(0., force_recompute=True)
-        if 'ego_camera' in env.scene.sensors:
-            env.scene.sensors['ego_camera'].update(0., force_recompute=True)
+        for name in ('overview_camera', 'ego_camera'):
+            if name in env.scene.sensors:
+                env.scene.sensors[name].update(0., force_recompute=True)
         position = as_torch(sensor.data.pos_w)[0].cpu().numpy()
         actual = Rotation.from_quat(quaternion_to_xyzw(
             as_torch(sensor.data.quat_w_opengl)[0].cpu().numpy())).as_matrix()
@@ -142,6 +157,11 @@ class MountedCamera:
             raise RuntimeError(f'live wrist camera mount mismatch: {error}')
         return error
 
+    def size(self, name: str) -> tuple[int, int]:
+        """Return (width, height) of a scene camera."""
+        cfg = self.env.scene.sensors[name].cfg
+        return int(cfg.width), int(cfg.height)
+
     def rgb(self, name: str) -> np.ndarray:
-        from arx_door.skillgen.compat import as_torch
+        from arx_door.envs.compat import as_torch
         return as_torch(self.env.scene.sensors[name].data.output['rgb'])[0, ..., :3].cpu().numpy().copy()

@@ -367,14 +367,14 @@ def load_generated(path, result, provenance):
     if np.any(data['phase'] < 0) or np.any(data['phase'] != np.floor(data['phase'])):
         raise ValueError(f'{path}: transition indices must be nonnegative integers')
     seed_path = artifact_path(path, result.get('source_seed'))
-    package = Path(__file__).resolve().parents[3] / 'arx_door/skillgen'
+    package = Path(__file__).resolve().parents[3] / 'arx_door/envs'
     provenance.update({
         'hdf5': str(hdf5_path), 'hdf5_sha256': file_hash(hdf5_path),
         'wrist_video': str(video_path), 'wrist_video_sha256': file_hash(video_path),
         'source_seed': str(seed_path), 'source_seed_sha256': file_hash(seed_path),
         'action_source': 'data/demo_0/processed_actions',
         'action_semantics_verified': 'raw arm identity; gripper clip [0,0.044] metres',
-        'native_action_source_sha256': {name: file_hash(package / name) for name in ('env_cfg.py', 'mdp.py')},
+        'native_action_source_sha256': {name: file_hash(package / name) for name in ('door.py', 'mdp.py')},
     })
     return data, video_path, provenance
 

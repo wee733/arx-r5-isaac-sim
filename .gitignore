@@ -47,4 +47,17 @@ venv/
 # Local-only project material (kept on disk, not versioned)
 /docs/
 /tests/
-/arx_r5_isaac_sim_bringup/assets/door/
+# Robot and door assets (assets/arx_r5a, assets/b2arx_robot, assets/door);
+# provenance of their meshes is not cleared for a public repository.
+/assets/
+
+# Local analysis, training workspaces and unpublished checkpoints
+/.codegraph/
+/test/
+/models/*
+!/models/groot-n17-b2arx-door/
+/models/groot-n17-b2arx-door/*
+!/models/groot-n17-b2arx-door/*.md
+!/models/groot-n17-b2arx-door/LICENSE
+!/models/groot-n17-b2arx-door/*.json
+!/models/groot-n17-b2arx-door/*.safetensors

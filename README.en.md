@@ -5,7 +5,7 @@
 ![Isaac Sim 5.1 / 6.1](https://img.shields.io/badge/Isaac_Sim-5.1%20%7C%206.1-76B900?logo=nvidia&logoColor=white)
 ![ROS 2 Jazzy](https://img.shields.io/badge/ROS_2-Jazzy-22314E?logo=ros&logoColor=white)
 ![cuMotion GPU Planning](https://img.shields.io/badge/cuMotion-GPU_Planning-76B900)
-![SkillGen Door Data](https://img.shields.io/badge/SkillGen-Door_Data-0078D4)
+![AutoData Door Data](https://img.shields.io/badge/AutoData-Door_Data-0078D4)
 
 <p align="center">
   <img src="pictures/arx.png" alt="ARX R5A simulation shown in RViz and Isaac Sim 5.1" width="100%">
@@ -17,11 +17,18 @@
 [Architecture](docs/ros/architecture.md) · [Model validation](docs/ros/model-validation.md)
 
 **AutoData: [pinned dependencies and layout](dependencies/README.md) → [generation guide](scripts/door/autodata/README.md).**
-Future door-data generation uses AutoData, pinned under `third_party/AutoData`, with ARX adapters in this repository.
-Dependency integration is in place; official-example and ARX runtime validation remain pending.
+Door-data augmentation runs AutoData's official generator from the `third_party/AutoData` submodule.
+This repository only supplies the extension points it asks for: the door environment (`arx_door/envs/`),
+extensions (`arx_door/autodata/`) and descriptor YAMLs (`configs/autodata/`). Three rounds of 24 environments
+in a shared, uncropped 3DGS + mesh scene yielded 62 accepted and independently replayed augmentations.
+Together with 10 expert seeds, the dataset contains 72 episodes (56 train / 16 held out by source).
+The [final GR00T N1.7 model](models/groot-n17-b2arx-door/README.md) is stored with Git LFS after
+10,000 steps of full-model fine-tuning. Policy closed-loop evaluation remains pending.
+See the [training and release guide](scripts/door/training/README.md).
+Assets live in `assets/` (`arx_r5a/` arm, `b2arx_robot/` B2 with arm, `door/`) and, like `generated/`,
+are kept local and not versioned.
 
-**新电脑迁移请先阅读 [迁移与恢复手册](docs/migration.md)。** 最新开门与 GR00T
-功能位于 `groot_date_generate` 分支，场景和样本需要执行 `git lfs pull`。
+**新电脑迁移请先阅读 [迁移与恢复手册](docs/migration.md)。**
 
 This repository is the simulation companion to
 [`Isaac_Ros_CuMotion_ArxR5a`](https://github.com/wee733/Isaac_Ros_CuMotion_ArxR5a).

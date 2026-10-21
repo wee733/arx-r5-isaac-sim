@@ -15,11 +15,11 @@ from scipy.spatial.transform import Rotation
 class ArmKinematics:
     """Six-joint ARX chain ending at link6, parsed from the selected URDF."""
 
-    def __init__(self, urdf):
+    def __init__(self, urdf, joint_prefix=''):
         root = ET.parse(urdf).getroot()
         self.origins, self.axes, lower, upper = [], [], [], []
         for index in range(1, 7):
-            joint = root.find(f"joint[@name='joint{index}']")
+            joint = root.find(f"joint[@name='{joint_prefix}joint{index}']")
             origin = joint.find('origin')
             transform = np.eye(4)
             transform[:3, 3] = np.fromstring(origin.get('xyz'), sep=' ')

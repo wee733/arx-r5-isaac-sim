@@ -133,7 +133,7 @@ def main():
     parser.add_argument('--arm-contact-limit', type=float, default=2.0,
                         help='Abort above this net contact force on any non-finger arm link, N.')
     parser.add_argument('--urdf', type=Path,
-                        help='ARX URDF; defaults to ARX_DESCRIPTION_DIR or workspace discovery.')
+                        help='ARX URDF; defaults to assets/arx_r5a/urdf/r5a_cumotion.urdf.')
     args = parser.parse_args()
     runtime = runtime_provenance()
     runtime_profile = validate_runtime(runtime)

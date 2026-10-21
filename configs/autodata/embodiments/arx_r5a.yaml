@@ -1,0 +1,26 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+# AutoData embodiment descriptor (official type, same schema as
+# third_party/AutoData/autodata_examples/embodiments).
+#
+# Action vector (8-D), produced by arx_door.envs.door in ik_abs mode:
+#   [0..3)  link6 position [m] in the robot root frame
+#   [3..7)  link6 orientation quaternion (x, y, z, w)
+#   [7..8)  mirrored gripper command [m], joint7 = joint8
+# The env's differential-IK action term interprets the pose in the robot root frame,
+# so every pose AutoData reads or writes is expressed there (reference_frame).
+
+type: absolute_pose
+name: arx_r5a
+description: ARX R5A 6-DOF arm with a mirrored two-finger gripper, absolute link6 pose control.
+action_dim: 8
+obs_group: policy
+reference_frame:
+  asset_name: robot
+eefs:
+  link6:
+    pose_obs_keys:
+      pos: eef_pos
+      quat: eef_quat
+    pose_action_slice: [0, 7]
+    passthrough_action_slice: [7, 8]

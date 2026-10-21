@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright 2026 wee733
 # SPDX-License-Identifier: Apache-2.0
-"""Keep the official PolicyClient in the GR00T venv, away from Kit libraries."""
+"""Run the official lightweight PolicyClient in a separate process."""
 
 import argparse
 import json

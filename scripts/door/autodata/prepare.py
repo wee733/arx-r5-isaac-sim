@@ -14,7 +14,7 @@ def main():
     parser.add_argument('--scene', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
-    from arx_door.autodata.arena.assets import prepare_assets
+    from arx_door.envs.assets import prepare_assets
     manifest = prepare_assets(args.scene, args.output)
     print(manifest)
 

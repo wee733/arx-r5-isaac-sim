@@ -5,14 +5,14 @@
 
 Stages, in order (CLIs live in ``scripts/door/<stage>/``):
 
-1. ``arx_door.scene``    – door/robot scene assets and placement sampling
-2. ``arx_door.demos``    – agent-recorded expert demonstrations and their review
-3. ``arx_door.autodata`` – primary AutoData/Arena augmentation integration
-   (runtime migration pending; ``skillgen`` retains the existing baseline and shared components)
-4. dataset export        – LeRobot/GR00T N1.7 tools in ``scripts/door/dataset``
-   (separate GR00T venv, so they import nothing from this package)
+1. ``arx_door.scene``    – door/robot scene placement and USD assets
+2. ``arx_door.demos``    – agent-recorded expert demonstrations (seeds) and their review
+3. AutoData augmentation – the pinned official generator (``third_party/AutoData``) runs the
+   door environment ``arx_door.envs``; ``arx_door.autodata`` holds its extension points
+4. ``arx_door.dataset``  – LeRobot/GR00T N1.7 export contracts
+5. ``arx_door.policy``   – closed-loop evaluation in the same ``arx_door.envs`` environment
 
 Shared across stages: ``contract`` (task semantics), ``quality`` (physical and
 video gates), ``kinematics``, ``runtime`` (pinned Isaac stacks and
-interpreters), ``paths`` and ``files``.
+interpreters), ``paths`` and ``files``. Assets live in the project ``assets/``.
 """

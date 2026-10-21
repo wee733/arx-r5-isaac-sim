@@ -1,0 +1,8 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+# AutoData environment profile (same schema as third_party/AutoData/autodata_examples/env_profiles).
+# Selects the ARX cuRobo planner profile, registered by arx_door.autodata.register.
+name: arx_door
+description: ARX R5A door workcell with the arx_r5a_door cuRobo planner profile.
+base_env: Arx-Door-KnobHoldOpen-v0
+planner: arx_r5a_door

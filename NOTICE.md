@@ -1,5 +1,13 @@
 # Third-party notices
 
+## Fine-tuned GR00T model
+
+`models/groot-n17-b2arx-door/` contains derivative weights fine-tuned from
+NVIDIA's `nvidia/GR00T-N1.7-3B`. Model weights remain subject to the complete
+NVIDIA license distributed in that directory, including its non-commercial
+research/evaluation restriction. They are not covered by the integration
+code's Apache-2.0 license. See the model README for provenance and limitations.
+
 Most original integration code in this repository is licensed under
 Apache-2.0 as stated in the top-level `LICENSE` file. The repository does not
 redistribute ARX robot meshes, NVIDIA Isaac Sim assets, or NVIDIA Isaac ROS

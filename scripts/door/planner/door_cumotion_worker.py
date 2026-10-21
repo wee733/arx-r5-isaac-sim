@@ -26,24 +26,12 @@ JOINT_NAMES = [f'joint{index}' for index in range(1, 7)]
 
 
 def resolve_description_dir(explicit=None):
-    """Resolve the same ARX model on both the original and migrated machines."""
-    requested = explicit or os.environ.get('ARX_DESCRIPTION_DIR')
-    if requested:
-        candidates = [Path(requested).expanduser().resolve()]
-    else:
-        workspace = Path(__file__).resolve().parents[4]
-        package = 'isaac_ros_manipulation_arx_r5a_robot_description'
-        candidates = [
-            workspace / 'arx-r5-moveit' / package,
-            workspace / 'B2ARX_Train_12DOF' / 'Isaac_Ros_CuMotion_ArxR5a' / package,
-        ]
-    for candidate in candidates:
-        if (candidate / 'urdf/r5a_cumotion.urdf').is_file() and (candidate / 'xrdf/r5a.xrdf').is_file():
-            return candidate
-    raise FileNotFoundError(
-        'ARX URDF/XRDF not found; set ARX_DESCRIPTION_DIR or pass --description-dir. '
-        f'Searched: {[str(path) for path in candidates]}'
-    )
+    """Use the project's assets/arx_r5a model unless a CLI override is given."""
+    candidate = (Path(explicit).expanduser() if explicit
+                 else Path(__file__).resolve().parents[3] / 'assets' / 'arx_r5a').resolve()
+    if (candidate / 'urdf/r5a_cumotion.urdf').is_file() and (candidate / 'xrdf/r5a.xrdf').is_file():
+        return candidate
+    raise FileNotFoundError(f'ARX URDF/XRDF not found under {candidate}')
 
 
 def runtime_provenance():

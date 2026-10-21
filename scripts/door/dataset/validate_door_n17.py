@@ -126,12 +126,17 @@ def override_gripper_state_range(meta, low, high):
                                      'keys': ['min', 'q01', 'max', 'q99']}}
 
 
-def validate(dataset, groot_root, config_path, gripper_state_range=None):
+def validate(dataset, groot_root, config_path, gripper_state_range=None, official_commit=PINNED_COMMIT):
     """Validate the single-wrist dataset using unmodified official code."""
     meta = dataset / 'meta'
     # A failed revalidation must never leave an earlier acceptance flag true.
     report_path = meta / 'n17_validation.json'
     write_json(report_path, {'official_n1_7_loader_verified': False, 'status': 'running'})
+    contract_path = meta / 'export_contract.json'
+    if contract_path.exists():
+        contract = json.loads(contract_path.read_text())
+        contract['official_loader_verified'] = False
+        write_json(contract_path, contract)
     export_path = meta / 'door_export_report.json'
     if export_path.exists():
         export_report = json.loads(export_path.read_text())
@@ -145,8 +150,8 @@ def validate(dataset, groot_root, config_path, gripper_state_range=None):
         raise ValueError('every episode requires at least 16 frames for the action horizon')
     commit = subprocess.check_output(
         ['git', '-C', str(groot_root), 'rev-parse', 'HEAD'], text=True).strip()
-    if commit != PINNED_COMMIT:
-        raise ValueError(f'expected official source {PINNED_COMMIT}, got {commit}')
+    if commit != official_commit:
+        raise ValueError(f'expected official source {official_commit}, got {commit}')
     dirty = subprocess.check_output(
         ['git', '-C', str(groot_root), 'status', '--porcelain', '--', 'gr00t'], text=True)
     if dirty:
@@ -279,6 +284,10 @@ def validate(dataset, groot_root, config_path, gripper_state_range=None):
         'scope': 'official statistics, every numeric row/relative chunk, three decoded RGB frames per episode',
     }
     write_json(report_path, report)
+    if contract_path.exists():
+        contract['official_loader_verified'] = True
+        contract['official_validation_report'] = 'n17_validation.json'
+        write_json(contract_path, contract)
     if export_path.exists():
         export_report['official_n1_7_loader_verified'] = True
         export_report['statistics'] = 'fresh official absolute and 16-step relative statistics'
@@ -304,12 +313,14 @@ def main():
     parser.add_argument('--dataset', type=Path, required=True)
     parser.add_argument('--groot-root', type=Path, required=True)
     parser.add_argument('--config', type=Path, default=ROOT / 'configs/dataset/door_wrist_n17.py')
+    parser.add_argument('--official-commit', default=PINNED_COMMIT,
+                        choices=(PINNED_COMMIT, 'd2b7e75b937e3ec9aa5dbc798f08b89692c49734'))
     parser.add_argument('--gripper-state-range', type=float, nargs=2, metavar=('LOW', 'HIGH'),
                         help='normalize state.gripper over this physical range, e.g. 0 0.028')
     args = parser.parse_args()
     try:
         report = validate(args.dataset.resolve(), args.groot_root.resolve(), args.config.resolve(),
-                          gripper_state_range=args.gripper_state_range)
+                          gripper_state_range=args.gripper_state_range, official_commit=args.official_commit)
     except (ValueError, KeyError, OSError, AssertionError, ImportError, subprocess.SubprocessError) as error:
         report_path = args.dataset / 'meta/n17_validation.json'
         if report_path.parent.is_dir():

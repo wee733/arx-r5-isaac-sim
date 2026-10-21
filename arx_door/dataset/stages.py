@@ -31,7 +31,7 @@ class Stage:
 # the motionless tail of the pull and gets the same instruction.
 KNOB_HOLD_OPEN_STAGES = (
     Stage('approach', 'Move the open gripper to the front of the round doorknob.',
-          ('cumotion_approach_knob', 'approach_knob')),
+          ('cumotion_approach_knob', 'transit_pregrasp', 'approach_knob')),
     Stage('grasp', 'Close the gripper around the round doorknob.', ('grasp_knob',)),
     Stage('unlock', 'Turn the round doorknob counterclockwise until the latch retracts.',
           ('unlock_round_knob',)),

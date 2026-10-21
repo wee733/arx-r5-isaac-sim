@@ -1,0 +1,215 @@
+{
+  "schema": "arx-door-v2-production-plan-v1",
+  "description": "Data v2, first closed-loop success: one training seed (K001) densely covering the evaluation distribution; K003 holdout outside it. Trials = angles x trial_seeds x visual_seeds per batch.",
+  "output_root": "generated/door_skillgen/v2_first_success",
+  "urdf": "assets/arx_r5a/urdf/r5a_cumotion.urdf",
+  "physics_profile": "source_cpu",
+  "timeout_s": 900,
+  "sources": {
+    "K001": {
+      "source_scene": "generated/door_teaching/fresh_experts_20261013_005036/attempts/candidate_N13_K001/scene.usd",
+      "seed_dir": "generated/door_teaching/fresh_experts_20261013_005036/attempts/candidate_N13_K001/candidate_N13_K001",
+      "input_file": "generated/door_teaching/fresh_experts_20261013_005036/seeds/candidate_N13_K001.hdf5"
+    },
+    "K003": {
+      "source_scene": "generated/door_teaching/fresh_experts_20261013_005036/attempts/candidate_N13_K003/scene.usd",
+      "seed_dir": "generated/door_teaching/fresh_experts_20261013_005036/attempts/candidate_N13_K003/candidate_N13_K003",
+      "input_file": "generated/door_teaching/fresh_experts_20261013_005036/seeds/candidate_N13_K003.hdf5"
+    }
+  },
+  "batches": [
+    {
+      "name": "train_r0590",
+      "source": "K001",
+      "split": "candidate",
+      "radius_m": 0.59,
+      "angles": [
+        -22.5,
+        -22.0,
+        -21.5,
+        -21.0,
+        -20.5,
+        -20.0,
+        -19.5,
+        -19.0,
+        -18.5,
+        -18.0,
+        -17.5,
+        -17.0,
+        -16.5,
+        -16.0,
+        -15.5,
+        -15.0,
+        -14.5,
+        -14.0,
+        -13.5,
+        -13.0
+      ],
+      "trial_seeds": [
+        10
+      ],
+      "visual_seeds": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "train_r0597",
+      "source": "K001",
+      "split": "candidate",
+      "radius_m": 0.597,
+      "angles": [
+        -22.5,
+        -22.0,
+        -21.5,
+        -21.0,
+        -20.5,
+        -20.0,
+        -19.5,
+        -19.0,
+        -18.5,
+        -18.0,
+        -17.5,
+        -17.0,
+        -16.5,
+        -16.0,
+        -15.5,
+        -15.0,
+        -14.5,
+        -14.0,
+        -13.5,
+        -13.0
+      ],
+      "trial_seeds": [
+        11
+      ],
+      "visual_seeds": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "train_r0603",
+      "source": "K001",
+      "split": "candidate",
+      "radius_m": 0.603,
+      "angles": [
+        -22.5,
+        -22.0,
+        -21.5,
+        -21.0,
+        -20.5,
+        -20.0,
+        -19.5,
+        -19.0,
+        -18.5,
+        -18.0,
+        -17.5,
+        -17.0,
+        -16.5,
+        -16.0,
+        -15.5,
+        -15.0,
+        -14.5,
+        -14.0,
+        -13.5,
+        -13.0
+      ],
+      "trial_seeds": [
+        12
+      ],
+      "visual_seeds": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "train_r0610",
+      "source": "K001",
+      "split": "candidate",
+      "radius_m": 0.61,
+      "angles": [
+        -22.5,
+        -22.0,
+        -21.5,
+        -21.0,
+        -20.5,
+        -20.0,
+        -19.5,
+        -19.0,
+        -18.5,
+        -18.0,
+        -17.5,
+        -17.0,
+        -16.5,
+        -16.0,
+        -15.5,
+        -15.0,
+        -14.5,
+        -14.0,
+        -13.5,
+        -13.0
+      ],
+      "trial_seeds": [
+        13
+      ],
+      "visual_seeds": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "holdout_r0598",
+      "source": "K003",
+      "split": "holdout",
+      "radius_m": 0.5975,
+      "angles": [
+        -27.0,
+        -26.0,
+        -25.0,
+        -24.0,
+        -23.0
+      ],
+      "trial_seeds": [
+        20,
+        21
+      ],
+      "visual_seeds": [
+        21,
+        22,
+        23,
+        24
+      ]
+    }
+  ],
+  "acceptance": {
+    "min_train_episodes": 240,
+    "min_holdout_episodes": 24,
+    "min_recovery_fraction": 0.3,
+    "max_recovery_fraction": 0.7,
+    "min_prompter_agreement": 0.9,
+    "replay_check_trials": 4
+  },
+  "export": {
+    "cameras": [
+      "wrist",
+      "ego"
+    ],
+    "stage_language": true,
+    "crop_before_recovery": true,
+    "max_transition_overshoot_rad": 0.15,
+    "gripper_state_range_m": [
+      0.0,
+      0.028
+    ],
+    "modality_config": "configs/dataset/door_v2_n17.py"
+  }
+}

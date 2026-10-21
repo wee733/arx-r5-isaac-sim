@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # Copyright 2026 wee733
 # SPDX-License-Identifier: Apache-2.0
-"""Run one N1.7 closed-loop episode in the original ARX door physics environment.
+"""Run one N1.7 closed-loop episode in the ARX door environment (arx_door.envs.door, joint_pos).
 
-``--replay-hdf5`` executes a generated episode's recorded absolute actions
-instead of the policy, open loop, through exactly the same scene, cameras,
-gate-free action path and acceptance. A model can only be blamed for a
+``--replay-hdf5`` executes a generated episode's recorded actions instead of
+the policy, open loop, through the same environment and acceptance. AutoData
+episodes (8-D absolute link6 pose + gripper) replay in the ``ik_abs`` action mode
+they were generated with; 7-D joint episodes replay in ``joint_pos``. A model can only be blamed for a
 failure once its own training episodes pass this replay.
 """
 
@@ -22,58 +23,54 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 from arx_door.policy.config import DEFAULT_CONFIG, load_config, resource
-from arx_door.runtime import close_app, planning_urdf, runtime_provenance, validate_runtime
+from arx_door.runtime import close_app
+from arx_door.autodata.runtime import runtime_provenance
+from arx_door.envs.physics import PHYSICS_PROFILES
 
 RUNTIME = runtime_provenance()
-PROFILE = validate_runtime(RUNTIME)
-if PROFILE != 'isaac61':
-    raise RuntimeError('this first policy rollout is validated against the existing Isaac 6.1 profile')
 
 from isaaclab.app import AppLauncher
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--config', type=Path, default=DEFAULT_CONFIG)
-parser.add_argument('--scene', type=Path, required=True)
-parser.add_argument('--cuboids', type=Path, required=True)
+parser.add_argument('--assets', type=Path, required=True,
+                    help='asset bundle manifest.json (scripts/door/autodata/prepare.py)')
 parser.add_argument('--output', type=Path, required=True)
+parser.add_argument('--physics', choices=PHYSICS_PROFILES, help='override policy config; replay uses run.json')
 parser.add_argument('--max-steps', type=int, default=1800)
 parser.add_argument('--success-hold-steps', type=int, default=30)
 parser.add_argument('--replay-hdf5', type=Path,
-                    help='replay this generated.hdf5 demo_0 actions instead of querying the policy')
+                    help='replay recorded actions of one episode instead of querying the policy')
+parser.add_argument('--replay-demo', default='demo_0', help='episode name inside --replay-hdf5')
 AppLauncher.add_app_launcher_args(parser)
 for option in ('--headless', '--enable_cameras'):
     if option not in parser._option_string_actions:
         parser.add_argument(option, action='store_true')
 args = parser.parse_args()
 config = load_config(args.config)
-if not 1 <= args.max_steps <= 2700 or args.success_hold_steps < 1:
-    parser.error('max-steps must be within the original 90s cap; hold steps must be positive')
-args.device = 'cpu'  # Training data used the original CPU PhysX / MBP / CCD profile.
+if args.max_steps < 1 or (not args.replay_hdf5 and args.max_steps > 2700) or args.success_hold_steps < 1:
+    parser.error('max-steps and hold steps must be positive; policy runs have a 2700-step cap')
+physics = args.physics or config['physics_profile']
+if physics not in PHYSICS_PROFILES:
+    parser.error(f'unknown physics profile: {physics}')
+args.device = 'cpu' if physics == 'source_cpu' else 'cuda:0'
 args.enable_cameras = True
 app = AppLauncher(args, width=1280, height=720).app
 
+import gymnasium as gym
 import numpy as np
 import omni.usd
 import torch
-from isaaclab.sim import activate_contact_sensors
 from PIL import Image
 
-from arx_door.autodata.acceptance import RuntimeAcceptance, as_numpy
+from arx_door.envs import mdp
+from arx_door.envs.acceptance import RuntimeAcceptance, as_numpy
+from arx_door.envs.assets import load_asset_manifest
+from arx_door.envs.door import IK_ABS_ACTION_DIM, JOINT_POS_ACTION_DIM, build
+from arx_door.envs.physics import physics_material_bindings, physics_runtime_evidence, validate_physics_runtime
 from arx_door.files import write_json
 from arx_door.policy.guards import GripperGate, RuleStagePrompter
 from arx_door.policy.simulation import MountedCamera, RemotePolicy, VideoWriter
-from arx_door.scene.ego_camera import ego_camera_cfg, ego_mount
-from arx_door.skillgen.compat import quaternion_from_xyzw
-from arx_door.skillgen import mdp
-from arx_door.skillgen.env import DoorSkillGenEnv
-from arx_door.skillgen.env_cfg import DoorSkillGenEnvCfg
-from arx_door.skillgen.physics_profile import (
-    configure_physics_profile,
-    physics_material_bindings,
-    physics_runtime_evidence,
-    source_cpu_scene_settings,
-    validate_physics_runtime,
-)
 
 
 def main() -> int:
@@ -83,79 +80,77 @@ def main() -> int:
     video_keys = config.get('video_keys', ['wrist'])
     stage_language = config.get('language_mode', 'fixed') == 'stage'
     gate_config = config.get('gripper_gate')
-    result = {'status': 'initializing', 'success': False, 'scope': 'simulation_closed_loop',
+    result = {'status': 'initializing', 'success': False,
+              'scope': 'simulation_expert_replay' if args.replay_hdf5 else 'simulation_closed_loop',
               'checkpoint': str(resource(config, 'checkpoint')), 'language': config['language'],
               'video_keys': video_keys, 'language_mode': 'stage' if stage_language else 'fixed',
               'gripper_gate': gate_config,
               'execution_horizon': config['execution_horizon'], 'runtime': RUNTIME,
+              'success_hold_steps': args.success_hold_steps,
               'clock_mode': 'synchronous simulation; physics pauses during inference',
               'mode': 'expert_replay' if args.replay_hdf5 else 'policy',
               'real_time_hardware_validated': False, 'steps': 0}
     write_json(output / 'result.json', result)
     env = remote = acceptance = None
-    writers = []
+    writers = {}
     history, chunks, inference = [], [], []
     exit_code = 1
     try:
-        manifest_path = args.scene.with_suffix('.json')
-        manifest = json.loads(manifest_path.read_text())
-        for key, value in {
-            'SCENE': args.scene.absolute(), 'MANIFEST': manifest_path.absolute(),
-            'CUBOIDS': args.cuboids.absolute(), 'URDF': planning_urdf(),
-            'SEED': resource(config, 'seed_dataset'),
-        }.items():
-            os.environ['ARX_DOOR_SKILLGEN_' + key] = str(value)
-        context = omni.usd.get_context()
-        if context.open_stage(str(args.scene.absolute()),
-                              load_set=omni.usd.UsdContextInitialLoadSet.LOAD_NONE) is False:
-            raise RuntimeError('could not open the prepared evaluation scene')
-        for _ in range(5):
-            app.update()
-        stage = context.get_stage()
-        activate_contact_sensors('/R5a', threshold=0.0, stage=stage)
-        source_settings = source_cpu_scene_settings(stage)
-        bindings = physics_material_bindings(stage)
-        cfg = DoorSkillGenEnvCfg()
+        replay = recorded_start = None
+        action_mode = 'joint_pos'
+        if args.replay_hdf5:
+            import h5py
+            with h5py.File(args.replay_hdf5, 'r') as file:
+                demo = file['data'][args.replay_demo]
+                replay = np.asarray(demo['actions'], dtype=np.float32)
+                # Generated episodes use the policy observation; converted
+                # expert sources retain the original diagnostics observation.
+                state_key = ('obs/joint_pos' if 'obs/joint_pos' in demo
+                             else 'obs/diagnostics/joint_state')
+                recorded_start = np.asarray(demo[state_key][0], dtype=np.float32)
+            widths = {JOINT_POS_ACTION_DIM: 'joint_pos', IK_ABS_ACTION_DIM: 'ik_abs'}
+            if replay.ndim != 2 or replay.shape[1] not in widths:
+                raise ValueError(f'replay actions must be [T, 7] joint or [T, 8] pose commands: {replay.shape}')
+            action_mode = widths[replay.shape[1]]
+        gripper_index = IK_ABS_ACTION_DIM - 1 if action_mode == 'ik_abs' else JOINT_POS_ACTION_DIM - 1
+        manifest = load_asset_manifest(args.assets)
+        # One door environment serves AutoData (ik_abs) and policy evaluation (joint_pos).
+        env_id, cfg, env_kwargs = build(
+            manifest, 1, action=action_mode, physics=physics, name='Arx-Door-Eval-v0',
+            ego_camera=(config.get('ego_camera') or {}) if 'ego' in video_keys else None)
         cfg.seed = config['seed']
-        cfg.sim.device = 'cpu'
-        cfg.observations.rgb_camera = None
-        cfg.scene.overview_camera.update_period = 0.0
-        if 'ego' in video_keys:
-            cfg.scene.ego_camera = ego_camera_cfg(
-                manifest['placement'], ego_mount(config.get('ego_camera')),
-                quaternion_from_xyzw=quaternion_from_xyzw)
         cfg.terminations.success = None
-        cfg.terminations.time_out = None
         cfg.recorders = None
-        configure_physics_profile(cfg.sim, config['physics_profile'], source_settings)
-        env = DoorSkillGenEnv(cfg=cfg)
+        env = gym.make(env_id, cfg=cfg, **env_kwargs).unwrapped
+        stage = omni.usd.get_context().get_stage()
+        bindings = physics_material_bindings(stage)
         env.cfg.sim.render_interval = 1000000
         env.reset()
         evidence = physics_runtime_evidence(
-            stage, env.cfg.sim, str(env.sim.device), config['physics_profile'],
-            source_settings=source_settings, original_bindings=bindings)
+            stage, env.cfg.sim, str(env.sim.device), physics,
+            source_settings=manifest['source_settings'], original_bindings=bindings)
+        evidence['material_comparison_origin'] = 'after_arena_construction_before_first_reset'
         validate_physics_runtime(evidence)
         result['physics_runtime'] = evidence
-        result['scene'] = str(args.scene.absolute())
-        result['placement'] = manifest['placement']
+        result['assets'] = str(args.assets.absolute())
+        result['source_scene'] = manifest['source_scene']
         if not np.isclose(env.sim.get_physics_dt(), 1/120):
             raise RuntimeError('physics clock differs from training data')
         camera = MountedCamera(env)
         result['initial_camera_check'] = camera.render()
         check = result['initial_camera_check']
-        Image.fromarray(camera.rgb('wrist_camera')).save(output / 'initial_wrist.png')
-        Image.fromarray(camera.rgb('overview_camera')).save(output / 'initial_overview.png')
-        writers = [VideoWriter(output / 'wrist.mp4', 640, 480),
-                   VideoWriter(output / 'overview.mp4', 960, 720)]
-        replay = None
-        if args.replay_hdf5:
-            import h5py
-            with h5py.File(args.replay_hdf5, 'r') as file:
-                demo = file['data/demo_0']
-                replay = np.asarray(demo['processed_actions'], dtype=np.float32)
-                recorded_start = np.asarray(demo['obs/joint_pos'][0], dtype=np.float32)
+        video_sensors = {'wrist': 'wrist_camera'}
+        if 'overview_camera' in env.scene.sensors:
+            video_sensors['overview'] = 'overview_camera'
+        if 'ego' in video_keys:
+            video_sensors['ego'] = 'ego_camera'
+        for key, sensor in video_sensors.items():
+            Image.fromarray(camera.rgb(sensor)).save(output / f'initial_{key}.png')
+        writers = {key: VideoWriter(output / f'{key}.mp4', *camera.size(sensor)) for key, sensor in video_sensors.items()}
+        if replay is not None:
             start = as_numpy(mdp.robot_state(env))[0]
-            result['replay'] = {'hdf5': str(args.replay_hdf5.absolute()), 'frames': len(replay),
+            result['replay'] = {'hdf5': str(args.replay_hdf5.absolute()), 'demo': args.replay_demo,
+                                'action_mode': action_mode, 'frames': len(replay),
                                 'initial_state_max_abs_error': float(np.abs(start - recorded_start).max())}
             gate_config, stage_language = None, False
         else:
@@ -164,8 +159,6 @@ def main() -> int:
         gate = GripperGate(**gate_config) if gate_config else None
         prompter = RuleStagePrompter() if stage_language else None
         sensors = {'wrist': 'wrist_camera', 'ego': 'ego_camera'}
-        if 'ego' in video_keys:
-            writers.append(VideoWriter(output / 'ego.mp4', 640, 480))
         stages, raw_gripper = [], []
         acceptance = RuntimeAcceptance(1, behavior_family='knob_hold_open')
         robot = env.scene['robot']
@@ -201,10 +194,11 @@ def main() -> int:
                 inference.append([step, elapsed])
                 chunk_offset = 0
             command = chunk[chunk_offset].copy()
-            raw_gripper.append(float(command[6]))
+            raw_gripper.append(float(command[gripper_index]))
             if gate is not None:
-                command[6] = gate(float(command[6]))
-            if np.any(command[:6] < limits[:, 0] - 1e-3) or np.any(command[:6] > limits[:, 1] + 1e-3):
+                command[gripper_index] = gate(float(command[gripper_index]))
+            if action_mode == 'joint_pos' and (np.any(command[:6] < limits[:, 0] - 1e-3)
+                                               or np.any(command[:6] > limits[:, 1] + 1e-3)):
                 result.update(stop_reason='predicted_joint_limit',
                               rejected_command=command.tolist(),
                               arm_joint_limits_rad=limits.tolist(), rejected_step=step)
@@ -219,14 +213,12 @@ def main() -> int:
             actual = as_numpy(mdp.robot_state(env))[0].copy()
             history.append((state, command, actual, door[0].copy(), fingers[0].copy(),
                             arms[0].copy(), float(clearance.reshape(-1)[0])))
-            writers[0].append(camera.rgb('wrist_camera'))
-            writers[1].append(camera.rgb('overview_camera'))
-            if 'ego' in video_keys:
-                writers[2].append(camera.rgb('ego_camera'))
+            for key, writer in writers.items():
+                writer.append(camera.rgb(video_sensors[key]))
             if prompter is not None:
                 previous = prompter.stage
                 stage, missed = prompter.update(actual, raw_gripper[-1],
-                                                gate.closed if gate else command[6] < 0.014)
+                                                gate.closed if gate else command[gripper_index] < 0.014)
                 if missed and gate is not None:
                     gate.force_open()
                 if stage != previous:
@@ -242,8 +234,10 @@ def main() -> int:
                 write_json(output / 'result.json', result)
                 print(f'ROLLOUT step={step} door_deg={np.rad2deg(door[0,0]):.2f} '
                       f'inference_s={inference[-1][1]:.3f}', flush=True)
-            if held >= args.success_hold_steps:
-                result.update(success=True, stop_reason='physical_success_held')
+            replay_complete = replay is None or step + 1 == len(replay)
+            if held >= args.success_hold_steps and replay_complete:
+                result.update(success=True, stop_reason=(
+                    'physical_replay_accepted' if replay is not None else 'physical_success_held'))
                 break
             if not acceptance.finite[0] or acceptance.max_arm[0] > 2 or acceptance.min_clearance[0] < .01:
                 result['stop_reason'] = 'physical_safety_limit'
@@ -268,7 +262,7 @@ def main() -> int:
                                 camera_clearance=np.asarray(columns[6]),
                                 inference=np.asarray(inference), predicted_chunks=np.asarray(chunks),
                                 raw_gripper_command=np.asarray(raw_gripper), stage=np.asarray(stages))
-        for item in [*writers, remote, env]:
+        for item in [*writers.values(), remote, env]:
             if item is not None:
                 try:
                     item.close()

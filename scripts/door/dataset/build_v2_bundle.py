@@ -26,7 +26,7 @@ sys.path.insert(0, str(ROOT))
 
 from arx_door.files import write_json
 
-PLAN = ROOT / 'configs/skillgen/v2_first_success_plan.json'
+PLAN = ROOT / 'configs/dataset/v2_first_success_plan.json'
 GROOT_ROOT = ROOT / 'generated/runtime/groot_n17_source'
 TOOLS = Path(__file__).resolve().parent
 

@@ -82,7 +82,7 @@ fi
 if [[ "${with_lfs}" == true ]]; then
   git -C "${project_root}/${source_path}" lfs install --local
   git -C "${project_root}/${source_path}" lfs pull \
-    --include='datasets/annotated_datasets/dataset_franka_annotated.hdf5,datasets/annotated_datasets/dataset_franka_skillgen_annotated.hdf5'
+    --include='datasets/annotated_datasets/dataset_franka_annotated.hdf5,datasets/annotated_datasets/dataset_franka_skillgen_annotated.hdf5,autodata_tests/test_data/annotated_dataset_franka_stack_mimicgen.hdf5,autodata_tests/test_data/annotated_dataset_franka_stack_skillgen.hdf5'
 fi
 
 verify required

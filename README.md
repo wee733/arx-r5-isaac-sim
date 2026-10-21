@@ -5,7 +5,7 @@
 ![Isaac Sim 5.1 / 6.1](https://img.shields.io/badge/Isaac_Sim-5.1%20%7C%206.1-76B900?logo=nvidia&logoColor=white)
 ![ROS 2 Jazzy](https://img.shields.io/badge/ROS_2-Jazzy-22314E?logo=ros&logoColor=white)
 ![cuMotion GPU Planning](https://img.shields.io/badge/cuMotion-GPU_Planning-76B900)
-![SkillGen Door Data](https://img.shields.io/badge/SkillGen-Door_Data-0078D4)
+![AutoData Door Data](https://img.shields.io/badge/AutoData-Door_Data-0078D4)
 
 <p align="center">
   <img src="pictures/arx.png" alt="ARX R5A 在 RViz 和 Isaac Sim 5.1 中的仿真画面" width="100%">
@@ -17,19 +17,22 @@
 [架构说明](docs/ros/architecture.md) · [模型验收](docs/ros/model-validation.md)
 
 **AutoData 开发入口：[固定依赖与目录结构](dependencies/README.md) → [生成与验收](scripts/door/autodata/README.md)。**
-后续开门数据生成以 AutoData 为主线；官方源码固定在 `third_party/AutoData`，ARX 适配留在本仓库。
-目前完成依赖结构接入，官方示例和 ARX 运行时验收仍待完成。
+开门数据增广直接运行 `third_party/AutoData`（Git 子模块）的官方生成器；本仓库只提供它要求的
+扩展件：门环境 `arx_door/envs/`、扩展件 `arx_door/autodata/`、描述 YAML `configs/autodata/`。
+已完成无人院完整 3DGS + mesh 共享场景中的三轮 × 24 env 增广：62 条通过生成与独立回放，
+加 10 条专家种子共 72 条，按源划分为 56 train / 16 holdout。
+**[GR00T N1.7 最终模型（Git LFS）](models/groot-n17-b2arx-door/README.md)** 已完成 10,000 步全量微调；
+实际策略闭环尚未验证。[训练与发布说明](scripts/door/training/README.md)。
 
-**新电脑迁移先看 [迁移与恢复手册](docs/migration.md)。** 最新开门示教、SkillGen
-和 GR00T 数据功能在 `groot_date_generate` 分支；克隆后必须执行 `git lfs pull`。
+**新电脑迁移先看 [迁移与恢复手册](docs/migration.md)。**
 下文原有目录示例属于早期 ROS 布局，当前迁移目录、依赖补丁和安装顺序以迁移手册为准。
 
-**开门数据流水线先看 [流水线总览](docs/pipeline.md)**：代码在 `arx_door/`（按阶段分包），
+**开门数据流水线先看 [按功能进入](scripts/door/README.md)**：代码在 `arx_door/`，
 命令在 `scripts/door/<阶段>/`，测试在 `tests/`（`scripts/door/run_tests.sh`）。
-`docs/`、`tests/` 与门资产 `arx_r5_isaac_sim_bringup/assets/door/` 只保存在本地、不进 git，
+资产全部在 `assets/`（`arx_r5a/` 机械臂、`b2arx_robot/` 整机、`door/` 门）。
+`assets/`、`docs/`、`tests/`、`generated/` 只保存在本地、不进 git，
 新机器需从迁移备份拷贝；`scripts/door/setup/check_migration.py` 会检查它们是否齐全。
-细节：[迁移与双版本运行](docs/migration.md) → [SkillGen 采集](docs/door/door_skillgen_usage.md) →
-[数据质量与增广门槛](docs/door/data-quality.md)。下文"仓库结构"之后的内容描述 ROS bringup 子系统。
+下文"仓库结构"之后的内容描述 ROS bringup 子系统。
 Sim 5.1 / Lab 2.3 与 Sim 6.1 / Lab 3.0 使用独立 Python 环境和明确的 API 适配；
 实际验收状态记录在 [运行配置](configs/runtime/isaac_runtime_profiles.json) 与每次 trial 的结果中。
 **GR00T 后续评估入口：[策略推理与闭环手册](scripts/door/policy/README.md)**。
@@ -584,32 +587,37 @@ flowchart LR
 
 ```text
 arx-r5-isaac-sim/
-├── arx_door/                      # 开门流水线库（可复用代码，见 docs/pipeline.md）
+├── assets/                        # 本地资产（不进 Git）
+│   ├── arx_r5a/                   #   机械臂 URDF/XRDF，cuMotion 与 cuRobo 共用
+│   ├── b2arx_robot/               #   B2 搭载机械臂整机
+│   └── door/                      #   门源资产（USD + 贴图）
+├── third_party/AutoData/          # Git 子模块：官方 AutoData（含 Arena、Isaac Lab），只读
+├── arx_door/                      # 开门流水线库
 │   ├── contract.py quality.py     #   跨阶段：任务语义、物理/视频质量门槛
 │   ├── kinematics.py runtime.py   #   跨阶段：运动学、运行环境与解释器选择
 │   ├── paths.py files.py          #   跨阶段：脚本路径表、原子 JSON 读写
-│   ├── scene/                     #   阶段 1：场景摆位与 USD 资产
-│   ├── demos/                     #   阶段 2：专家示范审核与种子转换
-│   ├── skillgen/                  #   阶段 3：SkillGen 环境、批次与 campaign
+│   ├── scene/                     #   场景摆位与 USD 资产
+│   ├── demos/                     #   专家示范审核与种子
+│   ├── envs/                      #   门环境（Arena）：资产包、MDP、记录与物理验收
+│   ├── autodata/                  #   AutoData 扩展件：环境注册、cuRobo 配置、种子转换、验收筛选
+│   ├── dataset/ vlm/              #   训练数据契约、VLM 审核
 │   └── policy/                    #   模型观测/动作协议、闭环运行辅助
+├── configs/
+│   ├── autodata/                  # AutoData 描述：tasks/ embodiments/ env_profiles/
+│   ├── runtime/                   # 固定 Isaac/cuMotion 运行配置、迁移样本清单
+│   ├── scene/ dataset/            # 门场景参数、GR00T N1.7 模态配置与 v2 数据计划
+│   └── policy/                    # 模型推理、固定评估场景与随机化范围
 ├── scripts/
-│   ├── door/<阶段>/               # 开门流水线命令：setup scene demos skillgen dataset policy
-│   │                              #   planner diagnostics legacy；run_tests.sh 运行测试
+│   ├── door/<阶段>/               # 开门流水线命令：setup scene demos autodata dataset policy vlm
+│   │                              #   planner diagnostics training；run_tests.sh 运行测试
 │   ├── ros/                       # Isaac Sim + ROS 2 启动、AprilTag demo、图检查
 │   ├── vla/                       # VLA 场景生成、采集与复位
-│   ├── model/                     # URDF/XRDF 模型审计
-│   └── run_door_skillgen.sh       # 旧路径转发器（已有 campaign 队列引用，保留）
-├── configs/
-│   ├── runtime/                   # 固定 Isaac/cuMotion 运行配置、迁移样本清单
-│   ├── scene/ dataset/            # 门场景参数、GR00T N1.7 模态配置
-│   ├── policy/                    # 模型推理、固定评估场景与随机化范围
-│   └── door_augmentation_plan.json # 增广计划（已有队列记录其绝对路径，保持原位）
-├── dependencies/                  # 外部源码 .repos、上游补丁、Python 依赖锁定
-├── arx_r5_isaac_sim_bringup/      # ROS 2 包：bringup、AprilTag、VLA 采集与机器人/门资产
-├── tests/<阶段>/                  # 开门流水线测试（scene demos skillgen dataset shared）
-├── docs/                          # pipeline.md migration.md 与 door/ ros/ vla/ 专题文档
-├── generated/                     # 运行环境与采集产物（仅保留选定样本入库）
-│   └── door_policy/               # 模型/数据引用、训练结果入口、独立评估 runs
+│   └── model/                     # URDF/XRDF 模型审计
+├── dependencies/                  # AutoData 锁定与校验、外部源码 .repos、上游补丁、Python 依赖
+├── arx_r5_isaac_sim_bringup/      # ROS 2 包：bringup、AprilTag、VLA 采集场景
+├── tests/<阶段>/                  # 开门流水线测试（本地）
+├── docs/                          # 专题文档（本地）
+├── generated/                     # 运行环境与产物（本地）
 └── pictures/                      # GitHub 项目介绍图
 ```
 

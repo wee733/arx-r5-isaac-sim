@@ -21,8 +21,10 @@ BASE_REQUIRED = {
     'dependencies/patches/isaac_ros_manipulation_arx_r5a.patch',
     # Local-only (gitignored); restore from the migration backup, not git.
     'docs/migration.md',
-    'arx_r5_isaac_sim_bringup/assets/door/door.usda',
-    'arx_r5_isaac_sim_bringup/assets/door/door_visuals.usdc',
+    'assets/door/door.usda',
+    'assets/door/door_visuals.usdc',
+    'assets/arx_r5a/urdf/r5a_cumotion.urdf',
+    'assets/arx_r5a/xrdf/r5a.xrdf',
 }
 
 

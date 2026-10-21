@@ -1,8 +1,7 @@
 # 依赖与 AutoData 开发结构
 
-后续开门数据生成以 AutoData 为主线。官方框架以 Git submodule 固定在本仓库内；
-ARX 的任务、控制、物理验收和数据导出留在本项目。旧 SkillGen 实现和数据保留作迁移对照，
-这次目录接入不代表数据 v2 已移植完毕，也不代表 AutoData 已通过仿真验收。
+开门数据增广的主体是 AutoData。官方框架以 Git submodule 固定在本仓库内，直接运行它的
+官方生成器；本仓库只提供它的扩展点要求的东西：门环境、描述 YAML、规划器配置、种子转换和物理验收。
 
 ## 目录与职责
 
@@ -11,20 +10,21 @@ arx-r5-isaac-sim/
 ├── .gitmodules                        # 官方仓库地址；Git gitlink 保存固定提交
 ├── dependencies/
 │   ├── autodata.lock.json             # 启动/检查共用的版本与镜像清单
+│   ├── verify_pins.py bootstrap.sh    # gitlink 与 lock 一致性校验、子模块初始化
 │   ├── python/                        # 独立数据/历史仿真环境的依赖
-│   └── patches/                       # 现有 ROS 补丁
-├── third_party/AutoData/              # 官方框架；不直接改动、不要提交生成产物
+│   └── patches/                       # ROS 与 AutoData 镜像构建补丁
+├── third_party/AutoData/              # 官方框架；只读，不直接改动、不要提交生成产物
 │   └── submodules/IsaacLab-Arena/     # 沿用官方锁定的 Arena/Lab，不另外装一份
+├── assets/                            # 本地资产：arx_r5a/ b2arx_robot/ door/（不进 Git）
 ├── arx_door/
-│   ├── autodata/                      # 机器人接口、Arena 场景接入、记录和物理验收
-│   ├── scene/                         # 场景/相机共用代码
-│   ├── demos/                         # 示范采集与审核
-│   ├── skillgen/                      # 已有实现与共用组件；迁移完成前保留
+│   ├── envs/                          # 门环境（Arena）：资产包、MDP、记录、物理验收
+│   ├── autodata/                      # 扩展件：环境注册回调、cuRobo 规划配置、种子转换、验收筛选
+│   ├── scene/ demos/                  # 场景布置、示范采集与审核
 │   ├── dataset/                       # 训练数据转换
-│   └── policy/                        # VLA 推理与闭环评估
-├── configs/autodata/                  # ARX 任务描述；新生成任务从这里扩展
-├── scripts/door/autodata/             # 准备、环境检查、容器和生成命令
-└── generated/door_autodata/           # 资产包、官方例子、生成轨迹、报告；不进 Git
+│   └── policy/                        # VLA 推理与闭环评估（与增广共用 envs/door.py）
+├── configs/autodata/                  # 官方格式的 tasks/ embodiments/ env_profiles/
+├── scripts/door/autodata/             # prepare convert_seed generate.sh accept preflight run_container.sh
+└── generated/door_autodata/           # 资产包、源数据、生成运行、报告；不进 Git
 ```
 
 流程为：示范 → AutoData 增广 → ARX 物理验收 → LeRobot 导出 → VLA 全量微调 → 闭环评估。
@@ -75,16 +75,23 @@ AutoData 时这两项只报告为跳过，不判为漂移。要升级版本，�
 bash scripts/door/autodata/run_container.sh --official
 ```
 
-加 `--start` 才实际构建和启动；首次缺源码可加 `--bootstrap-source`，它初始化本仓库
-声明的子模块，不从 `main` 拉取最新版本。已有源码版本不符时拒绝自动 reset。
-容器启动仍按项目约定由用户手动执行。
+加 `--start` 实际构建并打开容器；`--build-only` 只构建；`--exec COMMAND ...` 在已构建的镜像
+中运行非交互命令。首次缺源码可加 `--bootstrap-source`，它初始化本仓库声明的子模块，
+不从 `main` 拉取最新版本。已有源码版本不符时拒绝自动 reset。
 
-使用的是固定源码里的原版 Dockerfile；项目包装器负责 Git 子模块所需的父仓库挂载、
-输出目录和可选 ARX 资产挂载。它不是原封不动的上游 launcher，不能将其运行结果称为
+以固定源码的官方 Dockerfile 为基线，构建时应用
+`patches/autodata-early-runtime-constraints.patch` 到 `generated/runtime/autodata_setup/Dockerfile.autodata`。
+该补丁把官方版本约束提前到 Lab 安装前，并为该安装步骤保留 pip 下载缓存：实测未约束的
+TensorDict 会在 Lab 安装阶段升级到另一套 PyTorch/CUDA。补丁还添加 GR00T 轻量客户端所需的
+`msgpack==1.1.0` 和 `msgpack-numpy==0.4.8`，不安装模型或训练依赖。官方子模块保持不变。
+项目包装器负责 Git 子模块所需的父仓库挂载、
+输出目录、官方 CLI/示例数据和持久缓存挂载。它不是原封不动的上游 launcher，不能将其运行结果称为
 上游 launcher 已验证。镜像使用 `arx-autodata:*`，与上游 `autodata:*` 分开。
 
 `/workspaces/autodata` 是镜像构建时安装的官方代码；`/workspaces/arx` 是只读的本项目，
-包含子模块及父仓库 `.git/modules`；`/outputs` 是可写产物目录。
+包含子模块及父仓库 `.git/modules`；`/outputs` 是可写产物目录，宿主机绝对输出路径也映射为可写。
+生成、专家回放和策略评估统一在此容器运行；不会再为 Arena 选择旧宿主机仿真 venv。
+GR00T 模型服务保持独立，评估容器只通过 host 网络运行其轻量 RPC 客户端。
 本地源码改动不会自动覆盖镜像中的官方框架代码，升级后必须重建镜像。
 不要将单独的子模块目录挂载为源码参考后在其中执行 Git：它的 `.git` 文件需要父仓库元数据。
 目前容器入口为 headless 用途，没有配置 Kit GUI/X11 转发。

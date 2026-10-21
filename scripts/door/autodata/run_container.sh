@@ -1,46 +1,53 @@
 #!/usr/bin/env bash
 # Copyright 2026 wee733
 # SPDX-License-Identifier: Apache-2.0
-# User-operated launcher. Default is a reviewable command preview; --start
-# builds the unmodified official Dockerfile and opens the isolated container.
+# Launcher. Default prepares the derived Dockerfile and previews commands; --start
+# builds the official Dockerfile with the documented project patch and opens the container.
 set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 output_root="${project_root}/generated/door_autodata"
-model_root=""
-planner_root="${project_root}/generated/runtime/cumotion"
+cache_root="${project_root}/generated/runtime/autodata_cache"
 do_start=false
+build_only=false
 bootstrap_source=false
 official_only=false
+exec_command=()
 
 usage() {
   cat <<'TEXT'
-Usage: run_container.sh [--official | --model-dir DIR] [--output DIR]
-                        [--planner-runtime DIR] [--bootstrap-source] [--start]
-Default: preview commands only. --start: user builds and starts the container.
+Usage: run_container.sh [--official] [--output DIR] [--bootstrap-source] [--start | --build-only]
+       run_container.sh [--output DIR] --exec COMMAND [ARGS...]
+Default: prepare the derived Dockerfile and preview commands; no Docker execution.
+--start builds and starts the container.
+--build-only builds the pinned image without opening an interactive shell.
+--exec runs a command in the existing pinned image (no rebuild, no TTY).
 The AutoData source must contain its pinned Arena and Lab submodules.
---official opens the upstream example environment without ARX model/planner mounts.
+--official opens the upstream examples (workdir /workspaces/autodata) instead of the ARX project.
 --bootstrap-source initializes the declared Git submodule; it never follows main.
-The planner runtime must be the separate native cuMotion CPython 3.12 environment.
+ARX generation needs only the project mount: assets/, configs/ and arx_door/ live in it.
 TEXT
 }
 while (($#)); do
   case "$1" in
-    --output|--model-dir|--planner-runtime)
+    --output)
       (($# >= 2)) || { usage >&2; exit 2; }
-      case "$1" in
-        --output) output_root="$2" ;;
-        --model-dir) model_root="$2" ;;
-        --planner-runtime) planner_root="$2" ;;
-      esac
+      output_root="$2"
       shift 2 ;;
     --start) do_start=true; shift ;;
+    --build-only) build_only=true; shift ;;
     --bootstrap-source) bootstrap_source=true; shift ;;
     --official) official_only=true; shift ;;
+    --exec) shift; (($#)) || { usage >&2; exit 2; }; exec_command=("$@"); break ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; exit 2 ;;
   esac
 done
+if [[ "${do_start}" == true && "${build_only}" == true ]] ||
+   { ((${#exec_command[@]})) && [[ "${do_start}" == true || "${build_only}" == true ]]; }; then
+  echo 'Choose exactly one of --start, --build-only, or --exec.' >&2
+  exit 2
+fi
 
 # The Python adapters and this launcher read the same reviewed dependency lock.
 dependency_values="$(python3 - "${project_root}" <<'PY'
@@ -87,30 +94,23 @@ for i in 0 1 2; do
   git -C "${paths[$i]}" diff --quiet HEAD -- || { echo "Modified vendor source: ${paths[$i]}" >&2; exit 2; }
 done
 python3 "${project_root}/scripts/door/autodata/preflight.py" --source-only
-extra_mounts=()
-extra_env=()
 container_workdir=/workspaces/autodata
 if [[ "${official_only}" != true ]]; then
-  [[ -n "${model_root}" && -f "${model_root}/urdf/r5a_cumotion.urdf" && -f "${model_root}/xrdf/r5a.xrdf" ]] || {
-    echo '--model-dir must contain urdf/r5a_cumotion.urdf and xrdf/r5a.xrdf' >&2; exit 2;
+  # The ARX model is a project asset, visible in the container under /workspaces/arx/assets.
+  [[ -f "${project_root}/assets/arx_r5a/urdf/r5a_cumotion.urdf" && -f "${project_root}/assets/arx_r5a/xrdf/r5a.xrdf" ]] || {
+    echo 'assets/arx_r5a must contain urdf/r5a_cumotion.urdf and xrdf/r5a.xrdf' >&2; exit 2;
   }
-  [[ -x "${planner_root}/.venv/bin/python" ]] || { echo "Missing isolated planner Python: ${planner_root}" >&2; exit 2; }
-  source_root="$(realpath "${source_root}")"
-  model_root="$(realpath "${model_root}")"
-  planner_root="$(realpath "${planner_root}")"
-  planner_interpreter="$(readlink -f "${planner_root}/.venv/bin/python")"
-  interpreter_root="$(dirname "$(dirname "${planner_interpreter}")")"
-  extra_mounts=(
-    --mount "type=bind,src=${model_root},dst=/assets/arx_model,readonly"
-    --mount "type=bind,src=${model_root},dst=${model_root},readonly"
-    --mount "type=bind,src=${planner_root},dst=${planner_root},readonly"
-    --mount "type=bind,src=${interpreter_root},dst=${interpreter_root},readonly")
-  extra_env=(--env ARX_DESCRIPTION_DIR=/assets/arx_model
-    --env "CUMOTION_PYTHON=${planner_root}/.venv/bin/python"
-    --env "CUMOTION_ENV_DIR=${planner_root}")
   container_workdir=/workspaces/arx
 fi
+source_root="$(realpath "${source_root}")"
 output_root="$(realpath -m "${output_root}")"
+dockerfile="${project_root}/generated/runtime/autodata_setup/Dockerfile.autodata"
+if ((${#exec_command[@]} == 0)); then
+  mkdir -p "$(dirname "${dockerfile}")"
+  patch --batch --silent --fuzz=0 --output "${dockerfile}" \
+    "${source_root}/docker/Dockerfile.autodata" \
+    "${project_root}/dependencies/patches/autodata-early-runtime-constraints.patch"
+fi
 gpu_arch="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n1 | tr -d '[:space:]')"
 [[ "${gpu_arch}" =~ ^[0-9]+\.[0-9]+$ ]] || { echo 'Cannot determine CUDA architecture' >&2; exit 2; }
 
@@ -119,8 +119,17 @@ build=(docker build --pull --progress=plain --build-arg WORKDIR=/workspaces/auto
   --build-arg "TORCH_CUDA_ARCH_LIST=${gpu_arch}+PTX" --build-arg MAX_JOBS=2
   --label "arx.autodata_commit=${pins[0]}" --label "arx.arena_commit=${pins[1]}"
   --label "arx.lab_commit=${pins[2]}"
-  -t "${image_name}" -f "${source_root}/docker/Dockerfile.autodata" "${source_root}")
-run=(docker run --rm -it --name "${container_name}" --gpus all --runtime nvidia
+  -t "${image_name}" -f "${dockerfile}" "${source_root}")
+tty_args=(-it)
+command_args=(bash)
+if ((${#exec_command[@]})); then
+  tty_args=()
+  command_args=("${exec_command[@]}")
+  # A persistent interactive container may already own the configured name.
+  # Isolate command runs without stopping or repurposing that container.
+  container_name="${container_name}-exec-$$"
+fi
+run=(docker run --rm "${tty_args[@]}" --name "${container_name}" --gpus all --runtime nvidia
   --ipc host --net host --ulimit memlock=-1 --ulimit stack=-1
   # Keep the image's editable runtime writable: official entrypoint owns
   # chown and _isaac_sim symlinks there. The host source remains read-only.
@@ -128,26 +137,40 @@ run=(docker run --rm -it --name "${container_name}" --gpus all --runtime nvidia
   --mount "type=bind,src=${project_root},dst=/workspaces/arx,readonly"
   --mount "type=bind,src=${project_root},dst=${project_root},readonly"
   --mount "type=bind,src=${output_root},dst=/outputs"
-  "${extra_mounts[@]}"
+  --mount "type=bind,src=${output_root},dst=${output_root}"
+  # Upstream normally mounts its entire checkout. Its Dockerfile omits these
+  # CLI entrypoints and LFS examples, so expose them explicitly, read-only.
+  --mount "type=bind,src=${source_root}/scripts,dst=/workspaces/autodata/scripts,readonly"
+  --mount "type=bind,src=${source_root}/datasets,dst=/workspaces/autodata/datasets,readonly"
+  --mount "type=bind,src=${source_root}/autodata_tests/test_data,dst=/workspaces/autodata/autodata_tests/test_data,readonly"
+  # This also creates /home/<user>, required by the official entrypoint.
+  --mount "type=bind,src=${cache_root},dst=/home/$(id -un)/.cache"
   --env ACCEPT_EULA=Y --env PRIVACY_CONSENT=Y
   --env ISAACLAB_PATH=/workspaces/autodata/submodules/IsaacLab-Arena/submodules/IsaacLab
   --env PYTHONPATH=/workspaces/arx:/workspaces/autodata
-  "${extra_env[@]}"
+  --env PYTHONDONTWRITEBYTECODE=1
+  --env PYTHONUNBUFFERED=1
+  --env ISAAC_SIM_PYTHON=/isaac-sim/python.sh
+  --env "ARX_AUTODATA_COMMIT=${pins[0]}" --env "ARX_ARENA_COMMIT=${pins[1]}"
+  --env "ARX_LAB_COMMIT=${pins[2]}"
   --env "DOCKER_RUN_USER_ID=$(id -u)" --env "DOCKER_RUN_USER_NAME=$(id -un)"
   --env "DOCKER_RUN_GROUP_ID=$(id -g)" --env "DOCKER_RUN_GROUP_NAME=$(id -gn)"
-  --workdir "${container_workdir}" "${image_name}" bash)
+  --workdir "${container_workdir}" "${image_name}" "${command_args[@]}")
 printf '%q ' "${build[@]}"; printf '\n'
 printf '%q ' "${run[@]}"; printf '\n'
-if [[ "${do_start}" == true ]]; then
-  # Refuse startup while swap is exhausted. The preview remains usable.
-  swap_total="$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)"
-  swap_free="$(awk '/^SwapFree:/ {print $2}' /proc/meminfo)"
-  if [[ "${swap_total}" -gt 0 && "${swap_free}" -eq 0 ]]; then
-    echo 'Swap is full. Resolve memory pressure before starting the simulator.' >&2; exit 2;
-  fi
+if [[ "${do_start}" == true || "${build_only}" == true ]]; then
   mkdir -p "${output_root}"
   # Rebuild against this exact clean source; Docker's layer cache avoids work
   # when unchanged. A globally reused image tag alone is not version evidence.
   "${build[@]}"
+fi
+if [[ "${do_start}" == true && "${build_only}" != true ]] || ((${#exec_command[@]})); then
+  # Validate the image, not just the tag, before claiming build provenance.
+  for i in 0 1 2; do
+    names=(autodata arena lab)
+    actual="$(docker image inspect "${image_name}" --format "{{index .Config.Labels \"arx.${names[$i]}_commit\"}}")"
+    [[ "${actual}" == "${pins[$i]}" ]] || { echo 'Image pins disagree; run --build-only.' >&2; exit 2; }
+  done
+  mkdir -p "${output_root}" "${cache_root}"
   "${run[@]}"
 fi

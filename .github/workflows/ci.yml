@@ -63,7 +63,7 @@ jobs:
           python3 -m py_compile scripts/model/audit_model.py
       - name: Check script entry points
         run: |
-          bash -n scripts/*.sh scripts/ros/*.sh scripts/vla/*.sh scripts/door/*.sh scripts/door/*/*.sh
+          bash -n scripts/ros/*.sh scripts/vla/*.sh scripts/door/*.sh scripts/door/*/*.sh
           test -x scripts/ros/run_isaac_sim.sh
           test -x scripts/ros/check_ros_graph.sh
           test -x scripts/model/audit_model.py

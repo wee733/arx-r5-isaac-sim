@@ -20,7 +20,7 @@ sys.path.insert(0, str(ROOT))
 
 from arx_door.files import write_json
 from arx_door.policy.config import DEFAULT_CONFIG, load_config, resource
-from arx_door.runtime import clean_environment, simulation_python
+from arx_door.autodata.runtime import PYTHON, simulation_environment
 
 
 def main() -> int:
@@ -34,6 +34,7 @@ def main() -> int:
     parser.add_argument('--max-steps', type=int)
     parser.add_argument('--headless', action='store_true')
     args = parser.parse_args()
+    sim_env = simulation_environment()
     config = load_config(args.config)
     scenario_config = json.loads(args.scenario_config.read_text())
     scenarios = {item['name']: item for item in scenario_config['trials']}
@@ -55,7 +56,7 @@ def main() -> int:
     if not selected:
         parser.error('select at least one fixed or random episode')
     timestamp = datetime.now(ZoneInfo('Asia/Shanghai')).strftime('%Y%m%d_%H%M%S')
-    output = (args.output or ROOT / 'generated/door_policy/runs' / f'evaluation_{timestamp}').absolute()
+    output = (args.output or Path('/outputs/policy') / f'evaluation_{timestamp}').absolute()
     output.mkdir(parents=True, exist_ok=False)
     write_json(output / 'scenarios.json', selected)
     write_json(output / 'policy_config.json', config)
@@ -82,14 +83,7 @@ def main() -> int:
         print(f'Need 6144 MiB free for rendering after the server is loaded; available {free_mib}',
               file=sys.stderr)
         return 2
-    base_env = clean_environment()
-    base_env.update(PYTHONPATH=str(ROOT), PYTHONUNBUFFERED='1')
-    python = simulation_python()
-    sim_env = json.loads(subprocess.check_output(
-        [str(python), '-c', ('import json;from arx_door.runtime import simulation_environment;'
-                            'print(json.dumps(simulation_environment()))')],
-        env=base_env, text=True))
-    sim_env.update(ISAAC_SIM_PYTHON=str(python), PYTHONUNBUFFERED='1')
+    python = PYTHON
     results = []
     for item in selected:
         trial = output / item['name']
@@ -97,16 +91,21 @@ def main() -> int:
         scene = resource(config, 'baseline_scene')
         if item['name'] != 'baseline':
             scene = trial / 'scene.usd'
-            argv = ['bash', str(ROOT / 'scripts/door/scene/run_prepare_door_skillgen_scene.sh'),
+            argv = ['bash', str(ROOT / 'scripts/door/scene/run_prepare_door_scene.sh'),
                     '--source', str(resource(config, 'source_scene')),
                     '--seed', str(resource(config, 'seed_dir')), '--output', str(scene),
                     '--angle-deg', str(item['angle_deg']), '--radius-m', str(item['radius_m']),
                     '--visual-seed', str(item['visual_seed']), '--allow-agent-reviewed-seeds']
             with (trial / 'prepare.log').open('w') as log:
                 subprocess.run(argv, env=sim_env, stdout=log, stderr=subprocess.STDOUT, check=True)
+        # The evaluation env is built from an asset bundle, exactly like AutoData generation.
+        assets = trial / 'assets'
+        with (trial / 'assets.log').open('w') as log:
+            subprocess.run([str(python), str(ROOT / 'scripts/door/autodata/prepare.py'),
+                            '--scene', str(scene), '--output', str(assets)],
+                           env=sim_env, stdout=log, stderr=subprocess.STDOUT, check=True)
         argv = [str(python), str(Path(__file__).with_name('rollout.py')),
-                '--config', str(args.config.absolute()), '--scene', str(scene),
-                '--cuboids', str(resource(config, 'baseline_cuboids')),
+                '--config', str(args.config.absolute()), '--assets', str(assets / 'manifest.json'),
                 '--output', str(trial / 'rollout'), '--max-steps',
                 str(args.max_steps or scenario_config['max_steps']),
                 '--success-hold-steps', str(scenario_config['success_hold_steps'])]

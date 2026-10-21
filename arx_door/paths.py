@@ -14,20 +14,17 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / 'scripts/door'
 GENERATED = ROOT / 'generated'
 CONFIGS = ROOT / 'configs'
-# Recorded scenes reference textures under this historical package path.
-ASSETS = ROOT / 'arx_r5_isaac_sim_bringup/assets'
+# Project assets: door/ (source door), arx_r5a/ (arm + cuMotion model),
+# b2arx_robot/ (B2 with the mounted arm).
+ASSETS = ROOT / 'assets'
+ARX_DESCRIPTION = ASSETS / 'arx_r5a'
 
 # Stage 1: scene
-PREPARE_SCENE = SCRIPTS / 'scene/prepare_door_skillgen_scene.py'
 EXPORT_CUBOIDS = SCRIPTS / 'scene/export_door_cuboids.py'
-# Stage 2: expert demonstrations
+# Stage 2: expert demonstrations (seeds); planned by the native cuMotion worker
 TEACH_SESSION = SCRIPTS / 'demos/door_teach_session.py'
 EXPERT_COLLECTOR = SCRIPTS / 'demos/collect_door_upright.py'
 ENCODE_ATTEMPT = SCRIPTS / 'demos/encode_door_attempt.py'
-# Stage 3: augmentation
-GENERATE_SKILLGEN = SCRIPTS / 'skillgen/generate_door_skillgen.py'
-# Campaign queues persist this exact launcher path in their argv; the old
-# location (scripts/run_door_skillgen.sh) is kept as a forwarding wrapper.
-SKILLGEN_BATCH_LAUNCHER = ROOT / 'scripts/run_door_skillgen.sh'
-# Native planner (isolated cuMotion venv)
 CUMOTION_LAUNCHER = SCRIPTS / 'planner/run_cumotion.sh'
+# Stage 3: augmentation runs AutoData's official generator (scripts/door/autodata)
+AUTODATA_SCRIPTS = SCRIPTS / 'autodata'

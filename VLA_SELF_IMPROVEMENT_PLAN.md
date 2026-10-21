@@ -49,7 +49,7 @@ supersedes: Gemini 初稿（2026-10-16）及其核验版
 - `frame_source` 和 `seed_frame` 逐帧记录在导出数据的 `diagnostics/*.npz` 中。
 - 恢复样本在导出时用 `--crop-before-recovery` 裁掉故意制造的偏移段，episode 从偏移位姿开始，
   只保留“从偏处纠回”的部分。
-- `configs/skillgen/data_v2.json` 中 `probability: 0.5`，即约一半为名义轨迹、一半为恢复轨迹。
+- 旧增广配置（`configs/skillgen/data_v2.json`，已删除）中 `probability: 0.5`，即约一半为名义轨迹、一半为恢复轨迹。
 
 ### 2.2 阶段语言（训练与推理同源）
 
@@ -88,11 +88,8 @@ supersedes: Gemini 初稿（2026-10-16）及其核验版
 | 功能 | 文件 |
 | :--- | :--- |
 | 直线关节路径与碰撞检查（cuMotion 原生检查器） | `scripts/door/planner/door_cumotion_worker.py`（`path_mode`） |
-| 规划器配置与逐次净空覆盖 | `arx_door/skillgen/cumotion_planner.py` |
-| 恢复扰动采样、入口偏移、汇入点选择 | `arx_door/skillgen/recovery.py` |
-| 生成器接入恢复（汇入点不可行时回退到更早的路点） | `arx_door/skillgen/generator.py` |
-| 机身 ego 相机 | `arx_door/scene/ego_camera.py`、`arx_door/skillgen/env_cfg.py` |
-| 生成配置与批处理透传 | `configs/skillgen/data_v2.json`、`--generation-profile` |
+| 规划器配置与逐次净空覆盖、恢复扰动与汇入点选择 | 原 `arx_door/skillgen/`，随旧增广从 main 删除（见 git 历史）；增广改由 AutoData 官方 SkillGen 承担 |
+| 机身 ego 相机 | `arx_door/scene/ego_camera.py`、`arx_door/envs/door.py`（`ego_camera`） |
 | 种子对齐与阶段标签、路径质量指标 | `arx_door/dataset/stages.py` |
 | 导出：多视角、阶段语言、恢复裁剪、绕行门控 | `scripts/door/dataset/export_door_lerobot.py` |
 | 官方 N1.7 校验：多视角、阶段语言、夹爪归一化 | `scripts/door/dataset/validate_door_n17.py` |
@@ -102,7 +99,7 @@ supersedes: Gemini 初稿（2026-10-16）及其核验版
 | v2 推理配置 | `configs/policy/arx_knob_v2_n17.json`（checkpoint 路径待训练后填写） |
 | Gemini / VLM 审核（可从批次报告按间隔抽样） | `arx_door/vlm/review.py`、`scripts/door/vlm/review_door_episodes.py`、`run_review.sh` |
 | 专家动作回放检查（评估环境与生成环境一致性） | `scripts/door/policy/rollout.py --replay-hdf5`、`scripts/door/policy/replay_check.py` |
-| 生产计划与续跑执行器 | `configs/skillgen/v2_first_success_plan.json`、`scripts/door/skillgen/run_v2_plan.py` |
+| 生产计划（导出与验收门槛） | `configs/dataset/v2_first_success_plan.json`；旧续跑执行器 `run_v2_plan.py` 已随旧增广删除 |
 | 导出、校验、审计、验收、打包一步完成 | `scripts/door/dataset/build_v2_bundle.py` |
 | 全量微调脚本（训练包内使用） | `scripts/door/training/train_v2_full_n17.sh`、`.sbatch` |
 | 推理服务指定 checkpoint 与 holdout | `run_policy.sh serve --checkpoint … --dataset …` |
@@ -138,7 +135,7 @@ supersedes: Gemini 初稿（2026-10-16）及其核验版
 - **AutoData**：底层就是 SkillGen 的同一套方法，它增加的是吞吐量，不是数据质量。它目前还跑不起来（缺镜像、缺固定版本），迁过去还要重写 v2 的全部修复。现有流程单条 80 秒，数据量够用。等到需要大规模多环境生成或换到 B2 时再迁。
 - **DoorMan 随机化**：评估场景本来就在训练分布内，第一轮恰恰是在分布内失败的。现在加随机化只会增加学习难度。DoorMan 对当前阶段最有用的部分是纠偏数据，v2 的恢复示范就是它的离线版本。
 
-### 4.2 本次生产计划（`configs/skillgen/v2_first_success_plan.json`）
+### 4.2 本次生产计划（`configs/dataset/v2_first_success_plan.json`）
 
 | 批次 | 种子 | 角度 | 半径 | 外观 | 条数 |
 | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -190,7 +187,7 @@ python3 scripts/door/policy/evaluate.py --config configs/policy/arx_knob_v2_n17.
 1. **闭环自演进（Filtered BC）**：用新策略跑几百次随机摆位，只保留通过物理验收的 rollout，与专家数据混合后再训练。rollout 已记录所需的全部字段，转 LeRobot 的转换器届时再写。
 2. **DoorMan 式扩展**：门动力学随机化（合页阻尼、锁舌弹簧）、更宽的角度和半径、更多种子，以及专家从失败状态接管（DAgger）。
 3. **AutoData 迁移**：吞吐量成为瓶颈时再做，必须带上直线规划、恢复扰动、阶段对齐和机身相机。
-4. **B2+ARX**：本机 `~/workspace/B2ARX_Train_12DOF` 是 12 自由度腿策略加外部 6 自由度臂命令的分离控制。VLA 一次输出的 16 步动作块（0.53 s）可以直接作为腿策略的臂命令预览。机身相机要按 B2 实机的位姿重新标定，再重新渲染数据。
+4. **B2+ARX**：整机模型在 `assets/b2arx_robot`（B2 搭载 ARX R5A），控制按 12 自由度腿策略加 6 自由度臂命令分离。VLA 一次输出的 16 步动作块（0.53 s）可以直接作为腿策略的臂命令预览。机身相机要按 B2 实机的位姿重新标定，再重新渲染数据。
 
 ---
 

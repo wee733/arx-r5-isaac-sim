@@ -1,0 +1,9 @@
+{
+  "source_checkpoint": "checkpoint-10000",
+  "tensor_count": 1031,
+  "tensor_bytes": 6910361856,
+  "shards": 4,
+  "tensor_bytes_verified_equal": true,
+  "validation": "Every exported tensor was read back and compared to source tensor bytes using SHA256.",
+  "model_inference_test_executed": false
+}

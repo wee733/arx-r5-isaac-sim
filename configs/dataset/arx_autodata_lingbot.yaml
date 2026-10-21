@@ -1,0 +1,24 @@
+# LingBot-VLA robot feature mapping; use the separately converted LeRobot v3 data.
+# Raw storage: six absolute joint angles [rad], one finger displacement [m].
+# Configure data.joints for 6 arm dimensions and 1 effector dimension (or padding).
+states:
+  - observation.state.arm.position:
+      origin_keys:
+        - observation.state: {start: 0, end: 6}
+  - observation.state.effector.position:
+      origin_keys:
+        - observation.state: {start: 6, end: 7}
+actions:
+  - action.arm.position:
+      origin_keys:
+        - action: {start: 0, end: 6}
+      subtract_state: true
+  - action.effector.position:
+      origin_keys:
+        - action: {start: 6, end: 7}
+      subtract_state: false
+images:
+  - observation.images.camera_top:
+      origin_keys: observation.images.ego
+  - observation.images.camera_wrist_left:
+      origin_keys: observation.images.wrist

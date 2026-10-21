@@ -1,0 +1,17 @@
+# Copyright 2026 wee733
+# SPDX-License-Identifier: Apache-2.0
+type: absolute_pose
+name: b2arx
+description: Floating B2 with an independently stabilized leg controller and ARX mount-frame pose actions.
+action_dim: 8
+obs_group: policy
+reference_frame:
+  asset_name: robot
+  body_name: R5a
+eefs:
+  link6:
+    pose_obs_keys:
+      pos: eef_pos
+      quat: eef_quat
+    pose_action_slice: [0, 7]
+    passthrough_action_slice: [7, 8]

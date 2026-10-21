@@ -1,6 +1,12 @@
 # Copyright 2026 wee733
 # SPDX-License-Identifier: Apache-2.0
-"""Project adapters for NVIDIA AutoData; simulator imports stay lazy."""
+"""ARX extension points for the pinned NVIDIA AutoData submodule.
+
+``register`` (env + planner profile, loaded by the official generate_dataset.py),
+``planner`` (ARX cuRobo profile), ``source`` (expert seed -> AutoData source),
+``accept`` (strict physical acceptance of a run), ``preflight`` (pins, inputs).
+The environment itself lives in :mod:`arx_door.envs`. Simulator imports stay lazy.
+"""
 
 import json
 from pathlib import Path

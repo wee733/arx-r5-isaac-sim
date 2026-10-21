@@ -12,7 +12,7 @@ from . import DEPENDENCY, source_checkouts
 
 
 def source_evidence(path: str | Path) -> dict:
-    """Check the single-knob source contract; this is not physical acceptance."""
+    """Check a convert_seed.py source against the ARX AutoData contract; not physical acceptance."""
     import h5py
     import numpy as np
 
@@ -20,12 +20,13 @@ def source_evidence(path: str | Path) -> dict:
     with h5py.File(path, 'r') as dataset:
         for name, episode in dataset['data'].items():
             actions = episode['actions'][:]
-            if actions.ndim != 2 or actions.shape[1] != 7 or not np.isfinite(actions).all():
-                raise ValueError(f'{name}: actions must contain finite [T,7] absolute commands')
+            if actions.ndim != 2 or actions.shape[1] != 8 or not np.isfinite(actions).all():
+                raise ValueError(f'{name}: actions must be finite [T,8] absolute link6 pose + gripper; '
+                                 'convert seeds with scripts/door/autodata/convert_seed.py')
             info = episode['obs/datagen_info']
             for field, keys in (
                 ('eef_pose', ('link6',)), ('target_eef_pose', ('link6',)),
-                ('object_pose', ('knob', 'panel')),
+                ('object_pose', ('door',)),
             ):
                 for key in keys:
                     values = info[f'{field}/{key}'][:]
