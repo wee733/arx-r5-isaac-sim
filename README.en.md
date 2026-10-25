@@ -25,8 +25,10 @@ Together with 10 expert seeds, the dataset contains 72 episodes (56 train / 16 h
 The [final GR00T N1.7 model](models/groot-n17-b2arx-door/README.md) is stored with Git LFS after
 10,000 steps of full-model fine-tuning. Policy closed-loop evaluation remains pending.
 See the [training and release guide](scripts/door/training/README.md).
-Assets live in `assets/` (`arx_r5a/` arm, `b2arx_robot/` B2 with arm, `door/`) and, like `generated/`,
-are kept local and not versioned.
+Robot and door assets in `assets/` (`arx_r5a/` arm, `b2arx_robot/` B2 with arm, `door/`)
+are versioned, including URDF/XRDF, USD layers, meshes and door textures. See the
+[asset download guide](assets/README.md). Raw venue scans in `assets/wurenyuan/`
+and intermediate outputs in `generated/` remain local.
 
 **新电脑迁移请先阅读 [迁移与恢复手册](docs/migration.md)。**
 

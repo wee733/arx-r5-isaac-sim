@@ -47,9 +47,13 @@ venv/
 # Local-only project material (kept on disk, not versioned)
 /docs/
 /tests/
-# Robot and door assets (assets/arx_r5a, assets/b2arx_robot, assets/door);
-# provenance of their meshes is not cleared for a public repository.
-/assets/
+# Version the robot and door assets used to generate GR00T training data.
+# Raw venue scans and machine-local converter metadata remain local.
+/assets/wurenyuan/
+/assets/b2arx_robot/my_robot/.asset_hash
+/assets/b2arx_robot/my_robot/config.yaml
+/assets/arx_r5a/.setup_assistant
+/assets/arx_r5a/test/
 
 # Local analysis, training workspaces and unpublished checkpoints
 /.codegraph/

@@ -30,8 +30,9 @@
 **开门数据流水线先看 [按功能进入](scripts/door/README.md)**：代码在 `arx_door/`，
 命令在 `scripts/door/<阶段>/`，测试在 `tests/`（`scripts/door/run_tests.sh`）。
 资产全部在 `assets/`（`arx_r5a/` 机械臂、`b2arx_robot/` 整机、`door/` 门）。
-`assets/`、`docs/`、`tests/`、`generated/` 只保存在本地、不进 git，
-新机器需从迁移备份拷贝；`scripts/door/setup/check_migration.py` 会检查它们是否齐全。
+机器人 URDF/XRDF、USD 及所需网格、门贴图已纳入 Git，下载方式见 [资产说明](assets/README.md)。
+无人院原始扫描 `assets/wurenyuan/`、`docs/`、`tests/`、`generated/` 仍保存在本地，
+新机器需从迁移备份拷贝这些内容；`scripts/door/setup/check_migration.py` 会检查它们是否齐全。
 下文"仓库结构"之后的内容描述 ROS bringup 子系统。
 Sim 5.1 / Lab 2.3 与 Sim 6.1 / Lab 3.0 使用独立 Python 环境和明确的 API 适配；
 实际验收状态记录在 [运行配置](configs/runtime/isaac_runtime_profiles.json) 与每次 trial 的结果中。
@@ -587,7 +588,7 @@ flowchart LR
 
 ```text
 arx-r5-isaac-sim/
-├── assets/                        # 本地资产（不进 Git）
+├── assets/                        # 机器人与门资产（大文件使用 Git LFS）
 │   ├── arx_r5a/                   #   机械臂 URDF/XRDF，cuMotion 与 cuRobo 共用
 │   ├── b2arx_robot/               #   B2 搭载机械臂整机
 │   └── door/                      #   门源资产（USD + 贴图）
@@ -638,8 +639,8 @@ python -m pytest -q arx_r5_isaac_sim_bringup/test/test_contract.py
   --save-usd generated/arx_r5a_scene.usda
 ```
 
-USD 是生成物，默认不提交。仓库已为 `.usd`、`.usda`、`.usdc`、`.usdz` 和 STL
-配置 Git LFS。
+`generated/` 下的导出 USD 默认不提交；`assets/` 下的机器人和门源 USD 已纳入版本管理。
+仓库已为 USD、STL、整机 DAE 网格及门贴图配置 Git LFS。
 
 模型 FK 和 XRDF sphere/mesh 审计见
 [模型验收说明](docs/ros/model-validation.md)；脚本支持文本或 JSON 输出：

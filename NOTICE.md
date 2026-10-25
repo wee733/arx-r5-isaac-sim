@@ -9,9 +9,11 @@ research/evaluation restriction. They are not covered by the integration
 code's Apache-2.0 license. See the model README for provenance and limitations.
 
 Most original integration code in this repository is licensed under
-Apache-2.0 as stated in the top-level `LICENSE` file. The repository does not
-redistribute ARX robot meshes, NVIDIA Isaac Sim assets, or NVIDIA Isaac ROS
-binaries.
+Apache-2.0 as stated in the top-level `LICENSE` file. The robot descriptions,
+meshes and door assets used for training-data generation are included under
+`assets/`; their inclusion does not relicense third-party geometry or textures
+under Apache-2.0. See `assets/README.md` for scope and provenance. NVIDIA Isaac Sim
+software and NVIDIA Isaac ROS binaries are not redistributed.
 
 ## ARX R5A configuration
 
@@ -28,8 +30,9 @@ at commit `c85c2c7c84bb630f30f87904bebebbd83dddd2db`:
 Those files retain the ARXrobotics/wee733 copyright and are distributed under
 BSD-3-Clause. The complete terms are in `LICENSES/BSD-3-Clause.txt`.
 
-Robot geometry, SRDF, XRDF, and the authoritative cuMotion URDF remain external
-dependencies and are consumed at runtime rather than copied into this repository.
+The local ARX description snapshot, including geometry, SRDF, XRDF and cuMotion
+URDF, is included in `assets/arx_r5a/`. The ROS bringup can still consume the
+external description package configured in its environment.
 
 ## NVIDIA and MoveIt
 

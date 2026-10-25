@@ -1,0 +1,167 @@
+format: xrdf
+format_version: 1.0
+
+modifiers:
+  - set_base_frame: "base_link"
+  - add_frame:
+      frame_name: "attached_object"
+      parent_frame_name: "grasp_frame"
+      joint_name: "attach_joint"
+      joint_type: FIXED
+      fixed_transform:
+        position: [0.0, 0.0, 0.0]
+        orientation: {w: 1.0, xyz: [0.0, 0.0, 0.0]}
+
+default_joint_positions:
+  joint1: 0.0
+  joint2: 1.0
+  joint3: 1.5
+  joint4: 0.0
+  joint5: 0.0
+  joint6: 0.0
+
+cspace:
+  joint_names: ["joint1", "joint2", "joint3", "joint4", "joint5", "joint6"]
+  acceleration_limits: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+  jerk_limits: [10.0, 10.0, 10.0, 10.0, 10.0, 10.0]
+
+tool_frames: ["link6"]
+
+collision:
+  geometry: "r5a_collision_spheres"
+  buffer_distance:
+    base_link: 0.002
+    link1: 0.002
+    link2: 0.002
+    link3: 0.002
+    link4: 0.002
+    link5: 0.002
+    link6: 0.002
+    link7: 0.002
+    link8: 0.002
+    attached_object: 0.002
+
+self_collision:
+  geometry: "r5a_collision_spheres"
+  buffer_distance: {}
+  ignore:
+    base_link: ["link1", "link2"]
+    link1: ["link2", "link3"]
+    link2: ["link3"]
+    link3: ["link4", "link5", "link6"]
+    link4: ["link5", "link6"]
+    link5: ["link6", "link7", "link8"]
+    link6: ["link7", "link8"]
+    link7: ["link8"]
+    attached_object: ["link5", "link6", "link7", "link8"]
+
+geometry:
+  r5a_collision_spheres:
+    spheres:
+      base_link:
+        - center: [0.0, 0.0, 0.020]
+          radius: 0.035
+        - center: [0.0, 0.0, 0.050]
+          radius: 0.035
+      link1:
+        - center: [0.000, -0.022, 0.012]
+          radius: 0.027
+        - center: [0.000, 0.022, 0.012]
+          radius: 0.027
+        - center: [0.012, -0.022, 0.035]
+          radius: 0.027
+        - center: [0.012, 0.022, 0.035]
+          radius: 0.027
+        - center: [0.018, -0.022, 0.055]
+          radius: 0.025
+        - center: [0.018, 0.022, 0.055]
+          radius: 0.025
+      link2:
+        - center: [0.000, 0.003, 0.000]
+          radius: 0.032
+        - center: [-0.050, 0.003, 0.000]
+          radius: 0.030
+        - center: [-0.100, 0.003, 0.000]
+          radius: 0.030
+        - center: [-0.150, 0.003, 0.000]
+          radius: 0.030
+        - center: [-0.200, 0.003, 0.000]
+          radius: 0.030
+        - center: [-0.250, 0.003, 0.000]
+          radius: 0.032
+        - center: [-0.285, 0.003, 0.000]
+          radius: 0.032
+      link3:
+        - center: [-0.005, 0.000, -0.030]
+          radius: 0.050
+        - center: [0.030, 0.000, -0.060]
+          radius: 0.042
+        - center: [0.080, 0.000, -0.060]
+          radius: 0.036
+        - center: [0.130, 0.000, -0.060]
+          radius: 0.036
+        - center: [0.180, 0.000, -0.060]
+          radius: 0.037
+        - center: [0.230, 0.000, -0.060]
+          radius: 0.043
+        - center: [0.265, 0.000, -0.060]
+          radius: 0.043
+      link4:
+        - center: [0.005, -0.020, 0.000]
+          radius: 0.025
+        - center: [0.005, 0.020, 0.000]
+          radius: 0.025
+        - center: [0.025, -0.018, -0.015]
+          radius: 0.024
+        - center: [0.025, 0.018, -0.015]
+          radius: 0.024
+        - center: [0.045, -0.015, -0.045]
+          radius: 0.026
+        - center: [0.045, 0.015, -0.045]
+          radius: 0.026
+        - center: [0.075, -0.015, -0.070]
+          radius: 0.026
+        - center: [0.075, 0.015, -0.070]
+          radius: 0.026
+        - center: [0.095, 0.000, -0.080]
+          radius: 0.022
+      link5:
+        - center: [0.000, 0.000, 0.015]
+          radius: 0.032
+        - center: [0.000, 0.000, 0.050]
+          radius: 0.034
+        - center: [0.000, 0.000, 0.080]
+          radius: 0.030
+        - center: [0.000, 0.000, 0.105]
+          radius: 0.025
+      link6:
+        - center: [0.025, -0.050, 0.000]
+          radius: 0.040
+        - center: [0.025, 0.000, 0.000]
+          radius: 0.040
+        - center: [0.025, 0.050, 0.000]
+          radius: 0.040
+        - center: [0.065, -0.050, 0.000]
+          radius: 0.040
+        - center: [0.065, 0.000, 0.000]
+          radius: 0.040
+        - center: [0.065, 0.050, 0.000]
+          radius: 0.040
+        - center: [0.105, -0.055, 0.000]
+          radius: 0.035
+        - center: [0.105, 0.055, 0.000]
+          radius: 0.035
+        - center: [0.145, -0.055, 0.000]
+          radius: 0.035
+        - center: [0.145, 0.055, 0.000]
+          radius: 0.035
+      link7:
+        - center: [0.005, -0.035, 0.000]
+          radius: 0.032
+        - center: [0.045, -0.035, 0.000]
+          radius: 0.032
+      link8:
+        - center: [0.005, 0.035, 0.000]
+          radius: 0.032
+        - center: [0.045, 0.035, 0.000]
+          radius: 0.032

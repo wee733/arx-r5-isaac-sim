@@ -1,0 +1,51 @@
+# This config file is used by ros2_control
+controller_manager:
+  ros__parameters:
+    update_rate: 200
+
+    manipulator_controller:
+      type: joint_trajectory_controller/JointTrajectoryController
+
+    gripper_controller:
+      # Isaac ROS Manipulation open/close behaviors use GripperCommand.
+      type: position_controllers/GripperActionController
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+manipulator_controller:
+  ros__parameters:
+    action_monitor_rate: 20.0
+    state_publish_rate: 100.0
+    allow_partial_joints_goal: false
+    allow_nonzero_velocity_at_trajectory_end: true
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+    command_interfaces:
+      - position
+    state_interfaces:
+      - position
+      - velocity
+    constraints:
+      goal_time: 2.0
+      stopped_velocity_tolerance: 0.05
+      joint1: {trajectory: 0.15, goal: 0.02}
+      joint2: {trajectory: 0.15, goal: 0.02}
+      joint3: {trajectory: 0.15, goal: 0.02}
+      joint4: {trajectory: 0.15, goal: 0.02}
+      joint5: {trajectory: 0.15, goal: 0.02}
+      joint6: {trajectory: 0.15, goal: 0.02}
+gripper_controller:
+  ros__parameters:
+    action_monitor_rate: 20.0
+    joint: joint7
+    goal_tolerance: 0.003
+    max_effort: 0.0
+    allow_stalling: true
+    stall_velocity_threshold: 0.001
+    stall_timeout: 1.0

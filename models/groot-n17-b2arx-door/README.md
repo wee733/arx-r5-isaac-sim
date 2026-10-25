@@ -77,7 +77,8 @@ git lfs pull --include='models/groot-n17-b2arx-door/*.safetensors'
 
 ## 发布范围与许可
 
-本目录仅发布最终推理权重和必要配置。数据集、原始扫描/机器人资产、失败轨迹、
+本目录仅发布最终推理权重和必要配置。配套机器人 URDF/USD、网格和门资产见
+[资产入口](../../assets/README.md)。数据集、原始场馆扫描、失败轨迹、
 视频、中间 checkpoint、优化器、训练日志、服务器环境与凭据不包含在 Git 中。
 可续训的完整 checkpoint 仍保留在原训练服务器。
 

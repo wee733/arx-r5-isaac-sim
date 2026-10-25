@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="R5a">
+    <xacro:arg name="initial_positions_file" default="$(find isaac_ros_manipulation_arx_r5a_robot_description)/config/initial_positions.yaml" />
+
+    <!-- ARX R5A kinematics, meshes, and limits -->
+    <xacro:include filename="$(find isaac_ros_manipulation_arx_r5a_robot_description)/urdf/r5a.urdf" />
+
+    <!-- ros2_control hardware block for ArxR5aSystem -->
+    <xacro:include filename="r5a.ros2_control.xacro" />
+
+    <xacro:arx_r5a_ros2_control name="arx_r5a_ros2_control" initial_positions_file="$(arg initial_positions_file)"/>
+
+</robot>
