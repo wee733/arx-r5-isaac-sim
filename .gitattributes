@@ -19,3 +19,8 @@
 # Preserve upstream license bytes and patch context lines verbatim
 /models/groot-n17-b2arx-door/LICENSE -whitespace
 /dependencies/patches/*.patch -whitespace
+
+# Bundled ARX SDK binaries and original manuals
+/drivers/arx_r5/**/*.so filter=lfs diff=lfs merge=lfs -text
+/drivers/arx_r5/**/*.pdf filter=lfs diff=lfs merge=lfs -text
+/drivers/arx_r5/**/*.png filter=lfs diff=lfs merge=lfs -text

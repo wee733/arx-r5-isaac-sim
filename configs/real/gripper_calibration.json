@@ -1,0 +1,96 @@
+{
+  "physical_measurement": false,
+  "opening_reference": "manufacturer 80 mm total; not caliper measured",
+  "passed": true,
+  "feedback_closed": -0.01850128173828125,
+  "feedback_open": 4.897383689880371,
+  "response_raw_command": [
+    [
+      -0.01850128173828125,
+      0.0
+    ],
+    [
+      0.8999004364013672,
+      1.0
+    ],
+    [
+      2.4002437591552734,
+      2.5
+    ],
+    [
+      3.8984899520874023,
+      4.0
+    ],
+    [
+      4.897383689880371,
+      5.0
+    ]
+  ],
+  "maximum_hysteresis_raw": 0.011444091796875,
+  "samples": [
+    {
+      "command": 0.0,
+      "previous": 0.0,
+      "raw_median": -0.0186920166015625,
+      "raw_min": -0.0186920166015625,
+      "raw_max": -0.0186920166015625
+    },
+    {
+      "command": 1.0,
+      "previous": 0.0,
+      "raw_median": 0.8949413299560547,
+      "raw_min": 0.8949413299560547,
+      "raw_max": 0.8949413299560547
+    },
+    {
+      "command": 2.5,
+      "previous": 1.0,
+      "raw_median": 2.394521713256836,
+      "raw_min": 2.394521713256836,
+      "raw_max": 2.394521713256836
+    },
+    {
+      "command": 4.0,
+      "previous": 2.5,
+      "raw_median": 3.893721580505371,
+      "raw_min": 3.893721580505371,
+      "raw_max": 3.893721580505371
+    },
+    {
+      "command": 5.0,
+      "previous": 4.0,
+      "raw_median": 4.897383689880371,
+      "raw_min": 4.897383689880371,
+      "raw_max": 4.897383689880371
+    },
+    {
+      "command": 4.0,
+      "previous": 5.0,
+      "raw_median": 3.9032583236694336,
+      "raw_min": 3.902876853942871,
+      "raw_max": 3.9032583236694336
+    },
+    {
+      "command": 2.5,
+      "previous": 4.0,
+      "raw_median": 2.405965805053711,
+      "raw_min": 2.405965805053711,
+      "raw_max": 2.405965805053711
+    },
+    {
+      "command": 1.0,
+      "previous": 2.5,
+      "raw_median": 0.9048595428466797,
+      "raw_min": 0.9048595428466797,
+      "raw_max": 0.9048595428466797
+    },
+    {
+      "command": 0.0,
+      "previous": 1.0,
+      "raw_median": -0.018310546875,
+      "raw_min": -0.018310546875,
+      "raw_max": -0.018310546875
+    }
+  ],
+  "source_raw_log": "outputs/real-diagnosis/gripper_sweep.json"
+}

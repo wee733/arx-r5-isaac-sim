@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>pico_r5_bridge</name>
+  <version>0.1.0</version>
+  <description>Read-only XRoboToolkit input and R5 target preview. No hardware commands.</description>
+  <maintainer email="maintainer@example.com">R5 maintainers</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>arx5_arm_msg</depend>
+  <depend>eigen</depend>
+  <depend>nlohmann_json</depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

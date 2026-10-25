@@ -1,0 +1,26 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Image
+      Enabled: true
+      Name: RealSense Color
+      Normalize Range: true
+      Queue Size: 5
+      Topic: /camera/remote/color/image_raw
+      Transport Hint: raw
+      Unreliable: true
+      Value: true
+  Enabled: true
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: camera_link
+    Frame Rate: 30
+  Name: root
+  Tools: []
+  Value: true
+Window Geometry:
+  Height: 720
+  Width: 1100

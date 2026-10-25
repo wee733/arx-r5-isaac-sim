@@ -1,0 +1,16 @@
+{
+  "official_source": "generated/runtime/groot_b2arx/source",
+  "policy_python": "generated/runtime/groot_b2arx/.venv/bin/python",
+  "checkpoint": "models/groot-n17-b2arx-door",
+  "host": "127.0.0.1",
+  "port": 5568,
+  "language": "Open the door.",
+  "denoising_steps": 4,
+  "execute_steps": 16,
+  "replan_steps": 8,
+  "rpc_timeout_ms": 2000,
+  "wrist_topic": "/vla/camera/wrist/image_raw",
+  "ego_topic": "/vla/camera/ego/image_raw",
+  "image_max_age_s": 0.2,
+  "image_pair_tolerance_s": 0.05
+}

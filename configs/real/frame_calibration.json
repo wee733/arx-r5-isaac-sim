@@ -1,0 +1,72 @@
+{
+  "schema": "arx_frame_calibration_v1",
+  "method": "SDK URDF FK minus zero-position translation; independently checked against 100 native FK samples",
+  "training_asset_commit": "a3af4d468180658c98e62e4fe901a38298c266a2",
+  "sdk_base_from_model_mount": [
+    -0.09769999999999993,
+    -4.955921538625214e-05,
+    -0.16350000036570145,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "model_link6_from_sdk_tool": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "software_frame_convention_verified": true,
+  "external_metrology_performed": false,
+  "native_fk_position_max_error_m": 4.1725779438208954e-16,
+  "native_fk_rotation_max_error_rad": 1.1617623272539761e-15,
+  "model_geometry_difference_max_m": 0.004082214235651855,
+  "geometry_differences": [
+    {
+      "joint": 4,
+      "sdk_origin": [
+        0.245,
+        0.0,
+        -0.06
+      ],
+      "training_origin": [
+        0.245,
+        -5e-05,
+        -0.06
+      ]
+    },
+    {
+      "joint": 5,
+      "sdk_origin": [
+        0.06775,
+        -5e-05,
+        -0.0865
+      ],
+      "training_origin": [
+        0.073914,
+        5e-05,
+        -0.083391
+      ]
+    },
+    {
+      "joint": 6,
+      "sdk_origin": [
+        0.02895,
+        0.0,
+        0.0865
+      ],
+      "training_origin": [
+        0.025286,
+        0.0,
+        0.083391
+      ]
+    }
+  ],
+  "interpretation": "Both APIs describe the installation-base axes and link6, not fingertip/TCP. SDK subtracts only zero-position XYZ, not zero rotation. Wrist geometry differs; do not invent a fitted base/tool offset to absorb that q-dependent difference.",
+  "sources": [
+    "drivers/arx_r5/ROS2/R5_ws/src/ARX_R5_ros2_V7/arx_r5_controller/X5liteaa0.urdf",
+    "assets/b2arx_robot/my_robot.urdf"
+  ]
+}

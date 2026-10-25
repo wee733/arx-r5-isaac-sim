@@ -1,0 +1,21 @@
+/**:
+  ros__parameters:
+    translation_mode: joystick
+    hand: right
+    device_id: ""
+    joystick_deadzone: 0.15
+    # 摇杆直接积分速度，position_scale 仅供旧 pose 模式使用。
+    position_scale: 1.0
+    linear_speed_m_s: 0.05
+    angular_speed_rad_s: 0.3
+    max_joint_speed_rad_s: 0.2
+    rotation_scale: 1.0
+    # 输出坐标 x,y,z 对应输入坐标的带符号轴编号；实机逐轴校验前未标定。
+    rotation_axis_map: [-3, -1, 2]
+    # 摇杆连续偏转段位移上限；回中重新取起点。
+    max_clutch_translation_m: 0.1
+    # 姿态仍以每次右握持为起点。
+    max_clutch_rotation_rad: 0.5
+    orientation_enabled: true
+    gripper_enabled: true
+    timeout_s: 0.2

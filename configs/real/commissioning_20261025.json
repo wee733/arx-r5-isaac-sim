@@ -1,0 +1,287 @@
+{
+  "schema": "arx_real_commissioning_v1",
+  "date": "2026-10-25",
+  "asset_commit": "a3af4d468180658c98e62e4fe901a38298c266a2",
+  "scope": "connected ARX R5 on Thor; control adapter only, no cameras or model inference",
+  "config_file": "configs/real/arx_r5.json",
+  "config_sha256": "c6124aeecbd1179abe375f301027d5e810aef8749c9518123ed706832ce3c572",
+  "sdk_file": "drivers/arx_r5/ROS2/R5_ws/src/ARX_R5_ros2_V7/arx_r5_controller/lib/arx_r5_src/libarx_r5_src-arm64.so",
+  "sdk_sha256": "d8a9640468feecd1179c7aa840d749da91635985d450c0cb6863d98835c1d607",
+  "software_frames_verified": true,
+  "gripper_encoder_response_verified": true,
+  "gripper_physical_scale": "manufacturer nominal 80 mm total, not externally measured",
+  "external_cartesian_metrology_performed": false,
+  "frame_calibration": "configs/real/frame_calibration.json",
+  "gripper_calibration": "configs/real/gripper_calibration.json",
+  "settled_tracking_passed_at_3mm": true,
+  "continuous_tracking_passed_at_3mm": false,
+  "changes": [
+    "Use action index zero at observation time; do not re-anchor each chunk to delayed feedback.",
+    "Add bounded joint-error integral trim: gain 0.6/s, cap 0.02 rad, output slew limit 0.15 rad/s; preserve SDK gains.",
+    "Resolve SDK zero-position translation and model mount/link6 conventions against exact uploaded training URDF.",
+    "Use measured bidirectional raw-to-command gripper curve; saturate 44 mm training targets at nominal 40 mm per finger and report clipping.",
+    "Intersect SDK and training joint limits, retaining small measured q2/q3 zero-offset allowance.",
+    "Allow read-only recorders without counting them as extra drivers; command writers remain exclusive."
+  ],
+  "sdk_joint_limits_rad": {
+    "lower": [
+      -3.14,
+      -0.1,
+      -0.1,
+      -1.29,
+      -1.4835298641951802,
+      -1.7453292519943295
+    ],
+    "upper": [
+      2.618,
+      3.6,
+      3.0,
+      1.29,
+      1.4835298641951802,
+      1.7453292519943295
+    ],
+    "evidence": "ControllerBase constructor clamp arrays in bundled SDK; effective adapter limits are in arx_r5.json"
+  },
+  "tests": {
+    "ramp_hold_baseline": {
+      "raw_log": "outputs/real-diagnosis/ramp_hold_baseline.json",
+      "raw_log_sha256": "2403a45739a054dc273c355043ca72a3855a65d32e03655b03ad3501276448bd",
+      "frame": "sdk",
+      "amplitude_m": 0.005,
+      "ramp_s": 2,
+      "hold_s": 4,
+      "gripper_target_m": 0,
+      "integral_gain_s": 0,
+      "measurement": "encoder FK; not externally measured Cartesian accuracy",
+      "tolerance_m": 0.003,
+      "stable_displacement_xyz_m": [
+        0.000794636754851646,
+        -1.464976251936575e-06,
+        -0.0005220445433194952
+      ],
+      "stable_position_error_m": 0.0055789269269924295,
+      "return_offset_xyz_m": [
+        0.0003129625899674545,
+        -1.2903772106870349e-06,
+        0.00011357326335842127
+      ],
+      "return_position_error_m": 0.0003329356303286932,
+      "trajectory_max_error_m": 0.005578937086050662,
+      "trajectory_mean_error_m": 0.0029156741336011454,
+      "settled_tracking_passed": false,
+      "continuous_tracking_passed": false,
+      "single_finger_feedback_last_0p5s_peak_hold_m": 0.0,
+      "max_joint_correction_rad": 0,
+      "adopted_configuration": false,
+      "stable_window_max_error_m": 0.005578937086050662,
+      "return_window_max_error_m": 0.0003331121853169935
+    },
+    "ramp_hold_trim": {
+      "raw_log": "outputs/real-diagnosis/ramp_hold_trim.json",
+      "raw_log_sha256": "827fafb4d17e94ae69d56044b77c2bd096171132735cb30ec1837a44b0152a20",
+      "frame": "sdk",
+      "amplitude_m": 0.005,
+      "ramp_s": 2,
+      "hold_s": 4,
+      "gripper_target_m": 0,
+      "integral_gain_s": 0.6,
+      "measurement": "encoder FK; not externally measured Cartesian accuracy",
+      "tolerance_m": 0.003,
+      "stable_displacement_xyz_m": [
+        2.3389760132075647e-05,
+        1.7856048290350673e-06,
+        0.005323773836059567
+      ],
+      "stable_position_error_m": 0.0003246224979578103,
+      "return_offset_xyz_m": [
+        4.725585293987577e-05,
+        1.1566078984793655e-06,
+        -0.00033621896259083793
+      ],
+      "return_position_error_m": 0.0003395256163893459,
+      "trajectory_max_error_m": 0.005322847901414634,
+      "trajectory_mean_error_m": 0.0015513856896776966,
+      "settled_tracking_passed": true,
+      "continuous_tracking_passed": false,
+      "single_finger_feedback_last_0p5s_peak_hold_m": 0.0,
+      "max_joint_correction_rad": 0.01225924732202207,
+      "adopted_configuration": true,
+      "stable_window_max_error_m": 0.00032594099656075854,
+      "return_window_max_error_m": 0.0019227223112595502
+    },
+    "ramp_hold_trim_repeat": {
+      "raw_log": "outputs/real-diagnosis/ramp_hold_trim_repeat.json",
+      "raw_log_sha256": "78ef73c457a67301fc84fcf8d95d724d0d46269f57a6cc56048568c9a2ed3517",
+      "frame": "sdk",
+      "amplitude_m": 0.005,
+      "ramp_s": 2,
+      "hold_s": 4,
+      "gripper_target_m": 0,
+      "integral_gain_s": 0.6,
+      "measurement": "encoder FK; not externally measured Cartesian accuracy",
+      "tolerance_m": 0.003,
+      "stable_displacement_xyz_m": [
+        0.00021653650911930742,
+        1.5634327941047501e-06,
+        0.00413516293467066
+      ],
+      "stable_position_error_m": 0.0008915344377370642,
+      "return_offset_xyz_m": [
+        -0.00012164326717641475,
+        1.4053676827627828e-06,
+        0.0006954380322610193
+      ],
+      "return_position_error_m": 0.0007059979576618865,
+      "trajectory_max_error_m": 0.0054568699187507,
+      "trajectory_mean_error_m": 0.0018770660575552901,
+      "settled_tracking_passed": true,
+      "continuous_tracking_passed": false,
+      "single_finger_feedback_last_0p5s_peak_hold_m": 0.0,
+      "max_joint_correction_rad": 0.015939783476457393,
+      "adopted_configuration": true,
+      "stable_window_max_error_m": 0.0010107155520433305,
+      "return_window_max_error_m": 0.0017930483477050388
+    },
+    "model_frame_20mm": {
+      "raw_log": "outputs/real-diagnosis/model_frame_20mm.json",
+      "raw_log_sha256": "640dcf98987c47095767b6a812725f5c91c4f9e7c62a3c7fb5267fbefa2aa2c8",
+      "frame": "model",
+      "amplitude_m": 0.005,
+      "ramp_s": 2,
+      "hold_s": 4,
+      "gripper_target_m": 0.02,
+      "integral_gain_s": 0.6,
+      "measurement": "encoder FK; not externally measured Cartesian accuracy",
+      "tolerance_m": 0.003,
+      "stable_displacement_xyz_m": [
+        0.00014873814135353875,
+        1.6331771224565977e-06,
+        0.004873075494751847
+      ],
+      "stable_position_error_m": 0.00019553908047576312,
+      "return_offset_xyz_m": [
+        -0.00019547858961131188,
+        2.4546132950890577e-06,
+        0.0011770337043158952
+      ],
+      "return_position_error_m": 0.0011931580973276149,
+      "trajectory_max_error_m": 0.005835797121349628,
+      "trajectory_mean_error_m": 0.001829283807080947,
+      "settled_tracking_passed": true,
+      "continuous_tracking_passed": false,
+      "single_finger_feedback_last_0p5s_peak_hold_m": 0.019935847282310563,
+      "max_joint_correction_rad": 0.014825279764331787,
+      "adopted_configuration": true,
+      "stable_window_max_error_m": 0.0006889052920488374,
+      "return_window_max_error_m": 0.0014222270813073956
+    },
+    "model_frame_fast_20mm": {
+      "raw_log": "outputs/real-diagnosis/model_frame_fast_20mm.json",
+      "raw_log_sha256": "3d7c8e2f8477e413d7b64ff69c244013e01556e199c04320a54766abaa521896",
+      "frame": "model",
+      "amplitude_m": 0.005,
+      "ramp_s": 2,
+      "hold_s": 4,
+      "gripper_target_m": 0.02,
+      "integral_gain_s": 1.5,
+      "measurement": "encoder FK; not externally measured Cartesian accuracy",
+      "tolerance_m": 0.003,
+      "stable_displacement_xyz_m": [
+        9.084508311524113e-05,
+        1.5578083744636563e-06,
+        0.004870372252346974
+      ],
+      "stable_position_error_m": 0.0001582991119834326,
+      "return_offset_xyz_m": [
+        -0.00010167275987832027,
+        -0.00021107154234872652,
+        -0.00017773102098641615
+      ],
+      "return_position_error_m": 0.00029406948483584405,
+      "trajectory_max_error_m": 0.00958790220817586,
+      "trajectory_mean_error_m": 0.001224177277120036,
+      "settled_tracking_passed": false,
+      "continuous_tracking_passed": false,
+      "single_finger_feedback_last_0p5s_peak_hold_m": 0.019972836329866513,
+      "max_joint_correction_rad": 0.014039810472626316,
+      "adopted_configuration": false,
+      "stable_window_max_error_m": 0.00018945683786844515,
+      "return_window_max_error_m": 0.00958790220817586
+    },
+    "model_frame_slow_20mm": {
+      "raw_log": "outputs/real-diagnosis/model_frame_slow_20mm.json",
+      "raw_log_sha256": "1a2a186da03160860a846bd72258dca7f7cd465e1188848db0e5c5f63ab427c6",
+      "frame": "model",
+      "amplitude_m": 0.005,
+      "ramp_s": 6.0,
+      "hold_s": 4.0,
+      "gripper_target_m": 0.02,
+      "integral_gain_s": 0.6,
+      "measurement": "encoder FK; not externally measured Cartesian accuracy",
+      "tolerance_m": 0.003,
+      "stable_displacement_xyz_m": [
+        4.0840432980262086e-05,
+        -1.3518551923803892e-07,
+        0.005314809011087591
+      ],
+      "stable_position_error_m": 0.0003174471179631135,
+      "return_offset_xyz_m": [
+        6.879882272072809e-05,
+        -1.4053578634147366e-07,
+        -0.0004910191358499885
+      ],
+      "return_position_error_m": 0.0004958155801595336,
+      "trajectory_max_error_m": 0.004096255587729879,
+      "trajectory_mean_error_m": 0.0011398723733290434,
+      "settled_tracking_passed": true,
+      "continuous_tracking_passed": false,
+      "single_finger_feedback_last_0p5s_peak_hold_m": 0.01991101547416111,
+      "max_joint_correction_rad": 0.015154878648664315,
+      "adopted_configuration": true,
+      "stable_window_max_error_m": 0.000363409362043481,
+      "return_window_max_error_m": 0.0004961925249264801
+    }
+  },
+  "software_checks": {
+    "build": "passed",
+    "cpp_core": "passed: native IK, transforms, timing, bounded integral servo, gripper mapping, rejection checks",
+    "python_contract": "3 tests passed",
+    "ros_integration": {
+      "passed": true,
+      "domain": 71,
+      "hardware": "fake driver, no CAN",
+      "checks": [
+        "hold",
+        "chunk expiry",
+        "duplicate sequence",
+        "stale inference",
+        "feedback loss",
+        "competing publisher",
+        "read-only recorder coexistence",
+        "executor SIGKILL watchdog hold"
+      ]
+    }
+  },
+  "limitations": [
+    "2-second single-leg ramp: maximum instantaneous position error 5.84 mm; 6-second ramp: 4.10 mm. Settled and return errors are below 3 mm in repeated local tests.",
+    "Faster 1.5/s integral trial produced 9.59 mm transient error and was not adopted; cause of that transient is not established.",
+    "SDK and training wrist geometry differ by up to 4.08 mm across 100 sampled configurations; this is separate from software frame alignment.",
+    "Encoder FK and nominal gripper width are not external metrology; current-pose small-motion results do not establish contact-task or full-workspace accuracy.",
+    "No camera capture, GR00T inference loop, or autonomous door-opening run was performed."
+  ],
+  "runtime_after_tests": {
+    "driver": "running, retaining final position hold",
+    "executor": "running, disabled, final main config gain 0.6/s",
+    "watchdog": "running, disabled",
+    "can": "slcan1 active",
+    "evidence": "outputs/real-diagnosis/final_disabled_state.json"
+  },
+  "prior_report": "configs/real/validation_20261025.json",
+  "measurement_protocol": {
+    "position_errors": "relative to first recorded encoder FK pose; full XYZ Euclidean error",
+    "stable_and_return_means": "last two seconds of each hold",
+    "settled_pass": "maximum error in both last-two-second windows <= 3 mm; not just the mean",
+    "continuous_pass": "maximum error over every recorded sample <= 3 mm",
+    "gripper": "mean nominal single-finger feedback in final 0.5 seconds of peak hold"
+  }
+}

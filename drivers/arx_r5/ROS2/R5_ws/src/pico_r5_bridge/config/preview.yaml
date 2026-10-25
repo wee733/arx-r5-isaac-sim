@@ -1,0 +1,14 @@
+/**:
+  ros__parameters:
+    hand: right
+    device_id: ""
+    position_scale: 2.0             # 末端位移 / 手柄位移
+    rotation_scale: 2.0             # 末端转角 / 手柄转角；0.5 表示手柄90° -> 末端45°
+    timeout_s: 0.2
+    linear_speed_m_s: 0.15          # 末端目标平移限速，米/秒
+    angular_speed_rad_s: 0.6        # 末端目标旋转限速，弧度/秒
+    max_clutch_translation_m: 0.4   # 两节点共用：单次握持映射后的距离，米
+    max_clutch_rotation_rad: 1    # 两节点共用：单次握持映射后的总转角，弧度；45°=0.785398
+    orientation_enabled: false
+    gripper_enabled: true
+    max_joint_speed_rad_s: 0.5      # 各关节限速；实际跟随还会受此限制

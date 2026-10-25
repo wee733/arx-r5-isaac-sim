@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-25",
+  "canonical": "drivers/arx_r5",
+  "base": "r5remote master 83df9d9 plus existing local Pico additions",
+  "legacy_archive": "/home/thor/lbz_ws/arx-r5-legacy-20261025",
+  "merged_unique_file": "ROS2/R5_ws/src/ARX_R5_ros2_V7/arx_r5_controller/config/remote_realsense.rviz",
+  "preserved": "Both repository histories and all pre-existing local changes. Old generated build/install retained; new build uses a separate workspace.",
+  "canonical_git_history_archive": "/home/thor/lbz_ws/arx-r5-driver-history-20261025/r5remote.git",
+  "tracking": "Vendor working files are now part of the main project, not an accidental nested gitlink.",
+  "old_ros2_generated_archive": "/home/thor/lbz_ws/arx-r5-driver-history-20261025/generated_ros2"
+}

@@ -24,6 +24,12 @@
 **[GR00T N1.7 最终模型（Git LFS）](models/groot-n17-b2arx-door/README.md)** 已完成 10,000 步全量微调；
 实际策略闭环尚未验证。[训练与发布说明](scripts/door/training/README.md)。
 
+**Thor 实机控制入口：[GR00T → ARX R5 控制适配层](scripts/door/real/README.md)。**
+实机驱动已统一到 `drivers/arx_r5/`，ROS 执行器与独立看门狗位于 `ros2/arx_vla_control/`。
+复用原生 FK/IK 与 CAN 驱动，已核对模型坐标并完成夹爪编码器映射与小幅实机跟踪测试；
+夹爪尺寸采用标称值。`control.sh groot` 提供本次 EEF 微调模型的服务、预览、运行和停止入口；
+双相机设备与真实视觉闭环尚未验收，实测范围见控制适配层说明。
+
 **新电脑迁移先看 [迁移与恢复手册](docs/migration.md)。**
 下文原有目录示例属于早期 ROS 布局，当前迁移目录、依赖补丁和安装顺序以迁移手册为准。
 
@@ -588,6 +594,8 @@ flowchart LR
 
 ```text
 arx-r5-isaac-sim/
+├── drivers/arx_r5/                # 合并后的唯一实机 SDK、手册、Pico/主从控制
+├── ros2/arx_vla_control/           # 实机动作调度、原生 IK、独立看门狗
 ├── assets/                        # 机器人与门资产（大文件使用 Git LFS）
 │   ├── arx_r5a/                   #   机械臂 URDF/XRDF，cuMotion 与 cuRobo 共用
 │   ├── b2arx_robot/               #   B2 搭载机械臂整机
@@ -602,6 +610,7 @@ arx-r5-isaac-sim/
 │   ├── envs/                      #   门环境（Arena）：资产包、MDP、记录与物理验收
 │   ├── autodata/                  #   AutoData 扩展件：环境注册、cuRobo 配置、种子转换、验收筛选
 │   ├── dataset/ vlm/              #   训练数据契约、VLM 审核
+│   ├── real/                      #   最新 B2ARX 模型的实机观测/动作协议
 │   └── policy/                    #   模型观测/动作协议、闭环运行辅助
 ├── configs/
 │   ├── autodata/                  # AutoData 描述：tasks/ embodiments/ env_profiles/

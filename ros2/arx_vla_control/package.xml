@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>arx_vla_control</name><version>0.1.0</version>
+  <description>GR00T absolute EEF chunk execution using the existing ARX native IK and driver.</description>
+  <maintainer email="maintainer@example.com">ARX project maintainers</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend><depend>std_msgs</depend><depend>std_srvs</depend>
+  <depend>arx5_arm_msg</depend><depend>eigen</depend><depend>nlohmann_json</depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

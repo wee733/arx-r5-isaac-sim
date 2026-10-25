@@ -1,0 +1,97 @@
+{
+  "date": "2026-10-25",
+  "hardware": "Jetson AGX Thor + CANable slcan1 + connected ARX R5",
+  "kernel": "6.8.12-1021-tegra",
+  "cameras_used": false,
+  "gr00t_inference_run": false,
+  "control_path_implemented": true,
+  "model_frame_calibrated": false,
+  "physical_gripper_calibrated": false,
+  "millimetre_tracking_passed": false,
+  "tests": {
+    "hold": {
+      "passed": true,
+      "scope": "hardware_control_only",
+      "motion_m": 0,
+      "cleanup_errors": []
+    },
+    "motion_z_2mm_measured": {
+      "passed": false,
+      "scope": "hardware_control_only",
+      "motion_m": 0.002,
+      "gripper_delta_sdk": 0,
+      "measured_peak_displacement_m": 0.0,
+      "return_error_m": 0.00014688745487301258,
+      "error": "RuntimeError: measured motion did not follow the bounded test trajectory",
+      "cleanup_errors": [],
+      "tracking_passed_at_1mm_tolerance": false,
+      "note": "Original smoke pass flag only measured bounded response; final smoke code additionally enforces 1 mm peak/return tolerance."
+    },
+    "motion_z_5mm_measured": {
+      "passed": true,
+      "scope": "hardware_control_only",
+      "motion_m": 0.005,
+      "gripper_delta_sdk": 0,
+      "measured_peak_displacement_m": 0.0018588657599919456,
+      "return_error_m": 0.0018219787114392982,
+      "cleanup_errors": [],
+      "tracking_passed_at_1mm_tolerance": false,
+      "note": "Original smoke pass flag only measured bounded response; final smoke code additionally enforces 1 mm peak/return tolerance."
+    },
+    "gripper_02": {
+      "passed": true,
+      "scope": "hardware_control_only",
+      "motion_m": 0,
+      "gripper_delta_sdk": 0.2,
+      "gripper_feedback_range": [
+        -0.018310546875,
+        0.0904092788696289
+      ],
+      "cleanup_errors": []
+    },
+    "watchdog_kill": {
+      "passed": true,
+      "scope": "hardware_watchdog",
+      "elapsed_s": 0.21980584599987196
+    }
+  },
+  "frame_comparison": {
+    "sha256": "bb31d238a7bd1ae6043ae5da166e21ae30075408af807f3cd78aea4ea140acb7",
+    "sample_count": 40,
+    "held_out_samples": 15,
+    "held_out_max_position_error_m": 0.0034842439658036746,
+    "held_out_max_rotation_error_rad": 0.00019639643289770238,
+    "calibration_applied": false
+  },
+  "remaining": [
+    "Exact training URDF/geometry and joint conventions must be matched; candidate asset differs by 3.48 mm even after fixed-transform fitting.",
+    "Measure physical gripper opening versus raw feedback/command; 80 mm manual vs 88 mm training range remains unresolved.",
+    "Tune/verify hardware trajectory tracking; 5 mm commanded produced 1.86 mm peak and 1.82 mm return error."
+  ],
+  "software_checks": {
+    "cpp_core": "passed: native IK, transforms, units, time interpolation, invalid input rejection",
+    "python_contract": "3 tests passed",
+    "ros_integration": {
+      "passed": true,
+      "scope": "ROS integration, fake hardware, Domain 71",
+      "checks": [
+        "hold flows through watchdog",
+        "chunk expiry holds without replay",
+        "duplicate sequence rejected",
+        "stale inference rejected",
+        "feedback loss freezes last bounded command",
+        "competing command publisher is rejected",
+        "executor SIGKILL produces watchdog hold and latches disabled"
+      ]
+    },
+    "pico_consolidation": "build-pico succeeded; pico_tmux.sh --check passed; XR input not activated"
+  },
+  "runtime_after_tests": {
+    "driver": "running with the final position hold target",
+    "executor": "running, disabled, zero commands since restart",
+    "watchdog": "running, disabled, zero forwarded commands since restart",
+    "can": "slcan1 active"
+  },
+  "historical_snapshot": true,
+  "superseded_by": "configs/real/commissioning_20261025.json"
+}

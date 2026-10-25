@@ -1,0 +1,74 @@
+{
+  "schema": "arx_vla_config_v1",
+  "frames_verified": true,
+  "gripper_verified": true,
+  "sdk_base_from_model_mount": [
+    -0.09769999999999993,
+    -4.955921538625214e-05,
+    -0.16350000036570145,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "model_link6_from_sdk_tool": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "joint_lower": [
+    -3.14,
+    -0.03,
+    -0.03,
+    -1.29,
+    -1.4835298641951802,
+    -1.7453292519943295
+  ],
+  "joint_upper": [
+    2.6,
+    3.0,
+    3.0,
+    1.29,
+    1.4835298641951802,
+    1.7453292519943295
+  ],
+  "max_joint_speed_rad_s": 0.15,
+  "max_tracking_error_rad": 0.15,
+  "max_ik_jump_rad": 0.2,
+  "max_chunk_translation_m": 0.03,
+  "max_chunk_rotation_rad": 0.15,
+  "feedback_timeout_s": 0.2,
+  "max_observation_age_s": 0.3,
+  "finger_max_m": 0.04,
+  "gripper_feedback_closed": -0.01850128173828125,
+  "gripper_feedback_open": 4.897383689880371,
+  "max_gripper_command_speed_s": 0.5,
+  "calibration_note": "Software frames verified against canonical URDF and SDK FK. Encoder-command gripper curve measured bidirectionally; opening uses manufacturer nominal 80 mm. Wrist geometry differs up to about 4.1 mm in sampled workspace. Small negative q2/q3 allowance accommodates measured encoder zero offsets; upper limits intersect SDK and training limits.",
+  "tracking_integral_gain_s": 0.6,
+  "max_tracking_correction_rad": 0.02,
+  "gripper_response_raw_command": [
+    [
+      -0.01850128173828125,
+      0.0
+    ],
+    [
+      0.8999004364013672,
+      1.0
+    ],
+    [
+      2.4002437591552734,
+      2.5
+    ],
+    [
+      3.8984899520874023,
+      4.0
+    ],
+    [
+      4.897383689880371,
+      5.0
+    ]
+  ],
+  "gripper_opening_reference": "manufacturer_nominal_80mm_total_not_caliper_measured"
+}
